@@ -1,3 +1,3 @@
 TODO.
 
-[![DepShield Badge](https://depshield.sonatype.org/badges/mountaniol/mighty_papa/depshield.svg)](https://depshield.github.io)
+[![DepShield Badge](https://depshield.sonatype.org/badges/mountaniol/mp/depshield.svg)](https://depshield.github.io)
