@@ -1,2 +1,6 @@
 mcl
 mclient
+libfort.a
+libfort/*
+*.o
+
