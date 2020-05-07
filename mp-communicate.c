@@ -13,6 +13,7 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
+/* Find a buffer in ctl->buffers by vounter 'counter' */
 buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 {
 	buf_t *buf_p;
@@ -51,9 +52,12 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 	return (buf_p);
 }
 
+
+/* Save 'buf' ponter by key 'counter' in ctl->buffers.
+   Used later in callback function mp_main_on_publish_cb
+   to release the buf when mosq sent it */
 int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 {
-	size_t buf_p;
 	char *buf_counter_s;
 	control_t *ctl;
 
@@ -73,12 +77,7 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	/* Transfor counter to key (string) */
 	snprintf(buf_counter_s, 32, "%d", counter);
 
-	/* Get address of the buffer */
-	buf_p = (size_t)buf;
-
-	D("Saving buf_p = %lx, buf = %p\n", buf_p, buf);
-
-	j_add_int(ctl->buffers, buf_counter_s, buf_p);
+	j_add_int(ctl->buffers, buf_counter_s, (size_t) buf);
 	free(buf_counter_s);
 
 	return (EOK);
@@ -164,7 +163,6 @@ end:
 	return (rc);
 }
 
-
 int send_reveal_l(struct mosquitto *mosq)
 {
 	control_t *ctl = NULL;
@@ -242,7 +240,6 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	//rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
 	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
@@ -313,7 +310,8 @@ int send_request_return_tickets(struct mosquitto *mosq, char *target_uid, const 
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_send_json(mosq, forum_topic, resp);
+	j_rm(resp);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }

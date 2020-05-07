@@ -532,7 +532,8 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 	DDD("Exit from function\n");
 }
 
-void mp_main_on_publish_cb(struct mosquitto *mosq, void *data, int buf_id)
+void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)), 
+						   void *data __attribute__((unused)), int buf_id)
 {
 	buf_t *buf = mp_communicate_get_buf_t_from_ctl(buf_id);
 	if (NULL == buf) {
