@@ -33,7 +33,7 @@
 //const char *local_listenip = "127.0.0.1";
 //unsigned int local_listenport = 2222;
 
-//const char *remote_desthost = "localhost"; /* resolved by the server */
+//const char *remote_desthost = "localhost"; resolved by the server */
 //unsigned int remote_destport = 2244;
 
 enum {
@@ -56,9 +56,9 @@ enum {
    const char *password - password, in out case just "", we use public key auth
    */
 int mp_ssh_direct_forward(const char *server_ip,
-						  unsigned int remote_destport,
+						  int remote_destport,
 						  const char *local_listenip,
-						  unsigned int local_listenport,
+						  int local_listenport,
 						  const char *pub_key_name,
 						  const char *priv_key_name,
 						  const char *username,
@@ -74,7 +74,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 	LIBSSH2_SESSION *session = NULL;
 	LIBSSH2_CHANNEL *channel = NULL;
 	const char *shost = NULL;
-	unsigned int sport = 0;
+	int sport = 0;
 	fd_set fds;
 	struct timeval tv;
 	ssize_t len = 0;
@@ -271,8 +271,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 				perror("read");
 				goto shutdown;
 			} else if (0 == len) {
-				DE("The client at %s:%d disconnected!\n", shost,
-				   sport);
+				DE("The client at %s:%d disconnected!\n", shost, sport);
 				goto shutdown;
 			}
 			wr = 0;
@@ -308,8 +307,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 			}
 			if (libssh2_channel_eof(channel)) {
 
-				DE("The server at %s:%d disconnected!\n",
-				   remote_desthost, remote_destport);
+				DE("The server at %s:%d disconnected!\n", remote_desthost, remote_destport);
 				goto shutdown;
 			}
 		}
@@ -335,16 +333,16 @@ void *ssh_thread(void *arg)
 	json_t *root = arg;
 	int rc = EBAD;
 
-	char *local_listenip = "127.0.0.1";
-	char *server_ip = NULL;
-	char *remote_destport_src = NULL;
-	unsigned int remote_destport = 0;
-	char *local_listenport_str = NULL;
-	unsigned int local_listenport = 0;
-	char *pub_key_name = NULL;
-	char *priv_key_name = NULL;
-	char *username = NULL;
-	char *password = NULL;
+	const char *local_listenip = "127.0.0.1";
+	const char *server_ip = NULL;
+	const char *remote_destport_src = NULL;
+	int remote_destport = 0;
+	const char *local_listenport_str = NULL;
+	int local_listenport = 0;
+	const char *pub_key_name = NULL;
+	const char *priv_key_name = NULL;
+	const char *username = NULL;
+	const char *password = NULL;
 
 	TESTP(root, NULL);
 	DDD("root = %p\n", root);

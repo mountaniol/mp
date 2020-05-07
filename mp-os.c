@@ -58,7 +58,7 @@ static char *_rand_string(size_t size, const char charset[], size_t charset_size
 	fclose(fd);
 
 	if ((int)size != rc) {
-		DE("Can't read from /dev/urandom : asked %lu, read %d\n", size, rc);
+		DE("Can't read from /dev/urandom : asked %zu, read %d\n", size, rc);
 		return (NULL);
 	}
 
@@ -107,6 +107,7 @@ char *mp_os_generate_uid(const char *name)
 
 	str = zmalloc(strlen(name) + 11 + 2);
 	//DD("name: %s, part1: %s, part2: %s", name, part1, part2);
+	/* SEB: TODO: Use snsprintf */
 	sprintf(str, "%s-%s-%s-%s", name, part1, part2, part3);
 err:
 	TFREE(part1);

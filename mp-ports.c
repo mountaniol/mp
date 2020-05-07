@@ -540,7 +540,7 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 }
 
 /* Scan existing mappings to this machine and add them to the given array 'arr' */
-json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
+int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -556,12 +556,12 @@ json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
 
 
 	upnp_dev = mp_ports_upnp_discover();
-	TESTP_MES(upnp_dev, NULL, "UPNP discover failed\n");
+	TESTP_MES(upnp_dev, EBAD, "UPNP discover failed\n");
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
 
 	if (1 != status) {
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
-		return (NULL);
+		return (EBAD);
 	}
 
 	memset(s_ext, 0, PORT_STR_LEN);
@@ -569,7 +569,7 @@ json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
-	TESTP_MES(req, NULL, "Can't allocate upnp_req_str_t");
+	TESTP_MES(req, EBAD, "Can't allocate upnp_req_str_t");
 
 	while (1) {
 		int error;
@@ -595,7 +595,7 @@ json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
 			/* No more ports, and asked port not found in the list */
 			upnp_req_str_t_free(req);
 			/* Port not mapped at all */
-			return (NULL);
+			return (EBAD);
 		}
 
 		index++;
@@ -608,7 +608,7 @@ json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
 			if (NULL == mapping) {
 				DE("Can't allocate port_map_t\n");
 				upnp_req_str_t_free(req);
-				return (NULL);
+				return (EBAD);
 			}
 
 			j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
@@ -620,7 +620,7 @@ json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host)
 	}
 
 	upnp_req_str_t_free(req);
-	return (mapping);
+	return (EOK);
 }
 
 /* Test if internal port already mapped.
@@ -668,7 +668,7 @@ char *mp_ports_get_external_ip()
 json_t *mp_ports_ssh_port_for_uid(const char *uid)
 {
 	json_t *root = NULL;
-	json_t *val = NULL;
+	//json_t *val = NULL;
 	json_t *host = NULL;
 	control_t *ctl = ctl_get();
 	const char *key;

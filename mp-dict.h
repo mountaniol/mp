@@ -35,6 +35,9 @@
 /* JSON request / responce type. The key "type" is reserved for kansson internal usage */
 #define JK_TYPE "tp"
 
+/* Time value, used in tickets */
+#define JK_TIME "time-value"
+
 /*** Keys for SSH commands ***/
 #define JK_SSH_SERVER "ssh-remove-server"
 #define JK_SSH_DESTPORT "ssh-remote-port"

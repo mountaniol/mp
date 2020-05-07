@@ -1,5 +1,5 @@
-#ifndef _SEC_SSH_PORT_FORWARD_H_
-#define _SEC_SSH_PORT_FORWARD_H_
+#ifndef SEC_SSH_PORT_FORWARD_H
+#define SEC_SSH_PORT_FORWARD_H
 
 typedef struct ssh_forward_args_struct {
 	char *user;
@@ -11,4 +11,4 @@ typedef struct ssh_forward_args_struct {
 }ssh_forward_args_t;
 
 extern int ssh_thread_start(json_t *root);
-#endif _SEC_SSH_PORT_FORWARD_H_
+#endif /* _SEC_SSH_PORT_FORWARD_H_ */

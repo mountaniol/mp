@@ -74,7 +74,7 @@ static char *mp_config_get_config_name(void)
 
 	/* It must print len + slash */
 	if (-1 == rc || (size_t)rc != (len + 2)) {
-		DE("Wrong file name len : rc = %d, expected %ld\n", rc, len + 2);
+		DE("Wrong file name len : rc = %d, expected %zu\n", rc, len + 2);
 	}
 	return (filename);
 }
@@ -139,7 +139,7 @@ int mp_config_save(void *_ctl)
 	char *filename = NULL;
 	char *dirname = NULL;
 	buf_t *buf = NULL;
-	int rc = -1;
+	int rc = EBAD;
 	size_t written = 0;
 	control_t *ctl = (control_t *)_ctl;
 	DIR *dir;
@@ -181,12 +181,13 @@ int mp_config_save(void *_ctl)
 		goto err;
 	}
 
-	fwrite(buf->data, 1, buf->size, fd);
+	written = fwrite(buf->data, 1, buf->size, fd);
 	fclose(fd);
 	fd = NULL;
 
 	if (written != buf->size) {
 		rc = EBAD;
+		goto err;
 	}
 
 	rc = EOK;
@@ -245,7 +246,7 @@ int mp_config_load(void *_ctl)
 		TESTI_MES(rc, EBAD,  "Can't copy object from ctl->config to ctl->me");
 	}
 
-	return (EOK);
+	return (rc);
 }
 
 /* Add new pait 'key' = 'val' into ctl->config and also into config file.

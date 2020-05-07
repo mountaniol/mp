@@ -25,7 +25,7 @@ int ctl_allocate_init(void)
 	g_ctl->hosts = j_new();
 	TESTP_MES(g_ctl->me, -1, "Can't allocate json object");
 
-	g_ctl->tickets = j_new();
+	g_ctl->tickets = j_arr();
 	TESTP(g_ctl->tickets, -1);
 
 	j_add_str(g_ctl->me, JK_TYPE, JV_TYPE_ME);

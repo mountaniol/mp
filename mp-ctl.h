@@ -51,8 +51,6 @@ typedef struct control_struct {
 	   to describe themselves. */
 	void *hosts;
 
-	//htable_t *holder_sources; /* Here we keep remote computers */
-	//void *ports; /* JSON array - open ports */
 	htable_t *htab_ports; /* Here we keep mapped ports (port_t, see above), sorted by internal port */
 	void *config; /* The config file in form of JSON object */
 	void *tickets;

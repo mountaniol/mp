@@ -11,7 +11,24 @@
 #include "mp-os.h"
 #include "mp-dict.h"
 #include "buf_t.h"
-#include "libfort/src/fort.h"
+
+#ifndef S_SPLINT_S /* splint analyzer goes crazy if this included */
+	#include "libfort/src/fort.h"
+#else /* Mock for splint analyzer */
+#define ft_table_t void
+#define FT_ROW_HEADER (1)
+#define FT_CPROP_ROW_TYPE (1)
+#define FT_ANY_COLUMN (1)
+#define FT_ROW_HEADER (1)
+#define FT_ROW_HEADER (1)
+int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
+void ft_destroy_table(ft_table_t *table);
+const char *ft_to_string(const ft_table_t *table);
+int ft_write_ln(void *, ...);
+ft_table_t *ft_create_table(void);
+extern const struct ft_border_style *const FT_PLAIN_STYLE;
+int ft_set_default_border_style(const struct ft_border_style *style);
+#endif
 
 #define SERVER_PATH     "/tmp/server"
 #define BUFFER_LENGTH    250
@@ -225,7 +242,7 @@ static int mp_shell_ssh(json_t *args)
 {
 	json_t *root = j_new();
 	json_t *resp = NULL;
-	ft_table_t *table = NULL;
+	//ft_table_t *table = NULL;
 
 	j_add_str(root, JK_TYPE, JV_TYPE_SSH);
 	j_cp(args, root, JK_UID);
@@ -327,7 +344,6 @@ static int mp_shell_get_remote_ports()
 {
 	json_t *resp = NULL;
 	json_t *root = j_new();
-	json_t *host_ports;
 	int index;
 	const char *key;
 	json_t *val = NULL;
@@ -350,7 +366,7 @@ static int mp_shell_get_remote_ports()
 		return (0);
 	}
 
-	j_print(resp,"resp");
+	j_print(resp, "resp");
 
 	printf("List of connected clients\n");
 	ft_set_default_border_style(FT_PLAIN_STYLE);
@@ -360,6 +376,7 @@ static int mp_shell_get_remote_ports()
 
 	json_object_foreach(resp, key, val) {
 		/* Here we are inside of a host */
+		json_t *host_ports;
 		json_t *port;
 		host_ports = j_find_j(val, "ports");
 		json_array_foreach(host_ports, index, port) {

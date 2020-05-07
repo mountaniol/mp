@@ -114,6 +114,19 @@ int j_add_j(json_t *root, const char *key, json_t *obj);
  */
 int j_add_str(json_t *root, const char *key, const char *val);
 
+/**
+ * @brief Add integer value to 'root' by key 'key'
+ * @func int j_add_int(json_t *root, const char *key, long val)
+ * @author se (07/05/2020)
+ * 
+ * @param root json object
+ * @param key ket to use
+ * @param val json_int_t integer
+ * 
+ * @return int EOK on success, EBAD on failure
+ */
+int j_add_int(json_t *root, const char *key, json_int_t val);
+
 #if 0
 /**
  * @func int json_add_string_int(json_t *root, char *key, int val)
@@ -183,6 +196,17 @@ int j_cp_val(json_t *from, json_t *to, char *key_from, char *key_to);
  */
 /*@null@*/ const char *j_find_ref(json_t *root, const char *key);
 
+/**
+ * @brief Find long value saved by 'key'
+ * @func long j_find_int(json_t *root, const char *key)
+ * @author se (07/05/2020)
+ * 
+ * @param root json object containing value
+ * @param key key to search
+ * 
+ * @return json_int_t value if found, 0XDEADBEEF on error
+ */
+json_int_t j_find_int(json_t *root, const char *key);
 /**
  * @func char *j_find_dup(json_t *root, const char *key)
  * @brief Extract from JSON object string value for key "key"

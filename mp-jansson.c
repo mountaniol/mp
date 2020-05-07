@@ -119,8 +119,23 @@ int j_add_str(json_t *root, const char *key, const char *val)
 	rc = json_object_set_new(root, key, j_str);
 	TESTI_MES(rc, EBAD, "Can't set new string to json object");
 	return (0);
-
 }
+
+int j_add_int(json_t *root, const char *key, json_int_t val)
+{
+	int rc;
+	json_t *j_int;
+
+	TESTP(root, EBAD);
+
+	j_int = json_integer(val);
+	TESTP(j_int, EBAD);
+
+	rc = json_object_set_new(root, key, j_int);
+	TESTI_MES(rc, EBAD, "Can't set new string to json object");
+	return (0);
+}
+
 
 int j_cp(json_t *from, json_t *to, const char *key)
 {
@@ -260,6 +275,17 @@ int j_test(json_t *root, const char *type_name, const char *expected_val)
 	j_obj = json_object_get(root, key);
 	TESTP(j_obj, NULL);
 	return (json_string_value(j_obj));
+}
+
+json_int_t j_find_int(json_t *root, const char *key)
+{
+	json_t *j_obj;
+	TESTP(root, 0XDEADBEEF);
+	TESTP(key, 0XDEADBEEF);
+
+	j_obj = json_object_get(root, key);
+	TESTP(j_obj, 0XDEADBEEF);
+	return (json_integer_value(j_obj));
 }
 
 /*@null@*/ char *j_find_dup(json_t *root, const char *key)

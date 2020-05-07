@@ -18,7 +18,7 @@ extern int test_if_port_mapped(int internal_port);
 extern char *mp_ports_get_external_ip(void);
 
 extern json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_host, const char *protocol);
-extern json_t *mp_ports_scan_mappings(json_t *arr, const char *local_host);
+extern int mp_ports_scan_mappings(json_t *arr, const char *local_host);
 extern json_t *mp_ports_remap_any(const char *internal_port, const char *protocol /* "TCP", "UDP" */);
 
 extern json_t *mp_ports_ssh_port_for_uid(const char *uid);

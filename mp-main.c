@@ -38,12 +38,18 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 {
 	json_t *root = NULL;
 	const char *ticket = NULL;
+	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
+
+	time_t t;
+
 
 	DD("Start\n");
 	TESTP(req, EBAD);
 	TESTP(status, EBAD);
+	j_ticket = j_new();
+	TESTP(j_ticket, EBAD);
 
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
@@ -58,19 +64,27 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
 	j_add_str(root, JK_TICKET, ticket);
 	j_add_str(root, JK_STATUS, status);
+
 	if (NULL != comment) {
 		j_add_str(root, JK_REASON, comment);
 	}
 
-	/*TODO:  Add time of the ticket creation */
+	/***TODO:  Add time of the ticket creation ***/
 
-
+	t = time(NULL);
+	if ((time_t) -1 != t) {
+		j_add_int(root, JK_TIME, t);
+	} else {
+		DE("Can't add time to ticket");
+	}
+	
 	DD("Created ticket json resp:\n");
 	j_print(root, "root");
 
 	ctl = ctl_get_locked();
 	DD("Going to add ticket to tickets\n");
-	rc = j_add_j(ctl->tickets, ticket, root);
+	rc = j_arr_add(ctl->tickets, root);
+	TESTI_MES(rc, EBAD, "Can't add ticket to array");
 
 	DD("Added ticket to tickets\n");
 	ctl_unlock(ctl);
@@ -790,7 +804,7 @@ int mp_main_complete_me_init(void)
 		TESTI_MES(rc, EBAD, "Can't generate UID\n");
 
 		rc = j_add_str(ctl->me, JK_UID, var);
-		TFREE(var);
+		TESTI_MES(rc, EBAD, "Can't add JK_UID into etcl->me");
 	}
 
 	if (EOK != j_test_key(ctl->me, JK_SOURCE)) {
@@ -848,12 +862,18 @@ int main(int argc __attribute__((unused)), char *argv[])
 	}
 
 	ports = j_find_j(ctl->me, "ports");
-	mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT));
-	signal(SIGINT, mp_main_signal_handler);
+	if(mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
+		DE("Port scanning failed\n");
+	}
+
+	if(SIG_ERR == signal(SIGINT, mp_main_signal_handler)) {
+		DE("Can't register signal handler\n");
+		return EBAD;
+	}
 
 	/* Here test the config. If it not loaded - we create it and save it */
 	if (NULL == ctl->config) {
-		int rc = mp_config_from_ctl(ctl);
+		rc = mp_config_from_ctl(ctl);
 		if (EOK == rc) {
 			rc = mp_config_save(ctl);
 			if (EOK != rc) {
