@@ -8,9 +8,113 @@
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-main.h"
+#include "mp-memory.h"
 #include "mp-requests.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
+
+buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
+{
+	buf_t *buf_p;
+	size_t ret;
+	char *buf_counter_s;
+	control_t *ctl;
+
+	if (counter < 0) {
+		DE("Bad counter: %d\n", counter);
+		return (NULL);
+	}
+
+	ctl = ctl_get();
+
+	DD("Got counter = %d\n", counter);
+
+	buf_counter_s = (char *)zmalloc(32);
+	TESTP(buf_counter_s, NULL);
+
+	/* Transfor counter to key (string) */
+	snprintf(buf_counter_s, 32, "%d", counter);
+
+	DD("Counter string = %s\n", buf_counter_s);
+
+	ret = j_find_int(ctl->buffers, buf_counter_s);
+	if (0XDEADBEEF == ret) {
+		DE("Can't get buffer\n");
+		free(buf_counter_s);
+		return (NULL);
+	}
+
+	DD("Got ret: %ld / %lx\n", ret, ret);
+	buf_p = (buf_t *)ret;
+	j_rm_key(ctl->buffers, buf_counter_s);
+	free(buf_counter_s);
+	return (buf_p);
+}
+
+int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
+{
+	size_t buf_p;
+	char *buf_counter_s;
+	control_t *ctl;
+
+	TESTP(buf, EBAD);
+	if (counter < 0) {
+		DE("Bad counter: %d\n", counter);
+		return (EBAD);
+	}
+
+	ctl = ctl_get();
+
+	DD("Got counter = %d\n", counter);
+
+	buf_counter_s = (char *)zmalloc(32);
+	TESTP(buf_counter_s, EBAD);
+
+	/* Transfor counter to key (string) */
+	snprintf(buf_counter_s, 32, "%d", counter);
+
+	/* Get address of the buffer */
+	buf_p = (size_t)buf;
+
+	D("Saving buf_p = %lx, buf = %p\n", buf_p, buf);
+
+	j_add_int(ctl->buffers, buf_counter_s, buf_p);
+	free(buf_counter_s);
+
+	return (EOK);
+}
+
+int mp_communicate_mosquitto_publish(struct mosquitto *mosq, const char *topic, buf_t *buf)
+{
+	int rc;
+	int rc2;
+	int counter = -1;
+	rc = mosquitto_publish(mosq, &counter, topic, (int)buf->size, buf->data, 0, false);
+	rc2 = mp_communicate_save_buf_t_to_ctl(buf, counter);
+	if (EOK != rc2) {
+		DE("Can't save buf_t to ctl\n");
+	} else {
+		control_t *ctl = ctl_get();
+		j_print(ctl->buffers, "ctl->buffers: ");
+	}
+	
+	return (rc);
+}
+
+int mp_communicate_send_json(struct mosquitto *mosq, const char *forum_topic, json_t *root)
+{
+	buf_t *buf;
+
+	TESTP(mosq, EBAD);
+	TESTP(forum_topic, EBAD);
+	TESTP(root, EBAD);
+
+	buf = j_2buf(root);
+	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
+	TESTP(buf, EBAD);
+
+	return mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+}
 
 int send_keepalive_l(struct mosquitto *mosq)
 {
@@ -34,7 +138,7 @@ int send_keepalive_l(struct mosquitto *mosq)
 		return (EBAD);
 	}
 
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	if (MOSQ_ERR_SUCCESS == rc) {
 		rc = EOK;
 		goto end;
@@ -50,14 +154,13 @@ int send_keepalive_l(struct mosquitto *mosq)
 
 	DD("Reconnected\n");
 
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to send notification\n");
 		rc = EBAD;
 	}
 
 end:
-	buf_free_force(buf);
 	return (rc);
 }
 
@@ -72,23 +175,22 @@ int send_reveal_l(struct mosquitto *mosq)
 	memset(forum_topic, 0, TOPIC_MAX_LEN);
 
 	ctl = ctl_get_locked();
-	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", 
+	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
 			 j_find_ref(ctl->me, JK_UID));
 
 	buf = mp_requests_build_reveal(j_find_ref(ctl->me, JK_UID),
-									j_find_ref(ctl->me, JK_NAME));
+								   j_find_ref(ctl->me, JK_NAME));
 	ctl_unlock(ctl);
 
 	TESTP_MES(buf, EBAD, "Can't build notification");
 
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to send reveal request\n");
 		return (EBAD);
 	}
 
-	buf_free_force(buf);
 	return (EOK);
 }
 
@@ -112,8 +214,7 @@ int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
-	buf_free_force(buf);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -141,7 +242,8 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	//rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -169,7 +271,49 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mosquitto_publish(mosq, 0, forum_topic, (int)buf->size, buf->data, 0, false);
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	DDD("Sent request, status is %d\n", rc);
+	return (rc);
+}
+
+int send_request_return_tickets(struct mosquitto *mosq, char *target_uid, const char *ticket)
+{
+	int rc = EBAD;
+	buf_t *buf = NULL;
+	char forum_topic[TOPIC_MAX_LEN];
+	control_t *ctl = NULL;
+	json_t *resp;
+	int index;
+	json_t *val;
+
+	TESTP(mosq, EBAD);
+	TESTP(target_uid, EBAD);
+
+	ctl = ctl_get();
+
+	if (j_count(ctl->tickets) == 1) {
+		DD("No tickets to send\n");
+		return (EOK);
+	}
+
+	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
+			 j_find_ref(ctl->me, JK_USER),
+			 j_find_ref(ctl->me, JK_UID));
+
+	resp = j_arr();
+	TESTP(resp, EBAD);
+
+	json_array_foreach(ctl->tickets, index, val) {
+		if (EOK == j_test(val, JK_TICKET, ticket)) {
+			j_arr_add(resp, val);
+		}
+	}
+
+	/* Build responce */
+
+	TESTP_MES(buf, EBAD, "Can't build open port request");
+	DDD("Going to send request\n");
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }

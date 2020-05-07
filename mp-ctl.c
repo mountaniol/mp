@@ -17,14 +17,17 @@ int ctl_allocate_init(void)
 	TESTP(g_ctl->me, EBAD);
 	ports = j_arr();
 	TESTP(ports, EBAD);
-	if(EOK != j_add_j(g_ctl->me, "ports", ports)) {
+	if (EOK != j_add_j(g_ctl->me, "ports", ports)) {
 		DE("Can't add array 'ports' to 'me'\n");
-		return EBAD;
+		return (EBAD);
 	}
-	
+
 	g_ctl->hosts = j_new();
 	TESTP_MES(g_ctl->me, -1, "Can't allocate json object");
 
+	g_ctl->buffers = j_new();
+	TESTP_MES(g_ctl->buffers, -1, "Can't allocate json object");
+	
 	g_ctl->tickets = j_arr();
 	TESTP(g_ctl->tickets, -1);
 

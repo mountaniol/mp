@@ -54,6 +54,7 @@ typedef struct control_struct {
 	htable_t *htab_ports; /* Here we keep mapped ports (port_t, see above), sorted by internal port */
 	void *config; /* The config file in form of JSON object */
 	void *tickets;
+	void *buffers; /* Here we keep allocate buffers until they sent */
 } control_t;
 
 

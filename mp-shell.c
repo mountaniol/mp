@@ -83,8 +83,15 @@ json_t *execute_requiest(json_t *root)
 		DE("Failed\n");
 		perror("recv() failed");
 		return (NULL);
-	} else if (rc == 0) {
+	} 
+
+	if (rc == 0) {
 		printf("The server closed the connection\n");
+		return (NULL);
+	}
+
+	if (rc > CLI_BUF_LEN) {
+		printf("The received buffer is too big. Expected max %d, received %zu\n", CLI_BUF_LEN, rc);
 		return (NULL);
 	}
 

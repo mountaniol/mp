@@ -115,6 +115,7 @@
 #define JV_TYPE_OPENPORT "openport"
 #define JV_TYPE_CLOSEPORT "closeport"
 #define JV_TYPE_KEEPALIVE "keepelive"
+/* Ask for tickets. Ticket ID is in JK_TICKET */
 #define JV_TYPE_TICKET "ticket-type"
 
 /* These used between mp-shell and mp-cli */

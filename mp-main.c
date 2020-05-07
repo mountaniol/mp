@@ -72,12 +72,12 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	/***TODO:  Add time of the ticket creation ***/
 
 	t = time(NULL);
-	if ((time_t) -1 != t) {
+	if ((time_t)-1 != t) {
 		j_add_int(root, JK_TIME, t);
 	} else {
 		DE("Can't add time to ticket");
 	}
-	
+
 	DD("Created ticket json resp:\n");
 	j_print(root, "root");
 
@@ -355,15 +355,14 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	}
 
 
-	/*** Message "ssh" ***/
+	/*** Message "ticket" ***/
 	/*
-     * The user wants to connect to remote UID 
-     */
-	
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+	 * The user asks for his tickets 
+	 */
+
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
 		DD("Got 'closeport' request\n");
 
-		rc = mp_main_do_close_port_l(root);
 		/* 
 		 * When the port opened, it added ctl global control_t structure 
 		 * We don't need to know what port exactly opened, 
@@ -373,7 +372,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
 			send_keepalive_l(mosq);
-		} 
+		}
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -533,6 +532,19 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 	DDD("Exit from function\n");
 }
 
+void mp_main_on_publish_cb(struct mosquitto *mosq, void *data, int buf_id)
+{
+	buf_t *buf = mp_communicate_get_buf_t_from_ctl(buf_id);
+	if (NULL == buf) {
+		DE("Can't find buffer\n");
+		return;
+	}
+
+	DD("Found buffer: \n%s\n", buf->data);
+	buf_free_force(buf);
+}
+
+
 #define SERVER "185.177.92.146"
 #define PORT 8883
 #define PASS "asasqwqw"
@@ -578,10 +590,13 @@ static void *mp_main_mosq_thread(void *arg)
 	ctl_unlock(ctl);
 	DD("Done\n");
 
+
 	if (NULL == ctl->mosq) {
 		DE("Can't create mosq object\n");
 		return (NULL);
 	}
+	
+	mosquitto_publish_callback_set(ctl->mosq, mp_main_on_publish_cb);
 
 	DD("Setting user / pass.. ");
 	rc = mosquitto_username_pw_set(ctl->mosq, clientid, PASS);
@@ -862,13 +877,13 @@ int main(int argc __attribute__((unused)), char *argv[])
 	}
 
 	ports = j_find_j(ctl->me, "ports");
-	if(mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
+	if (mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
 		DE("Port scanning failed\n");
 	}
 
-	if(SIG_ERR == signal(SIGINT, mp_main_signal_handler)) {
+	if (SIG_ERR == signal(SIGINT, mp_main_signal_handler)) {
 		DE("Can't register signal handler\n");
-		return EBAD;
+		return (EBAD);
 	}
 
 	/* Here test the config. If it not loaded - we create it and save it */
