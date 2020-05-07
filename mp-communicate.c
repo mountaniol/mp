@@ -273,7 +273,7 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 	return (rc);
 }
 
-int send_request_return_tickets(struct mosquitto *mosq, char *target_uid, const char *ticket)
+int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -282,8 +282,14 @@ int send_request_return_tickets(struct mosquitto *mosq, char *target_uid, const 
 	json_t *resp;
 	int index;
 	json_t *val;
+	const char *ticket;
+	const char *target_uid;
 
 	TESTP(mosq, EBAD);
+
+	ticket = j_find_ref(root, JK_TICKET);
+	TESTP(ticket, EBAD);
+	target_uid = j_find_ref(root, JK_UID);
 	TESTP(target_uid, EBAD);
 
 	ctl = ctl_get();

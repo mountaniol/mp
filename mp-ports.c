@@ -292,7 +292,7 @@ printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
 
 #endif /* SEB 28/04/2020 16:46 */
 
-int mp_ports_unmap_port(const char *internal_port, const char *external_port, const char *protocol)
+int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *external_port, const char *protocol)
 {
 	int error = 0;
 	struct UPNPDev *upnp_dev;
@@ -310,11 +310,15 @@ int mp_ports_unmap_port(const char *internal_port, const char *external_port, co
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
 
+	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
+
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
 	if (1 != status) {
 		DE("Can't get valid IGD\n");
 		return (-1);
 	}
+
+	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
 
 	// remove port mapping from WAN port 12345 to local host port 24680
 	error = UPNP_DeletePortMapping(
@@ -324,12 +328,17 @@ int mp_ports_unmap_port(const char *internal_port, const char *external_port, co
 			protocol, // protocol must be either TCP or UDP
 			NULL); // remote (peer) host address or nullptr for no restriction
 
+	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
+
 	freeUPNPDevlist(upnp_dev);
 
 
 	if (0 != error) {
 		DE("Can't delete port %s\n", external_port);
+		mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
 		return (EBAD);
+	} else {
+		mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
 	}
 
 	return (0);

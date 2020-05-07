@@ -209,8 +209,9 @@ static int mp_main_do_close_port_l(json_t *root)
 		return (EBAD);
 	}
 
+	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
 	/* this function probes the internal port. If it alreasy mapped, it returns the mapping */
-	rc = mp_ports_unmap_port(asked_port, external_port, protocol);
+	rc = mp_ports_unmap_port(root, asked_port, external_port, protocol);
 
 	if (0 != rc) {
 		DE("Can'r remove port \n");
@@ -371,7 +372,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
-			send_keepalive_l(mosq);
+			send_request_return_tickets(mosq, root);
 		}
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
@@ -471,8 +472,6 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 {
 	control_t *ctl = NULL;
 	if (0 != reason) {
-		//DE("Fock! I've been disconnected! rc = %d, %s\n", reason, mosquitto_strerror(reason));
-
 		switch (reason) {
 		case MOSQ_ERR_NOMEM:
 			DE("Memeory error: no memory\n");
@@ -525,7 +524,6 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 
 	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
-	//remove_all_sources_l();
 	j_rm(ctl->me);
 	ctl->me = j_new();
 	ctl_unlock(ctl);
@@ -597,8 +595,6 @@ static void *mp_main_mosq_thread(void *arg)
 		return (NULL);
 	}
 	
-	mosquitto_publish_callback_set(ctl->mosq, mp_main_on_publish_cb);
-
 	DD("Setting user / pass.. ");
 	rc = mosquitto_username_pw_set(ctl->mosq, clientid, PASS);
 	if (MOSQ_ERR_SUCCESS != rc) {
@@ -618,9 +614,15 @@ static void *mp_main_mosq_thread(void *arg)
 	DD("Done\n");
 
 	DD("Connecting callbacks.. ");
+
 	mosquitto_connect_callback_set(ctl->mosq, connect_callback_l);
+	//TESTI_MES(rc, EBAD, "Can't register 'connect' callback");
 	mosquitto_message_callback_set(ctl->mosq, mp_main_on_message_cl);
+	//TESTI_MES(rc, EBAD, "Can't register 'message' callback");
 	mosquitto_disconnect_callback_set(ctl->mosq, mp_main_on_disconnect_l_cl);
+	//TESTI_MES(rc, EBAD, "Can't register 'disconnect' callback");
+	mosquitto_publish_callback_set(ctl->mosq, mp_main_on_publish_cb);
+	//TESTI_MES(rc, EBAD, "Can't register 'publish' callback");
 	DD("Done\n");
 
 	DD("Setting last will.. ");
