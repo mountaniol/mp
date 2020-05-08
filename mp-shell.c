@@ -130,7 +130,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 
 	rc = j_add_str(ticket_resp, JK_COMMAND, JV_TYPE_TICKET_RESP);
 	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_TICKET");
-	rc = j_add_str(ticket_resp, JK_TYPE, JV_TYPE_TICKET_REQ);
+	rc = j_add_str(ticket_resp, JK_TYPE, JV_TYPE_TICKET_RESP);
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
 	rc = j_add_str(ticket_resp, JK_TICKET, ticket);
 	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
