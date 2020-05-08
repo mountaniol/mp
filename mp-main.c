@@ -9,6 +9,7 @@
 #include "mosquitto.h"
 #include "buf_t.h"
 #include "mp-common.h"
+#include "mp-main.h"
 #include "mp-debug.h"
 #include "mp-memory.h"
 #include "mp-ctl.h"
@@ -43,7 +44,6 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	int rc;
 
 	time_t t;
-
 
 	DD("Start\n");
 	TESTP(req, EBAD);
@@ -329,6 +329,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
 		}
 
+		j_print(ctl->tickets, "After opening port: tickets: ");
+
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
 	}
@@ -350,6 +352,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		} else {
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 		}
+
+		j_print(ctl->tickets, "After closing port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
