@@ -66,7 +66,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	memset(&cli_addr, 0, sizeof(cli_addr));
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_CLI);
-	unlink(CLI_SOCKET_PATH_SRV);
+	unlink(CLI_SOCKET_PATH_CLI);
 
 	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
