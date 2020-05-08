@@ -206,7 +206,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 	json_t *ticket_req = NULL;
 	json_t *ticket_resp = NULL;
 	json_t *resp = NULL;
-	int rc;
+	int rc = EBAD;
 
 	TESTP(ticket, EBAD);
 
@@ -241,6 +241,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 		if (resp) {
 			j_print(resp, "Got responce:");
 			j_rm(resp);
+			resp = NULL;
 		}
 
 		sleep(1);
@@ -249,9 +250,10 @@ static int mp_shell_watch_ticket(const char *ticket)
 		resp = execute_requiest(ticket_resp);
 		if (resp) {
 			j_print(resp, "Got responce:");
-			j_print(resp, "ticket responce");
 		}
 	} while (EOK != j_test(resp, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(resp, JK_STATUS, JV_STATUS_SUCCESS));
+
+
 
 	return EOK;
 }
@@ -314,7 +316,7 @@ static int mp_shell_ask_openport(json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	return (mp_shell_watch_ticket(ticket));
+	//return (mp_shell_watch_ticket(ticket));
 
 	rc = EOK;
 
