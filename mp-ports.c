@@ -301,6 +301,7 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 	int status;
+	int rc;
 
 	TESTP(internal_port, EBAD);
 	TESTP(external_port, EBAD);
@@ -310,15 +311,17 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
 
-	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
-
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
+	if (EOK != rc) DD("Can't add ticket\n");
+	
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
 	if (1 != status) {
 		DE("Can't get valid IGD\n");
 		return (-1);
 	}
 
-	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
+	if (EOK != rc) DD("Can't add ticket\n");
 
 	// remove port mapping from WAN port 12345 to local host port 24680
 	error = UPNP_DeletePortMapping(
@@ -328,17 +331,20 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 			protocol, // protocol must be either TCP or UDP
 			NULL); // remote (peer) host address or nullptr for no restriction
 
-	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
+	if (EOK != rc) DD("Can't add ticket\n");
 
 	freeUPNPDevlist(upnp_dev);
 
 
 	if (0 != error) {
 		DE("Can't delete port %s\n", external_port);
-		mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
+		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
+		if (EOK != rc) DD("Can't add ticket\n");
 		return (EBAD);
 	} else {
-		mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
+		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
+		if (EOK != rc) DD("Can't add ticket\n");
 	}
 
 	return (0);
