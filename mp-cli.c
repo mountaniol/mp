@@ -270,7 +270,7 @@ static json_t *mp_cli_parse_command(json_t *root)
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
 		DD("Found 'JV_TYPE_TICKET' command\n");
-		return (root);
+		return (j_dup(root));
 	}
 	
 	return (NULL);
