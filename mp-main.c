@@ -51,6 +51,9 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	j_ticket = j_new();
 	TESTP(j_ticket, EBAD);
 
+	uid = j_find_ref(req, JK_UID_SRC);
+	TESTP(uid, EBAD);
+
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
 		DD("No ticket\n");
@@ -131,7 +134,11 @@ static int mp_main_remove_host_l(json_t *root)
 	ctl = ctl_get_locked();
 	rc = j_rm_key(ctl->hosts, uid_src);
 	ctl_unlock(ctl);
-	TESTI_MES(rc, EBAD, "Cant remove key from ctl->hosts");
+	if (rc) {
+		DE("Cant remove key from ctl->hosts:\n");
+		DE("UID_SRC = %s:\n", uid_src);
+		j_print(ctl->hosts, "Hosts in ctl->hosts:");
+	}
 	return (EOK);
 }
 

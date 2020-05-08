@@ -162,7 +162,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 static int mp_shell_ask_openport(json_t *args)
 {
 	int rc = EBAD;
-	const char *uid = NULL;
+	const char *uid_dst = NULL;
 	const char *port = NULL;
 	const char *protocol = NULL;
 	json_t *resp = NULL;
@@ -176,8 +176,8 @@ static int mp_shell_ask_openport(json_t *args)
 
 	j_print(args, "args");
 
-	uid = j_find_ref(args, JK_UID_DST);
-	TESTP_MES_GO(uid, err, "Can't find uid");
+	uid_dst = j_find_ref(args, JK_UID_DST);
+	TESTP_MES_GO(uid_dst, err, "Can't find uid");
 
 	port = j_find_ref(args, JK_PORT_INT);
 	TESTP_MES_GO(port, err, "Can't find port");
@@ -189,13 +189,13 @@ static int mp_shell_ask_openport(json_t *args)
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
-	rc = j_add_str(root, JK_UID_DST, uid);
+	rc = j_add_str(root, JK_UID_DST, uid_dst);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
 	rc = j_add_str(root, JK_PROTOCOL, protocol);
 	TESTI_MES_GO(rc, err, "Can't add 'protocol' field");
-	rc = j_add_str(root, JK_DEST, uid);
+	rc = j_add_str(root, JK_DEST, uid_dst);
 	TESTI_MES_GO(rc, err, "Can't add 'dest' field");
 
 	ticket = mp_os_rand_string(TICKET_SIZE);
