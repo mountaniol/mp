@@ -141,10 +141,19 @@ static int mp_shell_watch_ticket(const char *ticket)
 		j_print(ticket_req, "Sending ticket request");
 		resp = execute_requiest(ticket_req);
 		/* TODO: test answer */
-		if (resp) j_rm(resp);
+		if (resp) {
+			j_print(resp, "Got responce:");
+			j_rm(resp);
+		}
+
 		sleep(1);
+
+		j_print(ticket_req, "Sending get ticket request");
 		resp = execute_requiest(ticket_resp);
-		j_print(resp, "ticket responce");
+		if (resp) {
+			j_print(resp, "Got responce:");
+			j_print(resp, "ticket responce");
+		}
 	} while (EOK != j_test(resp, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(resp, JK_STATUS, JV_STATUS_SUCCESS));
 
 	return EOK;
