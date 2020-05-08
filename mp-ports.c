@@ -10,6 +10,7 @@
 #include "mp-ports.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
+#include "mp-main.h"
 #include "mp-ctl.h"
 
 /* The miniupnpc library API changed in version 14.
@@ -127,6 +128,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
 
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+	freeUPNPDevlist(upnp_dev);
 
 	if (1 != status) {
 		DE("UPNP_GetValidIGD failed\n");
@@ -153,6 +155,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 
 	if (0 != error) {
 		DE("Can't map port %d -> %d\n", external_port, internal_port);
+		FreeUPNPUrls(&upnp_urls);
 		return (EBAD);
 	}
 	// list all port mappings
@@ -182,6 +185,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 
 		if (UPNPCOMMAND_SUCCESS != error) {
 			upnp_req_str_t_free(req);
+			FreeUPNPUrls(&upnp_urls);
 			return (0);
 		}
 
@@ -196,12 +200,13 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 	}
 
 	upnp_req_str_t_free(req);
+	FreeUPNPUrls(&upnp_urls);
 	return (-1);
 }
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
+json_t *mp_ports_remap_any(json_t *req, const char *internal_port, const char *protocol)
 {
 	//size_t index = 0;
 	struct UPNPDev *upnp_dev = NULL;
@@ -217,6 +222,7 @@ json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
 	int i_port = 0;
 	int i = 0;
 	json_t *root = NULL;
+	int rc;
 
 	TESTP_MES(internal_port, NULL, "Got NULL\n");
 	TESTP_MES(protocol, NULL, "Got NULL\n");
@@ -224,7 +230,11 @@ json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, NULL, "UPNP discover failed\n");
 
+	rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Found UPNP device");
+
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+	freeUPNPDevlist(upnp_dev);
+	rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Contacted UPNP device");
 
 	if (1 != status) {
 		DE("UPNP_GetValidIGD failed\n");
@@ -238,8 +248,11 @@ json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
 	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
 	if (0 != status) {
 		DE("UPNP_GetExternalIPAddress returned error\n");
+		FreeUPNPUrls(&upnp_urls);
 		return (NULL);
 	}
+
+	rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Got IP of UPNP device");
 
 	for (i = 0; i < 3; i++) {
 		int error;
@@ -248,6 +261,7 @@ json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
 			i_port = rand();
 		}
 
+		rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
 		error = mp_ports_remap_port(i_port, atoi(internal_port), protocol);
 
 		if (0 == error) {
@@ -262,6 +276,7 @@ json_t *mp_ports_remap_any(const char *internal_port, const char *protocol)
 	j_add_str(root, JK_PORT_EXT, reservedPort);
 	j_add_str(root, JK_PORT_INT, internal_port);
 	j_add_str(root, JK_PROTOCOL, protocol);
+	FreeUPNPUrls(&upnp_urls);
 	return (root);
 #if 0 /* SEB DEADCODE 04/05/2020 10:10  */
 	/* The port is remapped */
@@ -315,6 +330,7 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 	if (EOK != rc) DD("Can't add ticket\n");
 	
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
 		DE("Can't get valid IGD\n");
 		return (-1);
@@ -334,19 +350,19 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
 	if (EOK != rc) DD("Can't add ticket\n");
 
-	freeUPNPDevlist(upnp_dev);
-
 
 	if (0 != error) {
 		DE("Can't delete port %s\n", external_port);
 		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
 		if (EOK != rc) DD("Can't add ticket\n");
+		FreeUPNPUrls(&upnp_urls);
 		return (EBAD);
 	} else {
 		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
 		if (EOK != rc) DD("Can't add ticket\n");
 	}
 
+	FreeUPNPUrls(&upnp_urls);
 	return (0);
 }
 
@@ -381,6 +397,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
 
+	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
 		return (-1);
@@ -423,6 +440,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
 			/* No more ports, and asked port not found in the list */
 			upnp_req_str_t_free(req);
 			/* Port not mapped at all */
+			FreeUPNPUrls(&upnp_urls);
 			return (3);
 		}
 
@@ -438,6 +456,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
 		/* port mapped but internal port is different */
 		if (l_ext_port == external_port && l_int_port != internal_port) {
 			upnp_req_str_t_free(req);
+			FreeUPNPUrls(&upnp_urls);
 			return (2);
 		}
 
@@ -447,16 +466,19 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
 
 			if ((0 != local_host) && (0 != strncmp(req->map_lan_port, local_host, REQ_STR_LEN))) {
 				upnp_req_str_t_free(req);
+				FreeUPNPUrls(&upnp_urls);
 				return (1);
 			}
 
 			/* If we here it means that local_host is the same as asked, or it is NULL and should not be testes*/
 			upnp_req_str_t_free(req);
+			FreeUPNPUrls(&upnp_urls);
 			return (0);
 		}
 	}
 
 	upnp_req_str_t_free(req);
+	FreeUPNPUrls(&upnp_urls);
 	return (-1);
 }
 
@@ -469,7 +491,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_host, const char *protocol)
+json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const char *local_host, const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -482,11 +504,16 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 	json_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
+	int rc;
 
+
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, NULL, "UPNP discover failed\n");
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
 
+	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
 		return (NULL);
@@ -495,8 +522,11 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 	memset(s_ext, 0, PORT_STR_LEN);
 	UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
 
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
+
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
+	if (NULL == req) FreeUPNPUrls(&upnp_urls);
 	TESTP_MES(req, NULL, "Can't allocate upnp_req_str_t");
 
 	while (1) {
@@ -523,6 +553,7 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 			/* No more ports, and asked port not found in the list */
 			upnp_req_str_t_free(req);
 			/* Port not mapped at all */
+			FreeUPNPUrls(&upnp_urls);
 			return (NULL);
 		}
 
@@ -538,6 +569,7 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 			if (NULL == mapping) {
 				DE("Can't allocate port_map_t\n");
 				upnp_req_str_t_free(req);
+				FreeUPNPUrls(&upnp_urls);
 				return (NULL);
 			}
 
@@ -546,11 +578,13 @@ json_t *mp_ports_if_mapped_json(const char *internal_port, const char *local_hos
 			j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
 
 			upnp_req_str_t_free(req);
+			FreeUPNPUrls(&upnp_urls);
 			return (mapping);
 		}
 	}
 
 	upnp_req_str_t_free(req);
+	FreeUPNPUrls(&upnp_urls);
 	return (mapping);
 }
 
@@ -573,6 +607,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, EBAD, "UPNP discover failed\n");
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+	freeUPNPDevlist(upnp_dev);
 
 	if (1 != status) {
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
@@ -584,6 +619,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
+	if (NULL == req) FreeUPNPUrls(&upnp_urls);
 	TESTP_MES(req, EBAD, "Can't allocate upnp_req_str_t");
 
 	while (1) {
@@ -610,6 +646,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 			/* No more ports, and asked port not found in the list */
 			upnp_req_str_t_free(req);
 			/* Port not mapped at all */
+			FreeUPNPUrls(&upnp_urls);
 			return (EBAD);
 		}
 
@@ -623,6 +660,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 			if (NULL == mapping) {
 				DE("Can't allocate port_map_t\n");
 				upnp_req_str_t_free(req);
+				FreeUPNPUrls(&upnp_urls);
 				return (EBAD);
 			}
 
@@ -635,6 +673,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 	}
 
 	upnp_req_str_t_free(req);
+	FreeUPNPUrls(&upnp_urls);
 	return (EOK);
 }
 
@@ -663,6 +702,7 @@ char *mp_ports_get_external_ip()
 	}
 
 	wan_address = zmalloc(IP_STR_LEN);
+	if (NULL == wan_address) FreeUPNPUrls(&upnp_urls);
 	TESTP_MES(wan_address, NULL, "Can't allocate wan_address\n");
 
 	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);

@@ -83,7 +83,7 @@ json_t *execute_requiest(json_t *root)
 		DE("Failed\n");
 		perror("recv() failed");
 		return (NULL);
-	} 
+	}
 
 	if (rc == 0) {
 		printf("The server closed the connection\n");
@@ -152,9 +152,21 @@ static int mp_shell_ask_openport(json_t *args)
 	resp = execute_requiest(root);
 	j_rm(root);
 	TESTP_GO(resp, err);
+
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
+	root = j_new();
+	j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
+	j_add_str(root, JK_TICKET, ticket);
+	do {
+		resp = execute_requiest(root);
+		j_print(resp, "ticket responce");
+	} while (EOK != j_test(root, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(root, JK_STATUS, JV_STATUS_SUCCESS));
+
+	rc = EOK;
+
+	/* Now receive tickets until requiest not done */
 err:
 	if (root) j_rm(root);
 	if (resp) j_rm(resp);

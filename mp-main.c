@@ -42,7 +42,6 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
-
 	time_t t;
 
 	DD("Start\n");
@@ -54,6 +53,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
 		DD("No ticket\n");
+		j_print(req, "req is:");
 		return (EOK);
 	}
 
@@ -115,6 +115,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *mapping = NULL;
 	const char *asked_port = NULL;
 	const char *protocol = NULL;
+	const char *ticket = NULL;
 	//port_t *port = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
@@ -140,10 +141,11 @@ static int mp_main_do_open_port_l(json_t *root)
 			return (EOK);
 		}
 	}
+
 	ctl_unlock(ctl);
 
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
-	mapping = mp_ports_if_mapped_json(asked_port, j_find_ref(ctl->me, JK_IP_INT), protocol);
+	mapping = mp_ports_if_mapped_json(root, asked_port, j_find_ref(ctl->me, JK_IP_INT), protocol);
 
 	/* Found existing mapping */
 	if (NULL != mapping) {
@@ -157,7 +159,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	}
 
 	/* If we here it means no such mapping exists. Let's map it */
-	mapping = mp_ports_remap_any(asked_port, protocol);
+	mapping = mp_ports_remap_any(root, asked_port, protocol);
 	TESTP_MES(mapping, EBAD, "Can't map port");
 
 	/* Ok, port mapped. Now we should update ctl->ports hash table */
@@ -202,6 +204,7 @@ static int mp_main_do_close_port_l(json_t *root)
 			ctl_unlock(ctl);
 		}
 	}
+
 	ctl_unlock(ctl);
 
 	if (NULL == external_port) {
