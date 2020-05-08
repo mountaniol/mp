@@ -245,6 +245,7 @@ static json_t *mp_cli_parse_command(json_t *root)
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_SSH)) {
 		DD("Found 'SSH' command\n");
+		j_print(root, "SSH command:");
 		return (mp_cli_ssh_forward(root));
 	}
 
