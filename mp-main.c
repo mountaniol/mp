@@ -72,14 +72,12 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI(rc, EBAD);
 
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
-	TESTI(rc, EBAD);
-
-
 	if (NULL != comment) {
 		rc = j_add_str(root, JK_REASON, comment);
 		TESTI(rc, EBAD);
 	}
+
+	/* Send it */
 
 	/***TODO:  Add time of the ticket creation ***/
 

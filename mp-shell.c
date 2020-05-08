@@ -2,6 +2,7 @@
 #include <netdb.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <pthread.h>
 /*@=skipposixheaders@*/
 #include "mp-common.h"
 #include "mp-debug.h"
@@ -11,28 +12,124 @@
 #include "mp-os.h"
 #include "mp-dict.h"
 #include "buf_t.h"
+#include "mp-memory.h"
 
 #ifndef S_SPLINT_S /* splint analyzer goes crazy if this included */
 	#include "libfort/src/fort.h"
 #else /* Mock for splint analyzer */
-#define ft_table_t void
-#define FT_ROW_HEADER (1)
-#define FT_CPROP_ROW_TYPE (1)
-#define FT_ANY_COLUMN (1)
-#define FT_ROW_HEADER (1)
-#define FT_ROW_HEADER (1)
-int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
-void ft_destroy_table(ft_table_t *table);
-const char *ft_to_string(const ft_table_t *table);
-int ft_write_ln(void *, ...);
-ft_table_t *ft_create_table(void);
-extern const struct ft_border_style *const FT_PLAIN_STYLE;
-int ft_set_default_border_style(const struct ft_border_style *style);
+	#define ft_table_t void
+	#define FT_ROW_HEADER (1)
+	#define FT_CPROP_ROW_TYPE (1)
+	#define FT_ANY_COLUMN (1)
+	#define FT_ROW_HEADER (1)
+	#define FT_ROW_HEADER (1)
+	int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
+	void ft_destroy_table(ft_table_t *table);
+	const char *ft_to_string(const ft_table_t *table);
+	int ft_write_ln(void *, ...);
+	ft_table_t *ft_create_table(void);
+	extern const struct ft_border_style *const FT_PLAIN_STYLE;
+	int ft_set_default_border_style(const struct ft_border_style *style);
 #endif
 
 #define SERVER_PATH     "/tmp/server"
 #define BUFFER_LENGTH    250
 #define FALSE              0
+
+int status = 0;
+
+/* Here we parse messages received from remote hosts.
+   These messages are responces requests done from here */
+int mp_shell_parse_in_command(json_t *root){
+	TESTP(root, EBAD);
+	j_print(root, "Received message from the CLI thread:");
+	return EOK;
+}
+
+/* This thread accepts connection from CLI or from GUI client
+   Only one client a time */
+void *mp_shell_in_thread(void *arg __attribute__((unused)))
+{
+	/* TODO: move it to common header */
+	int fd = -1;
+	struct sockaddr_un cli_addr;
+	ssize_t rc = -1;
+
+	DDD("CLI thread started\n");
+
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0) {
+		DE("Can't open CLI socket\n");
+		return (NULL);
+	}
+
+	memset(&cli_addr, 0, sizeof(cli_addr));
+	cli_addr.sun_family = AF_UNIX;
+	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_CLI);
+	unlink(CLI_SOCKET_PATH_SRV);
+
+	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
+	if (rc < 0) {
+		DE("bind failed\n");
+		return (NULL);
+	}
+
+	/* Listen for incoming connection */
+	rc = (ssize_t)listen(fd, 2);
+	if (rc < 0) {
+		DE("listen failed\n");
+		return NULL;
+	}
+
+	do {
+		int fd2 = -1;
+		char *buf = NULL;
+		//size_t len = CLI_BUF_LEN;
+		json_t *root = NULL;
+
+		/* Connection is here, accept */
+		fd2 = accept(fd, NULL, NULL);
+		if (fd2 < 0) {
+			DE("accept() failed\n");
+			break;
+		}
+
+		/* Allocate buffer for reading */
+		buf = zmalloc(CLI_BUF_LEN);
+		TESTP_MES(buf, NULL, "Can't allocate buf");
+
+		rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
+		if (rc < 0) {
+			DE("setsockopt(SO_RCVLOWAT) failed\n");
+			free(buf);
+			break;
+		}
+
+		/* Receive buffer from cli */
+		rc = recv(fd2, buf, CLI_BUF_LEN, 0);
+		if (rc < 0) {
+			DE("recv failed\n");
+			free(buf);
+			break;
+		}
+
+		/* Add 0 terminator, else json decoding will fail */
+		*(buf + rc) = '\0';
+		root = j_str2j(buf);
+		free(buf);
+		if (NULL == root) {
+			DE("Can't decode buf to JSON object\n");
+			break;
+		}
+
+		TFREE(buf);
+		/* That's it, we don't need request objext any more */
+		rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object");
+	} while (1);
+
+	return (NULL);
+}
 
 json_t *execute_requiest(json_t *root)
 {
@@ -531,6 +628,7 @@ int main(int argc, char *argv[])
 {
 	int opt;
 	json_t *args;
+	pthread_t in_thread_id;
 
 	/* 
 	 * i - info - print information about this machine 
@@ -548,6 +646,8 @@ int main(int argc, char *argv[])
 		mp_shell_usage(argv[0]);
 		return (-1);
 	}
+
+	pthread_create(&in_thread_id, NULL, mp_shell_in_thread, NULL);
 
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");

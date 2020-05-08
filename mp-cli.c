@@ -17,6 +17,51 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
+static int mp_cli_send_to_cli(json_t *root)
+{
+	int sd = -1;
+	ssize_t rc = -1;
+	struct sockaddr_un serveraddr;
+
+	buf_t *buf = j_2buf(root);
+
+	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
+
+	sd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sd < 0) {
+		DE("Failed\n");
+		perror("socket() failed");
+		return (EBAD);
+	}
+
+	DDD("Opened socket\n");
+
+	memset(&serveraddr, 0, sizeof(serveraddr));
+	serveraddr.sun_family = AF_UNIX;
+	strcpy(serveraddr.sun_path, CLI_SOCKET_PATH_CLI);
+
+	DDD("Before connect\n");
+	rc = (ssize_t)connect(sd, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+	if (rc < 0) {
+		DE("Failed\n");
+		perror("connect() failed");
+		return (EBAD);
+	}
+
+	DDD("Connected\n");
+
+	// memset(buf, '0', CLI_BUF_LEN);
+	rc = send(sd, buf->data, buf->size, 0);
+	if (rc < 0) {
+		DE("Failed\n");
+		perror("send() failed");
+		return (EBAD);
+	}
+
+	return EOK;
+}
+
+
 /* Get this machine info */
 static json_t *mp_cli_get_self_info_l()
 {
@@ -52,6 +97,8 @@ static json_t *mp_cli_get_received_tickets(json_t *root)
 		}
 	}
 
+	j_print(arr, "Sending to shell: ");
+	mp_cli_send_to_cli(arr);
 	return (arr);
 }
 
