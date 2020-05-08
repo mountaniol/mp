@@ -14,14 +14,22 @@
 #define DIVAR(x) do{DD("%s = |%d|\n", #x, x);}while(0);
 
 #ifdef DEBUG3
-	#define DDE _D_PRINT_ERR
 	#define DDD _D_PRINT
 #else
 	/* Extra debug */
 	#define DDD(x,...) do{}while(0)
+#endif // DEBUG3
+#define DE _D_PRINT_ERR
+
+#ifdef DEERROR3
+	#define DDE _D_PRINT_ERR
+#else
+	/* Extra debug */
 	#define DDE(x,...) do{}while(0)
 #endif // DEBUG3
 #define DE _D_PRINT_ERR
+
+
 
 #define D_TIME_START(x) clock_t x##_start = clock();
 #define D_TIME_END(x) {clock_t x##_end = clock(); D("Line %d: time used %f\n", __LINE__, (((double)(x##_end - x##_start))/ CLOCKS_PER_SEC));}
