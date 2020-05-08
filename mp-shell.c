@@ -151,7 +151,7 @@ static int mp_shell_ask_openport(json_t *args)
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = execute_requiest(root);
 	j_rm(root);
-	TESTP_MES_GO GO(resp, err, "Responce is NULL\n");
+	TESTP_MES_GO(resp, err, "Responce is NULL\n");
 
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
