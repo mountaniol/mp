@@ -136,7 +136,7 @@ static int mp_main_remove_host_l(json_t *root)
 	ctl_unlock(ctl);
 	if (rc) {
 		DE("Cant remove key from ctl->hosts:\n");
-		DE("UID_SRC = %s:\n", uid_src);
+		DE("UID_SRC = |%s|\n", uid_src);
 		j_print(ctl->hosts, "Hosts in ctl->hosts:");
 	}
 	return (EOK);
@@ -300,9 +300,10 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
 
 		/* Find uid of this remote host */
-		const char *uid_src = j_find_ref(root, JK_UID_SRC);
+		const char *uid_src = j_find_ref(root, JK_UID_ME);
 		TESTP(uid_src, EBAD);
 		/* Is this host already in the list? Just for information */
+		//j_print(root, "Received ME from remote host:");
 
 		ctl_lock(ctl);
 		rc = j_replace(ctl->hosts, uid_src, root);
