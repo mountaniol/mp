@@ -318,6 +318,8 @@ static int mp_shell_ask_openport(json_t *args)
 
 	//return (mp_shell_watch_ticket(ticket));
 
+	sleep(10);
+
 	rc = EOK;
 
 	/* Now receive tickets until requiest not done */

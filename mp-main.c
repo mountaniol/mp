@@ -43,7 +43,8 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
-	time_t t;
+	//time_t t;
+	char *forum;
 
 	DD("Start\n");
 	TESTP(req, EBAD);
@@ -79,6 +80,16 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 
 	/* Send it */
 
+	ctl = ctl_get();
+	forum = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	TESTP(forum, EBAD);
+	//mp_main_mosq_thread(arg);
+
+	rc = mp_communicate_send_json(ctl->mosq, forum, root);
+	free(forum);
+	return (rc);
+
+#if 0
 	/***TODO:  Add time of the ticket creation ***/
 
 	t = time(NULL);
@@ -102,6 +113,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 
 	j_print(ctl->tickets_out, "ctl->tickets");
 	return (rc);
+#endif
 }
 
 static int mp_main_save_tickets(json_t *root)
