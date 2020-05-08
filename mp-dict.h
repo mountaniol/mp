@@ -11,7 +11,13 @@
 /*** Keys ***/
 
 /* Client UID */
-#define JK_UID "uid"
+//#define JK_UID "uid"
+/* My UID - used in ctl->me */
+#define JK_UID_ME "uid-me"
+/* Source UID - who sent this message */
+#define JK_UID_SRC "uid-src"
+/* Dest UID - who should receive this message */
+#define JK_UID_DST "uid-dst"
 /* Target UID: to whom this message dedicated*/
 #define JK_DEST "destination"
 /* Client user name, used to form topic name */

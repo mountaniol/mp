@@ -139,7 +139,7 @@ static json_t *mp_cli_ssh_forward(json_t *root)
 
 	TESTP(root, NULL);
 
-	remote_host = mp_ports_ssh_port_for_uid(j_find_ref(root, JK_UID));
+	remote_host = mp_ports_ssh_port_for_uid(j_find_ref(root, JK_UID_SRC));
 	TESTP(remote_host, NULL);
 	j_print(remote_host, "Found remote host for ssh connection");
 
@@ -206,7 +206,7 @@ static json_t *mp_cli_openport_l(json_t *root)
 
 static json_t *mp_cli_closeport_l(json_t *root)
 {
-	char *uid = NULL;
+	char *uid_src = NULL;
 	char *port = NULL;
 	char *protocol = NULL;
 	control_t *ctl = NULL;
@@ -216,8 +216,8 @@ static json_t *mp_cli_closeport_l(json_t *root)
 	TESTP_MES(root, NULL, "Got NULL");
 
 	/* Get uid of remmote client */
-	uid = j_find_dup(root, JK_UID);
-	TESTP_MES(uid, NULL, "Not found 'uid' field");
+	uid_src = j_find_dup(root, JK_UID_SRC);
+	TESTP_MES(uid_src, NULL, "Not found 'uid' field");
 
 	/* Get port which should be opened in the remote client */
 	/* We mean "internal" port, for example port "22" for ssh.*/
@@ -231,7 +231,7 @@ static json_t *mp_cli_closeport_l(json_t *root)
 	ctl = ctl_get_locked();
 	DDD("Calling send_request_to_open_port\n");
 	if (NULL != ctl->mosq) {
-		rc = send_request_to_close_port(ctl->mosq, uid, port, protocol);
+		rc = send_request_to_close_port(ctl->mosq, uid_src, port, protocol);
 	}
 	ctl_unlock(ctl);
 
@@ -245,7 +245,7 @@ static json_t *mp_cli_closeport_l(json_t *root)
 	}
 
 err:
-	TFREE(uid);
+	TFREE(uid_src);
 	TFREE(port);
 	TFREE(protocol);
 	return (resp);

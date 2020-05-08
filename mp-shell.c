@@ -176,7 +176,7 @@ static int mp_shell_ask_openport(json_t *args)
 
 	j_print(args, "args");
 
-	uid = j_find_ref(args, JK_UID);
+	uid = j_find_ref(args, JK_UID_DST);
 	TESTP_MES_GO(uid, err, "Can't find uid");
 
 	port = j_find_ref(args, JK_PORT_INT);
@@ -189,7 +189,7 @@ static int mp_shell_ask_openport(json_t *args)
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
-	rc = j_add_str(root, JK_UID, uid);
+	rc = j_add_str(root, JK_UID_DST, uid);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
@@ -251,7 +251,7 @@ static int mp_shell_ask_closeport(json_t *args)
 
 	j_print(args, "Closeport JSON");
 
-	uid = j_find_ref(args, JK_UID);
+	uid = j_find_ref(args, JK_UID_DST);
 	TESTP_MES_GO(uid, err, "Can't find uid");
 
 	port = j_find_ref(args, JK_PORT_INT);
@@ -262,7 +262,7 @@ static int mp_shell_ask_closeport(json_t *args)
 
 	rc = j_add_str(root, JK_COMMAND, JV_TYPE_CLOSEPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
-	rc = j_add_str(root, JK_UID, uid);
+	rc = j_add_str(root, JK_UID_DST, uid);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
@@ -318,7 +318,7 @@ static int mp_shell_get_info()
 
 	ft_write_ln(table, "My Machine", j_find_ref(resp, JK_NAME));
 	ft_write_ln(table, "My Username", j_find_ref(resp, JK_USER));
-	ft_write_ln(table, "My UID", j_find_ref(resp, JK_UID));
+	ft_write_ln(table, "My UID", j_find_ref(resp, JK_UID_ME));
 	ft_write_ln(table, "My External IP", j_find_ref(resp, JK_IP_EXT));
 	ft_write_ln(table, "My Internal IP", j_find_ref(resp, JK_IP_INT));
 	printf("%s\n", ft_to_string(table));
@@ -341,7 +341,7 @@ static int mp_shell_ssh(json_t *args)
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_SSH);
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_SSH");
-	rc = j_cp(args, root, JK_UID);
+	rc = j_cp(args, root, JK_UID_DST);
 	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
 	j_print(root, "Sending SSH command\n");
 	resp = execute_requiest(root);
@@ -388,8 +388,7 @@ static int mp_shell_get_hosts()
 	ft_write_ln(table, "UID", "External IP", "Internal IP", "Name");
 
 	json_object_foreach(resp, key, val) {
-
-		ft_write_ln(table, j_find_ref(val, JK_UID), j_find_ref(val, JK_IP_EXT),
+		ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(val, JK_IP_EXT),
 					j_find_ref(val, JK_IP_INT), j_find_ref(val, JK_NAME));
 	}
 	printf("%s\n", ft_to_string(table));
@@ -487,7 +486,7 @@ static int mp_shell_get_remote_ports()
 		json_t *port;
 		host_ports = j_find_j(val, "ports");
 		json_array_foreach(host_ports, index, port) {
-			ft_write_ln(table, j_find_ref(val, JK_UID), j_find_ref(port, JK_PORT_EXT),
+			ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(port, JK_PORT_EXT),
 						j_find_ref(port, JK_PORT_INT), j_find_ref(port, JK_PROTOCOL));
 		}
 	}
@@ -579,13 +578,13 @@ int main(int argc, char *argv[])
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'u': /* UID of remote machine */
-			rc = j_add_str(args, JK_UID, optarg);
+			rc = j_add_str(args, JK_UID_DST, optarg);
 			TESTI(rc, EBAD);
 			break;
 		case 's': /* OPen ssh channel for communication */
 			rc = j_add_str(args, JK_TYPE, JV_TYPE_SSH);
 			TESTI(rc, EBAD);
-			rc = j_add_str(args, JK_UID, optarg);
+			rc = j_add_str(args, JK_UID_DST, optarg);
 			TESTI(rc, EBAD);
 			break;
 		case 'p': /* Protocol to use for port opening (-o command) */

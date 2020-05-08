@@ -33,10 +33,16 @@ err:
 	return (buf);
 }
 
-/* Last well sended by server on the client disconnect to all other listeners  */
-buf_t *mp_requests_build_last_will(const char *uid, const char *name)
+/* Last well sent by server on the client disconnect to all other listeners  */
+buf_t *mp_requests_build_last_will()
 {
+	const char *name;
+	const char *uid_me;
 	buf_t *buf = NULL;
+	control_t *ctl = ctl_get();
+
+	name = j_find_ref(ctl->me, JK_NAME);
+	uid_me = j_find_ref(ctl->me, JK_UID_ME);
 
 	TESTP_MES(name, NULL, "Got NULL");
 
@@ -46,7 +52,7 @@ buf_t *mp_requests_build_last_will(const char *uid, const char *name)
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECT)) goto err;
 	/* SEB: TODO: Whay exactly do I send the machine name to remote? */
 	if (EOK != j_add_str(root, JK_NAME, name)) goto err;
-	if (EOK != j_add_str(root, JK_UID, uid)) goto err;
+	if (EOK != j_add_str(root, JK_UID_SRC, uid_me)) goto err;
 
 	buf = j_2buf(root);
 
@@ -60,10 +66,15 @@ err:
 }
 
 /* Reveal request: ask all my clients to send information */
-buf_t *mp_requests_build_reveal(const char *uid, const char *name)
+buf_t *mp_requests_build_reveal()
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;
+	const char *uid;
+	const char *name;
+	control_t *ctl = ctl_get();
+	name = j_find_ref(ctl->me, JK_NAME);
+	uid = j_find_ref(ctl->me, JK_UID_ME);
 
 	TESTP_MES(name, NULL, "Got NULL");
 
@@ -71,8 +82,7 @@ buf_t *mp_requests_build_reveal(const char *uid, const char *name)
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) goto err;
-	//if (EOK != j_add_str(root, JK_NAME, name)) goto err;
-	if (EOK != j_add_str(root, JK_UID, uid)) goto err;
+	if (EOK != j_add_str(root, JK_UID_SRC, uid)) goto err;
 
 	buf = j_2buf(root);
 

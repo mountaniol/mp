@@ -39,6 +39,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 {
 	json_t *root = NULL;
 	const char *ticket = NULL;
+	const char *uid = NULL;
 	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
@@ -67,6 +68,10 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	TESTI(rc, EBAD);
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI(rc, EBAD);
+
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
+	TESTI(rc, EBAD);
+
 
 	if (NULL != comment) {
 		rc = j_add_str(root, JK_REASON, comment);
@@ -116,15 +121,15 @@ static int mp_main_save_tickets(json_t *root)
 static int mp_main_remove_host_l(json_t *root)
 {
 	control_t *ctl = NULL;
-	char *uid = NULL;
+	char *uid_src = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
-	uid = j_find_dup(root, JK_UID);
-	TESTP_MES(uid, EBAD, "Can't extract uid from json\n");
+	uid_src = j_find_dup(root, JK_UID_SRC);
+	TESTP_MES(uid_src, EBAD, "Can't extract uid from json\n");
 
 	ctl = ctl_get_locked();
-	rc = j_rm_key(ctl->hosts, uid);
+	rc = j_rm_key(ctl->hosts, uid_src);
 	ctl_unlock(ctl);
 	TESTI_MES(rc, EBAD, "Cant remove key from ctl->hosts");
 	return (EOK);
@@ -288,12 +293,12 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
 
 		/* Find uid of this remote host */
-		const char *_uid = j_find_ref(root, JK_UID);
-		TESTP(_uid, EBAD);
+		const char *uid_src = j_find_ref(root, JK_UID_SRC);
+		TESTP(uid_src, EBAD);
 		/* Is this host already in the list? Just for information */
 
 		ctl_lock(ctl);
-		rc = j_replace(ctl->hosts, _uid, root);
+		rc = j_replace(ctl->hosts, uid_src, root);
 		ctl_unlock(ctl);
 		return (rc);
 	}
@@ -328,7 +333,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 
 
 	/** All mesages except above should be dedicated to us ***/
-	if (EOK != j_test(root, JK_DEST, j_find_ref(ctl->me, JK_UID))) {
+	if (EOK != j_test(root, JK_DEST, j_find_ref(ctl->me, JK_UID_ME))) {
 		rc = 0;
 		goto end;
 	}
@@ -618,16 +623,16 @@ static void *mp_main_mosq_thread(void *arg)
 
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 	snprintf(personal_topic, TOPIC_MAX_LEN, "users/%s/personal/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 	ctl_unlock(ctl);
 
 	DD("Creating mosquitto client.. ");
 	ctl_lock(ctl);
-	ctl->mosq = mosquitto_new(j_find_ref(ctl->me, JK_UID), true,
-							  (void *)j_find_ref(ctl->me, JK_UID));
+	ctl->mosq = mosquitto_new(j_find_ref(ctl->me, JK_UID_ME), true,
+							  (void *)j_find_ref(ctl->me, JK_UID_ME));
 	ctl_unlock(ctl);
 	DD("Done\n");
 
@@ -669,7 +674,7 @@ static void *mp_main_mosq_thread(void *arg)
 
 	DD("Setting last will.. ");
 	ctl_lock(ctl);
-	buf = mp_requests_build_last_will(j_find_ref(ctl->me, JK_UID), j_find_ref(ctl->me, JK_NAME));
+	buf = mp_requests_build_last_will();
 	ctl_unlock(ctl);
 
 	TESTP_MES(buf, NULL, "Can't build last will");
@@ -705,7 +710,7 @@ static void *mp_main_mosq_thread(void *arg)
 	DD("Done\n");
 
 	ctl_lock(ctl);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/private/%s", clientid, j_find_ref(ctl->me, JK_UID));
+	snprintf(topic, TOPIC_MAX_LEN, "users/%s/private/%s", clientid, j_find_ref(ctl->me, JK_UID_ME));
 	ctl_unlock(ctl);
 
 	DD("Subscribing to topic 2.. ");
@@ -810,7 +815,7 @@ static int mp_main_print_info_banner()
 	printf("Local IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_INT), j_find_ref(ctl->me, JK_PORT_INT));
 	printf("Name of comp:\t%s\n", j_find_ref(ctl->me, JK_NAME));
 	printf("Name of user:\t%s\n", j_find_ref(ctl->me, JK_USER));
-	printf("UID of user:\t%s\n", j_find_ref(ctl->me, JK_UID));
+	printf("UID of user:\t%s\n", j_find_ref(ctl->me, JK_UID_ME));
 	printf("=======================================\n");
 	return (EOK);
 }
@@ -862,12 +867,12 @@ int mp_main_complete_me_init(void)
 		TESTI_MES(rc, EBAD, "Could not add string for 'name'\n");
 	}
 
-	if (EOK != j_test_key(ctl->me, JK_UID)) {
+	if (EOK != j_test_key(ctl->me, JK_UID_ME)) {
 		var = mp_os_generate_uid(j_find_ref(ctl->me, JK_USER));
 		TESTP(var, EBAD);
 		TESTI_MES(rc, EBAD, "Can't generate UID\n");
 
-		rc = j_add_str(ctl->me, JK_UID, var);
+		rc = j_add_str(ctl->me, JK_UID_ME, var);
 		TESTI_MES(rc, EBAD, "Can't add JK_UID into etcl->me");
 	}
 
@@ -886,7 +891,7 @@ int mp_main_complete_me_init(void)
 		TESTI_MES(rc, EBAD, "Can't add JK_BRIDGE");
 	}
 
-	printf("UID: %s\n", j_find_ref(ctl->me, JK_UID));
+	printf("UID: %s\n", j_find_ref(ctl->me, JK_UID_ME));
 	return (EOK);
 }
 

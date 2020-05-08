@@ -209,8 +209,8 @@ int mp_config_from_ctl(void *_ctl)
 
 	TESTP(ctl->config, EBAD);
 
-	rc = j_cp(ctl->me, ctl->config, JK_UID);
-	TESTI_MES(rc, EBAD, "Can't copy JK_UID");
+	rc = j_cp(ctl->me, ctl->config, JK_UID_ME);
+	TESTI_MES(rc, EBAD, "Can't copy JK_UID_ME");
 
 	rc = j_cp(ctl->me, ctl->config, JK_NAME);
 	TESTI_MES(rc, EBAD, "Can't copy JK_NAME");

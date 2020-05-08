@@ -134,7 +134,7 @@ int send_keepalive_l(struct mosquitto *mosq)
 	ctl_lock(ctl);
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
 	buf = mp_requests_build_keepalive();
 	ctl_unlock(ctl);
@@ -181,10 +181,9 @@ int send_reveal_l(struct mosquitto *mosq)
 	ctl = ctl_get_locked();
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
-	buf = mp_requests_build_reveal(j_find_ref(ctl->me, JK_UID),
-								   j_find_ref(ctl->me, JK_NAME));
+	buf = mp_requests_build_reveal();
 	ctl_unlock(ctl);
 
 	TESTP_MES(buf, EBAD, "Can't build notification");
@@ -211,7 +210,7 @@ int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
 
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -239,7 +238,7 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
 	DDD("Going to build request\n");
 	buf = mp_requests_open_port(target_uid, port, protocol);
@@ -267,7 +266,7 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
 	DDD("Going to build request\n");
 	buf = mp_requests_close_port(target_uid, port, protocol);
@@ -295,7 +294,7 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	ticket = j_find_ref(root, JK_TICKET);
 	TESTP(ticket, EBAD);
-	target_uid = j_find_ref(root, JK_UID);
+	target_uid = j_find_ref(root, JK_UID_SRC);
 	TESTP(target_uid, EBAD);
 
 	ctl = ctl_get();
@@ -307,7 +306,7 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
 			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID));
+			 j_find_ref(ctl->me, JK_UID_ME));
 
 	resp = j_arr();
 	TESTP(resp, EBAD);
