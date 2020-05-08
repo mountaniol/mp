@@ -255,7 +255,8 @@ static json_t *mp_cli_parse_command(json_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
 
-	DD("Found '%s' command\n", j_find_ref(root, JK_TYPE));
+	DD("Found '%s' type\n", j_find_ref(root, JK_TYPE));
+	DD("Found '%s' command\n", j_find_ref(root, JK_COMMAND));
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_ME)) {
 		return (mp_cli_get_self_info_l());
