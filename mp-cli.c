@@ -26,6 +26,25 @@ static json_t *mp_cli_get_self_info_l()
 	return (j_dup(ctl->me));
 }
 
+static json_t *mp_cli_get_tickets()
+{
+	control_t *ctl = NULL;
+	json_t *resp;
+	json_t *ports;
+	DDD("Starting\n");
+
+	ctl = ctl_get_locked();
+	ports = j_find_j(ctl->me, "ports");
+	if (NULL == ports) {
+		DE("Can't extract array 'ports'\n");
+		ctl_unlock(ctl);
+		return (NULL);
+	}
+	resp = j_dup(ports);
+	ctl_unlock(ctl);
+	return (resp);
+}
+
 static json_t *mp_cli_get_ports_l()
 {
 	control_t *ctl = NULL;
@@ -250,8 +269,8 @@ static json_t *mp_cli_parse_command(json_t *root)
 	}
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
-		DD("Found 'SSH' command\n");
-		return (mp_cli_ssh_forward(root));
+		DD("Found 'JV_TYPE_TICKET' command\n");
+		return (root);
 	}
 	
 	return (NULL);
