@@ -98,7 +98,9 @@ json_t *execute_requiest(json_t *root)
 	DDD("Received : %ld bytes\n", rc);
 
 	buffer[rc] = '\0';
-	if (sd != -1) close(sd);
+	if (sd != -1) {
+		close(sd);
+	}
 	return (j_str2j(buffer));
 }
 
@@ -168,11 +170,12 @@ static int mp_shell_ask_openport(json_t *args)
 	TESTI_MES_GO(rc, err, "Can't add JK_TICKET, ticket");
 
 	do {
-		DD("starting: getting tickets");
+		DD("starting: getting tickets\n");
 		if (resp) {
 			rc = j_rm(resp);
 			TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 		}
+		j_print(root, "Sending ticket request");
 		resp = execute_requiest(root);
 		j_print(resp, "ticket responce");
 		sleep(1);
