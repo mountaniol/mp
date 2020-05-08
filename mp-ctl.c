@@ -28,10 +28,13 @@ int ctl_allocate_init(void)
 
 	g_ctl->buffers = j_new();
 	TESTP_MES(g_ctl->buffers, -1, "Can't allocate json object");
-	
-	g_ctl->tickets = j_arr();
-	TESTP(g_ctl->tickets, -1);
 
+	g_ctl->tickets_out = j_arr();
+	TESTP(g_ctl->tickets_out, -1);
+
+	g_ctl->tickets_in = j_arr();
+	TESTP(g_ctl->tickets_out, -1);
+	
 	rc = j_add_str(g_ctl->me, JK_TYPE, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't JK_TYPE = JV_TYPE_ME");
 

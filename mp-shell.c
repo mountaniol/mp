@@ -104,6 +104,52 @@ json_t *execute_requiest(json_t *root)
 	return (j_str2j(buffer));
 }
 
+static int mp_shell_watch_ticket(const char *ticket)
+{
+	json_t *ticket_req = NULL;
+	json_t *ticket_resp = NULL;
+	json_t *resp = NULL;
+	int rc;
+
+	TESTP(ticket, EBAD);
+
+	ticket_req = j_new();
+	TESTP(ticket_req, EBAD);
+
+	ticket_resp = j_new();
+	TESTP(ticket_resp, EBAD);
+
+	/* Now construct "give me my tickets" request and send it until received final ticket,
+	   which is JV_STATUS_FAIL or JV_STATUS_SUCCESS */
+	rc = j_add_str(ticket_req, JK_COMMAND, JV_TYPE_TICKET_REQ);
+	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_TICKET");
+	rc = j_add_str(ticket_req, JK_TYPE, JV_TYPE_TICKET_REQ);
+	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
+	rc = j_add_str(ticket_req, JK_TICKET, ticket);
+	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
+
+	rc = j_add_str(ticket_resp, JK_COMMAND, JV_TYPE_TICKET_RESP);
+	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_TICKET");
+	rc = j_add_str(ticket_resp, JK_TYPE, JV_TYPE_TICKET_REQ);
+	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
+	rc = j_add_str(ticket_resp, JK_TICKET, ticket);
+	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
+	
+	do {
+		if (resp) j_rm(resp);
+		DD("starting: getting tickets\n");
+		j_print(ticket_req, "Sending ticket request");
+		resp = execute_requiest(ticket_req);
+		/* TODO: test answer */
+		if (resp) j_rm(resp);
+		sleep(1);
+		resp = execute_requiest(ticket_resp);
+		j_print(resp, "ticket responce");
+	} while (EOK != j_test(resp, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(resp, JK_STATUS, JV_STATUS_SUCCESS));
+
+	return EOK;
+}
+
 static int mp_shell_ask_openport(json_t *args)
 {
 	int rc = EBAD;
@@ -162,24 +208,7 @@ static int mp_shell_ask_openport(json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	rc = j_add_str(root, JK_COMMAND, JV_TYPE_TICKET);
-	TESTI_MES_GO(rc, err, "Can't add JK_COMMAND, JV_TYPE_TICKET");
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
-	TESTI_MES_GO(rc, err, "Can't add JK_TYPE, JV_TYPE_TICKET");
-	rc = j_add_str(root, JK_TICKET, ticket);
-	TESTI_MES_GO(rc, err, "Can't add JK_TICKET, ticket");
-
-	do {
-		DD("starting: getting tickets\n");
-		if (resp) {
-			rc = j_rm(resp);
-			TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
-		}
-		j_print(root, "Sending ticket request");
-		resp = execute_requiest(root);
-		j_print(resp, "ticket responce");
-		sleep(1);
-	} while (EOK != j_test(root, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(root, JK_STATUS, JV_STATUS_SUCCESS));
+	return (mp_shell_watch_ticket(ticket));
 
 	rc = EOK;
 
@@ -265,7 +294,7 @@ static int mp_shell_get_info()
 	ft_table_t *table = NULL;
 	int rc;
 
-	TESTP(root, EBAD); 
+	TESTP(root, EBAD);
 
 	rc = j_add_str(root, JK_COMMAND, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_ME");

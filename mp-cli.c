@@ -26,22 +26,52 @@ static json_t *mp_cli_get_self_info_l()
 	return (j_dup(ctl->me));
 }
 
-static json_t *mp_cli_get_tickets()
+static json_t *mp_cli_get_received_tickets(json_t *root)
 {
-	control_t *ctl = NULL;
-	json_t *resp;
-	json_t *ports;
+	control_t *ctl;
+	json_t *arr;
+	json_t *val;
+	int index;
+	const char *ticket;
 	DDD("Starting\n");
+	//int rc;
+
+	ticket = j_find_ref(root, JK_TICKET);
+	TESTP(ticket, NULL);
+
+	arr = j_arr();
+	TESTP(arr, NULL);
 
 	ctl = ctl_get_locked();
-	ports = j_find_j(ctl->me, "ports");
-	if (NULL == ports) {
-		DE("Can't extract array 'ports'\n");
-		ctl_unlock(ctl);
-		return (NULL);
+
+	json_array_foreach(ctl->tickets_in, index, val) {
+		if (j_test(val, JK_TICKET, ticket)) {
+			json_t * copied = j_dup(val);
+			j_arr_add(arr, copied);
+			json_array_remove(ctl->tickets_in, index);
+		}
 	}
-	resp = j_dup(ports);
-	ctl_unlock(ctl);
+
+	return (arr);
+}
+
+static json_t *mp_cli_send_ticket_req(json_t *root)
+{
+	control_t *ctl = ctl_get();
+	json_t *resp;
+	//json_t *ports;
+	int rc;
+
+	DDD("Starting\n");
+
+	rc = send_request_return_tickets(ctl->mosq, root);
+	resp = j_new();
+	if (0 == rc) {
+		j_add_str(resp, JK_STATUS, JV_OK);
+	} else {
+		j_add_str(resp, JK_STATUS, JV_BAD);
+	}
+
 	return (resp);
 }
 
@@ -256,7 +286,6 @@ static json_t *mp_cli_parse_command(json_t *root)
 		return (mp_cli_closeport_l(root));
 	}
 
-
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_PORTS)) {
 		DD("Found 'ports' command\n");
 		return (mp_cli_get_ports_l());
@@ -268,11 +297,15 @@ static json_t *mp_cli_parse_command(json_t *root)
 		return (mp_cli_ssh_forward(root));
 	}
 
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
-		DD("Found 'JV_TYPE_TICKET' command\n");
-		return (j_dup(root));
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
+		DD("Found 'JV_TYPE_TICKET_REQ' command\n");
+		return (mp_cli_send_ticket_req(root));
 	}
-	
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
+		DD("Found 'JV_TYPE_TICKET_REQ' command\n");
+		return (mp_cli_get_received_tickets(root));
+	}
+
 	return (NULL);
 }
 

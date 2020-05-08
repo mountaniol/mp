@@ -300,7 +300,7 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	ctl = ctl_get();
 
-	if (j_count(ctl->tickets) == 1) {
+	if (j_count(ctl->tickets_out) == 1) {
 		DD("No tickets to send\n");
 		return (EOK);
 	}
@@ -312,7 +312,7 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 	resp = j_arr();
 	TESTP(resp, EBAD);
 
-	json_array_foreach(ctl->tickets, index, val) {
+	json_array_foreach(ctl->tickets_out, index, val) {
 		if (EOK == j_test(val, JK_TICKET, ticket)) {
 			rc = j_arr_add(resp, val);
 			TESTI_MES(rc, EBAD, "Can't add ticket to responce");
@@ -320,7 +320,6 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 	}
 
 	/* Build responce */
-
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
 	rc = mp_communicate_send_json(mosq, forum_topic, resp);

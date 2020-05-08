@@ -61,7 +61,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	root = j_new();
 	TESTP(root, EBAD);
 
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
 	TESTI(rc, EBAD);
 	rc = j_add_str(root, JK_TICKET, ticket);
 	TESTI(rc, EBAD);
@@ -88,14 +88,29 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 
 	ctl = ctl_get_locked();
 	DD("Going to add ticket to tickets\n");
-	rc = j_arr_add(ctl->tickets, root);
+	rc = j_arr_add(ctl->tickets_out, root);
 	TESTI_MES(rc, EBAD, "Can't add ticket to array");
 
 	DD("Added ticket to tickets\n");
 	ctl_unlock(ctl);
 
-	j_print(ctl->tickets, "ctl->tickets");
+	j_print(ctl->tickets_out, "ctl->tickets");
 	return (rc);
+}
+
+static int mp_main_save_tickets(json_t *root)
+{
+	int index;
+	json_t *ticket;
+	control_t *ctl;
+	TESTP(root, EBAD);
+
+	ctl = ctl_get_locked();
+	json_array_foreach(root, index, ticket) {
+		j_arr_add(ctl->tickets_in, ticket);
+	}
+	ctl_unlock(ctl);
+	return EOK;
 }
 
 static int mp_main_remove_host_l(json_t *root)
@@ -122,7 +137,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *mapping = NULL;
 	const char *asked_port = NULL;
 	const char *protocol = NULL;
-	const char *ticket = NULL;
+	//const char *ticket = NULL;
 	//port_t *port = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
@@ -343,7 +358,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
 		}
 
-		j_print(ctl->tickets, "After opening port: tickets: ");
+		j_print(ctl->tickets_out, "After opening port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -367,7 +382,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 		}
 
-		j_print(ctl->tickets, "After closing port: tickets: ");
+		j_print(ctl->tickets_out, "After closing port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -379,7 +394,7 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	 * The user asks for his tickets 
 	 */
 
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		DD("Got 'closeport' request\n");
 
 		/* 
@@ -396,6 +411,26 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
 	}
+
+	/* We received a ticket responce. We should keep it localy until shell client grab it */
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
+	 DD("Got 'closeport' request\n");
+
+	 /* 
+	  * When the port opened, it added ctl global control_t structure 
+	  * We don't need to know what port exactly opened, 
+	  * we just send update to all listeners
+	  */
+
+	 /*** TODO: SEB: Send update to all */
+	 if (EOK == rc) {
+		 mp_main_save_tickets(root);
+	 }
+
+	 /*** TODO: SEB: After keepalive send report of "openport" is finished */
+	 goto end;
+ }
+
 
 	/*** Message "ssh-done" ***/
 	/*

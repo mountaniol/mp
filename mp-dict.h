@@ -116,7 +116,8 @@
 #define JV_TYPE_CLOSEPORT "closeport"
 #define JV_TYPE_KEEPALIVE "keepelive"
 /* Ask for tickets. Ticket ID is in JK_TICKET */
-#define JV_TYPE_TICKET "ticket-type"
+#define JV_TYPE_TICKET_REQ  "ticket-type-req"
+#define JV_TYPE_TICKET_RESP "ticket-type-resp"
 
 /* These used between mp-shell and mp-cli */
 #define JV_COMMAND_LIST "list"	/* list remote hosts */
