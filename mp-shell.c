@@ -95,7 +95,7 @@ json_t *execute_requiest(json_t *root)
 		return (NULL);
 	}
 
-	DDD("Received\n");;
+	DDD("Received : %ld bytes\n", rc);
 
 	buffer[rc] = '\0';
 	if (sd != -1) close(sd);
