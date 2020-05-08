@@ -151,17 +151,21 @@ static int mp_shell_ask_openport(json_t *args)
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = execute_requiest(root);
 	j_rm(root);
-	TESTP_GO(resp, err);
+	TESTP_MES_GO GO(resp, err, "Responce is NULL\n");
 
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
 	root = j_new();
+	j_add_str(root, JK_COMMAND, JV_TYPE_TICKET);
 	j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
 	j_add_str(root, JK_TICKET, ticket);
+
 	do {
+		if (resp) j_rm(resp);
 		resp = execute_requiest(root);
 		j_print(resp, "ticket responce");
+		sleep(1);
 	} while (EOK != j_test(root, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(root, JK_STATUS, JV_STATUS_SUCCESS));
 
 	rc = EOK;
