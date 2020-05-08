@@ -17,7 +17,6 @@
 	TESTP_MES(user_remote, NULL, "Got NULL");
 
 	json_t *root = j_new();
-
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_CONNECT)) goto err;
@@ -28,7 +27,9 @@
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		if (EOK != j_rm(root)) DE("Couldn't remove json object\n");
+	}
 	return (buf);
 }
 
@@ -40,7 +41,6 @@ buf_t *mp_requests_build_last_will(const char *uid, const char *name)
 	TESTP_MES(name, NULL, "Got NULL");
 
 	json_t *root = j_new();
-
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECT)) goto err;
@@ -51,7 +51,10 @@ buf_t *mp_requests_build_last_will(const char *uid, const char *name)
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object");
+	}
 	if (NULL == buf) DE("Returning NULL lastwill\n");
 	return (buf);
 }
@@ -74,7 +77,10 @@ buf_t *mp_requests_build_reveal(const char *uid, const char *name)
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -84,7 +90,6 @@ err:
 {
 	buf_t *buf = NULL;
 	json_t *root = j_new();
-
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	/* Type of the message */
@@ -97,7 +102,10 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -107,7 +115,6 @@ err:
 {
 	buf_t *buf = NULL;
 	json_t *root = j_new();
-
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	/* Type of the message */
@@ -123,7 +130,10 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -157,7 +167,10 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -171,7 +184,7 @@ err:
 
 	root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
-	
+
 	/* Type of the message */
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_SSHR_DONE)) goto err;
 	/* To whom */
@@ -185,7 +198,10 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -217,7 +233,10 @@ buf_t *mp_requests_open_port(const char *uid, const char *port, const char *prot
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 
@@ -241,7 +260,10 @@ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *pro
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) j_rm(root);
+	if (NULL != root) {
+		int rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+	}
 	return (buf);
 }
 

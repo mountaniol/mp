@@ -150,19 +150,29 @@ static int mp_shell_ask_openport(json_t *args)
 
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = execute_requiest(root);
-	j_rm(root);
 	TESTP_MES_GO(resp, err, "Responce is NULL\n");
+	rc = j_rm(root);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
 	root = j_new();
-	j_add_str(root, JK_COMMAND, JV_TYPE_TICKET);
-	j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
-	j_add_str(root, JK_TICKET, ticket);
+	TESTP(root, EBAD);
+
+	rc = j_add_str(root, JK_COMMAND, JV_TYPE_TICKET);
+	TESTI_MES_GO(rc, err, "Can't add JK_COMMAND, JV_TYPE_TICKET");
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
+	TESTI_MES_GO(rc, err, "Can't add JK_TYPE, JV_TYPE_TICKET");
+	rc = j_add_str(root, JK_TICKET, ticket);
+	TESTI_MES_GO(rc, err, "Can't add JK_TICKET, ticket");
 
 	do {
-		if (resp) j_rm(resp);
+		DD("starting: getting tickets");
+		if (resp) {
+			rc = j_rm(resp);
+			TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+		}
 		resp = execute_requiest(root);
 		j_print(resp, "ticket responce");
 		sleep(1);
@@ -172,8 +182,14 @@ static int mp_shell_ask_openport(json_t *args)
 
 	/* Now receive tickets until requiest not done */
 err:
-	if (root) j_rm(root);
-	if (resp) j_rm(resp);
+	if (root) {
+		rc = j_rm(root);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	}
+	if (resp) {
+		rc = j_rm(resp);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+	}
 	return (rc);
 }
 
@@ -221,14 +237,21 @@ static int mp_shell_ask_closeport(json_t *args)
 
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = execute_requiest(root);
-	j_rm(root);
 	TESTP_GO(resp, err);
+	rc = j_rm(root);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
 err:
-	if (root) j_rm(root);
-	if (resp) j_rm(resp);
+	if (root) {
+		rc = j_rm(root);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	}
+	if (resp) {
+		rc = j_rm(resp);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+	}
 	return (rc);
 }
 
@@ -237,8 +260,12 @@ static int mp_shell_get_info()
 	json_t *root = j_new();
 	json_t *resp = NULL;
 	ft_table_t *table = NULL;
+	int rc;
 
-	j_add_str(root, JK_COMMAND, JV_TYPE_ME);
+	TESTP(root, EBAD); 
+
+	rc = j_add_str(root, JK_COMMAND, JV_TYPE_ME);
+	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_ME");
 	resp = execute_requiest(root);
 	if (NULL == resp) {
 		printf("An error: can't bring information\n");
@@ -256,7 +283,8 @@ static int mp_shell_get_info()
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
-	j_rm(resp);
+	rc = j_rm(resp);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
 
 	return (EOK);
 }
@@ -265,10 +293,15 @@ static int mp_shell_ssh(json_t *args)
 {
 	json_t *root = j_new();
 	json_t *resp = NULL;
+	int rc;
 	//ft_table_t *table = NULL;
 
-	j_add_str(root, JK_TYPE, JV_TYPE_SSH);
-	j_cp(args, root, JK_UID);
+	TESTP(root, EBAD);
+
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_SSH);
+	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_SSH");
+	rc = j_cp(args, root, JK_UID);
+	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
 	j_print(root, "Sending SSH command\n");
 	resp = execute_requiest(root);
 	if (NULL == resp) {
@@ -276,7 +309,8 @@ static int mp_shell_ssh(json_t *args)
 		return (EBAD);
 	}
 
-	j_rm(resp);
+	rc = j_rm(resp);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
 	return (EOK);
 }
 
@@ -287,6 +321,7 @@ static int mp_shell_get_hosts()
 	const char *key;
 	json_t *val = NULL;
 	ft_table_t *table = NULL;
+	int rc;
 
 	TESTP_MES(root, -1, "Can't allocate JSON object\n");
 	if (EOK != j_add_str(root, JK_COMMAND, JV_COMMAND_LIST)) {
@@ -295,11 +330,13 @@ static int mp_shell_get_hosts()
 	}
 
 	resp = execute_requiest(root);
-	j_rm(root);
+	rc = j_rm(root);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
 	if (NULL == resp || 0 == j_count(resp)) {
 		printf("No host in the list\n");
-		j_rm(resp);
+		rc = j_rm(resp);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'rest'\n");
 		return (0);
 	}
 
@@ -328,6 +365,7 @@ static int mp_shell_get_ports()
 	size_t index = 0;
 	json_t *val = NULL;
 	ft_table_t *table = NULL;
+	int rc;
 
 	TESTP_MES(root, -1, "Can't allocate JSON object\n");
 	if (EOK != j_add_str(root, JK_COMMAND, JV_COMMAND_PORTS)) {
@@ -336,11 +374,13 @@ static int mp_shell_get_ports()
 	}
 
 	resp = execute_requiest(root);
-	j_rm(root);
+	rc = j_rm(root);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
 	if (NULL == resp || 0 == json_array_size(resp)) {
 		printf("No mapped ports\n");
-		j_rm(resp);
+		rc = j_rm(resp);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
 		return (0);
 	}
 
@@ -371,6 +411,7 @@ static int mp_shell_get_remote_ports()
 	const char *key;
 	json_t *val = NULL;
 	ft_table_t *table = NULL;
+	int rc;
 
 	D("Start\n");
 
@@ -381,11 +422,13 @@ static int mp_shell_get_remote_ports()
 	}
 
 	resp = execute_requiest(root);
-	j_rm(root);
+	rc = j_rm(root);
+	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
 	if (NULL == resp || 0 == j_count(resp)) {
 		printf("No host in the list\n");
-		j_rm(resp);
+		rc = j_rm(resp);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
 		return (0);
 	}
 
@@ -470,38 +513,51 @@ int main(int argc, char *argv[])
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
 	while ((opt = getopt(argc, argv, ":limro:u:s:p:x:c:h")) != -1) {
+		int rc;
 		switch (opt) {
 		case 'i': /* Show this machine info */
-			j_add_str(args, JK_SHOW_INFO, JV_YES);
+			rc = j_add_str(args, JK_SHOW_INFO, JV_YES);
+			TESTI(rc, EBAD);
 			break;
 		case 'l': /* Show remote hosts */
-			j_add_str(args, JK_SHOW_HOSTS, JV_YES);
+			rc = j_add_str(args, JK_SHOW_HOSTS, JV_YES);
+			TESTI(rc, EBAD);
 			break;
 		case 'o': /* Open port comand (open the port on remote machine UID */
-			j_add_str(args, JK_TYPE, JV_TYPE_OPENPORT);
-			j_add_str(args, JK_PORT_INT, optarg);
+			rc = j_add_str(args, JK_TYPE, JV_TYPE_OPENPORT);
+			TESTI(rc, EBAD);
+			rc = j_add_str(args, JK_PORT_INT, optarg);
+			TESTI(rc, EBAD);
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'c': /* Close port comand (open the port on remote machine UID */
-			j_add_str(args, JK_TYPE, JV_TYPE_CLOSEPORT);
-			j_add_str(args, JK_PORT_INT, optarg);
+			rc = j_add_str(args, JK_TYPE, JV_TYPE_CLOSEPORT);
+			TESTI(rc, EBAD);
+			rc = j_add_str(args, JK_PORT_INT, optarg);
+			TESTI(rc, EBAD);
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'u': /* UID of remote machine */
-			j_add_str(args, JK_UID, optarg);
+			rc = j_add_str(args, JK_UID, optarg);
+			TESTI(rc, EBAD);
 			break;
 		case 's': /* OPen ssh channel for communication */
-			j_add_str(args, JK_TYPE, JV_TYPE_SSH);
-			j_add_str(args, JK_UID, optarg);
+			rc = j_add_str(args, JK_TYPE, JV_TYPE_SSH);
+			TESTI(rc, EBAD);
+			rc = j_add_str(args, JK_UID, optarg);
+			TESTI(rc, EBAD);
 			break;
 		case 'p': /* Protocol to use for port opening (-o command) */
-			j_add_str(args, JK_PROTOCOL, optarg);
+			rc = j_add_str(args, JK_PROTOCOL, optarg);
+			TESTI(rc, EBAD);
 			break;
 		case 'm': /* Show ports mapped on this machine */
-			j_add_str(args, JK_SHOW_PORTS, JV_YES);
+			rc = j_add_str(args, JK_SHOW_PORTS, JV_YES);
+			TESTI(rc, EBAD);
 			break;
 		case 'r': /* TODO: Show ports mapped on a remote machine (if UID given) / on all remotes (if UID is not specified) */
-			j_add_str(args, JK_SHOW_RPORTS, JV_YES);
+			rc = j_add_str(args, JK_SHOW_RPORTS, JV_YES);
+			TESTI(rc, EBAD);
 			break;
 		case 'h': /* Print help */
 			mp_shell_usage(argv[0]);

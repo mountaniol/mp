@@ -20,6 +20,7 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 	size_t ret;
 	char *buf_counter_s;
 	control_t *ctl;
+	int rc;
 
 	if (counter < 0) {
 		DE("Bad counter: %d\n", counter);
@@ -47,7 +48,10 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 
 	DD("Got ret: %ld / %lx\n", ret, ret);
 	buf_p = (buf_t *)ret;
-	j_rm_key(ctl->buffers, buf_counter_s);
+	rc = j_rm_key(ctl->buffers, buf_counter_s);
+	if (EOK != rc) {
+		DE("Can't remove key from json: ctl->buffers, buf_counter_s");
+	}
 	free(buf_counter_s);
 	return (buf_p);
 }
@@ -60,6 +64,7 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 {
 	char *buf_counter_s;
 	control_t *ctl;
+	int rc;
 
 	TESTP(buf, EBAD);
 	if (counter < 0) {
@@ -77,7 +82,8 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	/* Transfor counter to key (string) */
 	snprintf(buf_counter_s, 32, "%d", counter);
 
-	j_add_int(ctl->buffers, buf_counter_s, (size_t) buf);
+	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t) buf);
+	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf");
 	free(buf_counter_s);
 
 	return (EOK);
@@ -308,7 +314,8 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	json_array_foreach(ctl->tickets, index, val) {
 		if (EOK == j_test(val, JK_TICKET, ticket)) {
-			j_arr_add(resp, val);
+			rc = j_arr_add(resp, val);
+			TESTI_MES(rc, EBAD, "Can't add ticket to responce");
 		}
 	}
 
@@ -317,7 +324,8 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
 	rc = mp_communicate_send_json(mosq, forum_topic, resp);
-	j_rm(resp);
+	rc = j_rm(resp);
+	TESTI_MES(rc, EBAD, "Can't remove json object");
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }

@@ -61,19 +61,24 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	root = j_new();
 	TESTP(root, EBAD);
 
-	j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
-	j_add_str(root, JK_TICKET, ticket);
-	j_add_str(root, JK_STATUS, status);
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET);
+	TESTI(rc, EBAD);
+	rc = j_add_str(root, JK_TICKET, ticket);
+	TESTI(rc, EBAD);
+	rc = j_add_str(root, JK_STATUS, status);
+	TESTI(rc, EBAD);
 
 	if (NULL != comment) {
-		j_add_str(root, JK_REASON, comment);
+		rc = j_add_str(root, JK_REASON, comment);
+		TESTI(rc, EBAD);
 	}
 
 	/***TODO:  Add time of the ticket creation ***/
 
 	t = time(NULL);
 	if ((time_t)-1 != t) {
-		j_add_int(root, JK_TIME, t);
+		rc = j_add_int(root, JK_TIME, t);
+		TESTI_MES(rc, EBAD, "Can't add int to json: JK_TIME, t");
 	} else {
 		DE("Can't add time to ticket");
 	}
@@ -96,15 +101,17 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 static int mp_main_remove_host_l(json_t *root)
 {
 	control_t *ctl = NULL;
-	//host_t *host = NULL;
 	char *uid = NULL;
+	int rc;
+
 	TESTP(root, EBAD);
 	uid = j_find_dup(root, JK_UID);
 	TESTP_MES(uid, EBAD, "Can't extract uid from json\n");
 
 	ctl = ctl_get_locked();
-	j_rm_key(ctl->hosts, j_find_ref(root, JK_UID));
+	rc = j_rm_key(ctl->hosts, uid);
 	ctl_unlock(ctl);
+	TESTI_MES(rc, EBAD, "Cant remove key from ctl->hosts");
 	return (EOK);
 }
 
@@ -120,6 +127,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *val = NULL;
 	json_t *ports = NULL;
 	int index = 0;
+	int rc;
 
 	TESTP(root, EBAD);
 
@@ -153,8 +161,9 @@ static int mp_main_do_open_port_l(json_t *root)
 		   j_find_ref(mapping, JK_PORT_EXT), j_find_ref(mapping, JK_PORT_INT), j_find_ref(mapping, JK_PROTOCOL));
 		/* Add this mapping to table */
 		ctl_lock(ctl);
-		j_arr_add(ports, mapping);
+		rc = j_arr_add(ports, mapping);
 		ctl_unlock(ctl);
+		TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 		return (EOK);
 	}
 
@@ -165,8 +174,9 @@ static int mp_main_do_open_port_l(json_t *root)
 	/* Ok, port mapped. Now we should update ctl->ports hash table */
 
 	ctl_lock(ctl);
-	j_arr_add(ports, mapping);
+	rc = j_arr_add(ports, mapping);
 	ctl_unlock(ctl);
+	TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 	return (EOK);
 }
 
@@ -245,7 +255,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	if (EOK != j_test_key(root, JK_TYPE)) {
 		DE("No type in the message\n");
 		j_print(root, "root");
-		j_rm(root);
+		rc = j_rm(root);
+		TESTI_MES(rc, EBAD, "Can't remove json object");
 		free(tp);
 		return (EBAD);
 	}
@@ -406,7 +417,10 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	if (rc) DE("Unknown type: %s\n", tp);
 
 end:
-	if (root) j_rm(root);
+	if (root) {
+		rc = j_rm(root);
+		TESTI_MES(rc, EBAD, "Can't remove json object");
+	}
 	TFREE(tp);
 	return (rc);
 }
@@ -454,7 +468,10 @@ static int mp_main_on_message_processor(struct mosquitto *mosq, void *topic_v, v
 	mosquitto_sub_topic_tokens_free(&topics, topics_count);
 	return (rc);
 err:
-	if (root) j_rm(root);
+	if (root) {
+		rc = j_rm(root);
+		TESTI_MES(rc, EBAD, "Can't remove json object");
+	}
 
 	mosquitto_sub_topic_tokens_free(&topics, topics_count);
 	return (rc);
@@ -478,6 +495,7 @@ static void connect_callback_l(struct mosquitto *mosq, void *obj __attribute__((
 static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unused)), void *data __attribute__((unused)), int reason)
 {
 	control_t *ctl = NULL;
+	int rc;
 	if (0 != reason) {
 		switch (reason) {
 		case MOSQ_ERR_NOMEM:
@@ -531,9 +549,16 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 
 	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
-	j_rm(ctl->me);
+	rc = j_rm(ctl->me);
 	ctl->me = j_new();
 	ctl_unlock(ctl);
+	if(NULL == ctl->me) {
+		DE("Can't allocate ctl->me\n");
+		return;
+	}
+	if (rc) {
+		DE("Error: couldn't remove json object ctl->me\n");
+	}
 	DDD("Exit from function\n");
 }
 
@@ -739,8 +764,12 @@ static void *mp_main_mosq_thread(void *arg)
 	ctl->mosq = NULL;
 	ctl_unlock(ctl);
 	mosquitto_lib_cleanup();
-	j_rm(ctl->hosts);
+	rc = j_rm(ctl->hosts);
 	ctl->hosts = j_new();
+	TESTP(ctl->hosts, NULL);
+	if (EOK != rc) {
+		DE("Error: couldn't remove old ctl->hosts");
+	}
 	D("Exit thread\n");
 	return (NULL);
 

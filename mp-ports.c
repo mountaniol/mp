@@ -273,9 +273,13 @@ json_t *mp_ports_remap_any(json_t *req, const char *internal_port, const char *p
 
 	/* If there was an error we try to generate some random port and map it */
 	root = j_new();
-	j_add_str(root, JK_PORT_EXT, reservedPort);
-	j_add_str(root, JK_PORT_INT, internal_port);
-	j_add_str(root, JK_PROTOCOL, protocol);
+	TESTP(root, NULL);
+	rc = j_add_str(root, JK_PORT_EXT, reservedPort);
+	TESTI_MES(rc, NULL, "Can't add JK_PORT_EXT, reservedPort");
+	rc = j_add_str(root, JK_PORT_INT, internal_port);
+	TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, internal_port");
+	rc = j_add_str(root, JK_PROTOCOL, protocol);
+	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
 	FreeUPNPUrls(&upnp_urls);
 	return (root);
 #if 0 /* SEB DEADCODE 04/05/2020 10:10  */
@@ -573,9 +577,12 @@ json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const c
 				return (NULL);
 			}
 
-			j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
-			j_add_str(mapping, JK_PORT_EXT, req->map_wan_port);
-			j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
+			rc = j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
+			TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, req->map_lan_port");
+			rc = j_add_str(mapping, JK_PORT_EXT, req->map_wan_port);
+			TESTI_MES(rc, NULL, "Can't add JK_PORT_EXT, req->map_wan_port");
+			rc = j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
+			TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, req->map_protocol");
 
 			upnp_req_str_t_free(req);
 			FreeUPNPUrls(&upnp_urls);
@@ -602,6 +609,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 	json_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
+	int rc;
 
 
 	upnp_dev = mp_ports_upnp_discover();
@@ -664,11 +672,14 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 				return (EBAD);
 			}
 
-			j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
-			j_add_str(mapping, JK_PORT_EXT, req->map_wan_port);
-			j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
-			j_arr_add(arr, mapping);
-
+			rc = j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
+			TESTI_MES(rc, EBAD, "Can't add JK_PORT_INT, req->map_lan_port");
+			rc = j_add_str(mapping, JK_PORT_EXT, req->map_wan_port);
+			TESTI_MES(rc, EBAD, "Can't add JK_PORT_EXT, req->map_wan_port");
+			rc = j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
+			TESTI_MES(rc, EBAD, "Can't add JK_PROTOCOL, req->map_protocol");
+			rc = j_arr_add(arr, mapping);
+			TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 		}
 	}
 
@@ -737,14 +748,18 @@ json_t *mp_ports_ssh_port_for_uid(const char *uid)
 			ports = j_find_j(host, "ports");
 
 			json_array_foreach(ports, index, port) {
+				int rc;
 
 				/* For now we search for intenal port 22 and protocol TCP */
 				if (EOK == j_test(port, JK_PORT_INT, "22") && EOK == j_test(port, JK_PROTOCOL, "TCP")) {
 					root = j_new();
+					TESTP(root, NULL);
 					/* We need external port */
-					j_cp(port, root, JK_PORT_EXT);
+					rc = j_cp(port, root, JK_PORT_EXT);
+					TESTI_MES(rc, NULL, "Can't add root, JK_PORT_EXT");
 					/* And IP */
-					j_cp(host, root, JK_IP_EXT);
+					rc = j_cp(host, root, JK_IP_EXT);
+					TESTI_MES(rc, NULL, "Can't add root, JK_IP_EXT");
 				} /* if */
 			} /* End of json_array_foreach */
 		}
@@ -840,8 +855,9 @@ int main(int argi, char **argc)
 
 	mapping = mp_ports_remap_any("22", "TCP");
 	if (NULL != mapping) {
-		j_rm(mapping);
-		D("Port mapped\n");
+		rc = j_rm(mapping);
+		TESTI_MES(rc, EBAD, "Can't remove json object 'mapping'\n");
+		D("Port was mapped\n");
 	} else {
 		DE("Can't map any port\n");
 	}

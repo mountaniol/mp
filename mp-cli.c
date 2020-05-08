@@ -144,6 +144,7 @@ static json_t *mp_cli_openport_l(json_t *root)
 	ctl_unlock(ctl);
 
 	resp = j_new();
+	TESTP(resp, NULL);
 
 	if (EOK == rc) {
 		if (EOK != j_add_str(resp, JK_STATUS, JV_OK)) DE("Can't add JV_OK status\n");
@@ -186,7 +187,7 @@ static json_t *mp_cli_closeport_l(json_t *root)
 	ctl_unlock(ctl);
 
 	resp = j_new();
-	TESTP_MES_GO(port, err, "Can't allocate JSON object");
+	TESTP_MES_GO(resp, err, "Can't allocate JSON object");
 
 	if (EOK == rc) {
 		if (EOK != j_add_str(resp, JK_STATUS, JV_OK)) DE("Can't add 'status'\n");
@@ -247,6 +248,11 @@ static json_t *mp_cli_parse_command(json_t *root)
 		return (mp_cli_ssh_forward(root));
 	}
 
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET)) {
+		DD("Found 'SSH' command\n");
+		return (mp_cli_ssh_forward(root));
+	}
+	
 	return (NULL);
 }
 
@@ -332,7 +338,8 @@ void *mp_cli_thread(void *arg __attribute__((unused)))
 		root_resp = mp_cli_parse_command(root);
 
 		/* That's it, we don't need request objext any more */
-		j_rm(root);
+		rc = j_rm(root);
+		TESTI_MES(rc, NULL, "Can't remove json object");
 
 		if (NULL == root_resp) {
 			DE("Can't create JSON object for respond (parse_cli_command failed)\n");
@@ -341,7 +348,8 @@ void *mp_cli_thread(void *arg __attribute__((unused)))
 
 		/* Encode response object into text buffer */
 		buft = j_2buf(root_resp);
-		j_rm(root_resp);
+		rc = j_rm(root_resp);
+		TESTI_MES(rc, NULL, "Can't remove json object");
 
 		if (NULL == buft) {
 			DE("Can't convert json to buf_t\n");
