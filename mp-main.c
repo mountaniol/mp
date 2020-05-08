@@ -110,7 +110,7 @@ static int mp_main_save_tickets(json_t *root)
 		j_arr_add(ctl->tickets_in, ticket);
 	}
 	ctl_unlock(ctl);
-	return EOK;
+	return (EOK);
 }
 
 static int mp_main_remove_host_l(json_t *root)
@@ -390,47 +390,22 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 
 
 	/*** Message "ticket" ***/
-	/*
-	 * The user asks for his tickets 
-	 */
+
+	/* The user asks for his tickets */
+	/* This command we receive from outside */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
-		DD("Got 'closeport' request\n");
-
-		/* 
-		 * When the port opened, it added ctl global control_t structure 
-		 * We don't need to know what port exactly opened, 
-		 * we just send update to all listeners
-		 */
-
-		/*** TODO: SEB: Send update to all */
-		if (EOK == rc) {
-			send_request_return_tickets(mosq, root);
-		}
-
-		/*** TODO: SEB: After keepalive send report of "openport" is finished */
+		DD("Got 'JV_TYPE_TICKET_REQ' request\n");
+		send_request_return_tickets(mosq, root);
 		goto end;
 	}
 
 	/* We received a ticket responce. We should keep it localy until shell client grab it */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
-	 DD("Got 'closeport' request\n");
-
-	 /* 
-	  * When the port opened, it added ctl global control_t structure 
-	  * We don't need to know what port exactly opened, 
-	  * we just send update to all listeners
-	  */
-
-	 /*** TODO: SEB: Send update to all */
-	 if (EOK == rc) {
-		 mp_main_save_tickets(root);
-	 }
-
-	 /*** TODO: SEB: After keepalive send report of "openport" is finished */
-	 goto end;
- }
-
+		DD("Got 'JV_TYPE_TICKET_RESP' request\n");
+		mp_main_save_tickets(root);
+		goto end;
+	}
 
 	/*** Message "ssh-done" ***/
 	/*
@@ -587,7 +562,7 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 	rc = j_rm(ctl->me);
 	ctl->me = j_new();
 	ctl_unlock(ctl);
-	if(NULL == ctl->me) {
+	if (NULL == ctl->me) {
 		DE("Can't allocate ctl->me\n");
 		return;
 	}
@@ -597,7 +572,7 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 	DDD("Exit from function\n");
 }
 
-void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)), 
+void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 						   void *data __attribute__((unused)), int buf_id)
 {
 	buf_t *buf = mp_communicate_get_buf_t_from_ctl(buf_id);
@@ -606,7 +581,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		return;
 	}
 
-	DD("Found buffer: \n%s\n", buf->data);
+	//DD("Found buffer: \n%s\n", buf->data);
 	buf_free_force(buf);
 }
 
@@ -661,7 +636,7 @@ static void *mp_main_mosq_thread(void *arg)
 		DE("Can't create mosq object\n");
 		return (NULL);
 	}
-	
+
 	DD("Setting user / pass.. ");
 	rc = mosquitto_username_pw_set(ctl->mosq, clientid, PASS);
 	if (MOSQ_ERR_SUCCESS != rc) {

@@ -29,7 +29,7 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 
 	ctl = ctl_get();
 
-	DD("Got counter = %d\n", counter);
+	//DD("Got counter = %d\n", counter);
 
 	buf_counter_s = (char *)zmalloc(32);
 	TESTP(buf_counter_s, NULL);
@@ -46,7 +46,7 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 		return (NULL);
 	}
 
-	DD("Got ret: %ld / %lx\n", ret, ret);
+	//DD("Got ret: %ld / %lx\n", ret, ret);
 	buf_p = (buf_t *)ret;
 	rc = j_rm_key(ctl->buffers, buf_counter_s);
 	if (EOK != rc) {

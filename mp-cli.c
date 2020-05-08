@@ -255,54 +255,45 @@ static json_t *mp_cli_parse_command(json_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
 
+	DD("Found '%s' command\n", j_find_ref(root, JK_TYPE));
+
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_ME)) {
-		DD("Found 'me' command\n");
 		return (mp_cli_get_self_info_l());
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_LIST)) {
-		DD("Found 'list' command\n");
 		return (mp_cli_get_list_l());
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CONNECT)) {
-		DD("Found 'connect' command\n");
 		return (NULL);
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_DISCONNECT)) {
-		DD("Found 'disconnect' command\n");
 		return (NULL);
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
-		DD("Found 'openport' command\n");
-		j_print(root, "root");
 		return (mp_cli_openport_l(root));
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
-		DD("Found 'closeport' command\n");
 		return (mp_cli_closeport_l(root));
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_PORTS)) {
-		DD("Found 'ports' command\n");
 		return (mp_cli_get_ports_l());
 	}
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_SSH)) {
-		DD("Found 'SSH' command\n");
-		j_print(root, "SSH command:");
 		return (mp_cli_ssh_forward(root));
 	}
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
-		DD("Found 'JV_TYPE_TICKET_REQ' command\n");
 		return (mp_cli_send_ticket_req(root));
 	}
+
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
-		DD("Found 'JV_TYPE_TICKET_REQ' command\n");
 		return (mp_cli_get_received_tickets(root));
 	}
 
