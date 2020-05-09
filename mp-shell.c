@@ -116,7 +116,6 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 		/* Add 0 terminator, else json decoding will fail */
 		*(buf + rc) = '\0';
 		root = j_str2j(buf);
-		free(buf);
 		if (NULL == root) {
 			DE("Can't decode buf to JSON object\n");
 			break;
@@ -124,6 +123,8 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 
 		TFREE(buf);
 		/* That's it, we don't need request objext any more */
+
+		mp_shell_parse_in_command(root);
 		rc = j_rm(root);
 		TESTI_MES(rc, NULL, "Can't remove json object");
 	} while (1);
