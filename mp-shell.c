@@ -42,19 +42,9 @@ int status = 0;
    These messages are responces requests done from here */
 int mp_shell_parse_in_command(json_t *root)
 {
-#if 0 /* SEB 09/05/2020 02:59  */
-
-	{
-		"tp": "ticket-type-resp",
-		"ticket": "sGzJqyh",
-		"status": "working",
-		"uid-dst": "seb-452-222-496",
-		"reason": "Got IP of UPNP device"
-	}
-#endif /* SEB 09/05/2020 02:59 */
 	TESTP(root, EBAD);
-	//j_print(root, "Received message from the CLI thread:");
 	printf(">> %s\n", j_find_ref(root, JK_REASON));
+
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_FAIL)) {
 		printf(">> The operation failed\n");
 		status = 2;
@@ -96,18 +86,18 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 		return (NULL);
 	}
 
-	/* Listen for incoming connection */
-	rc = (ssize_t)listen(fd, 2);
-	if (rc < 0) {
-		DE("listen failed\n");
-		return (NULL);
-	}
-
 	do {
 		int fd2 = -1;
 		char *buf = NULL;
 		//size_t len = CLI_BUF_LEN;
 		json_t *root = NULL;
+
+		/* Listen for incoming connection */
+		rc = (ssize_t)listen(fd, 2);
+		if (rc < 0) {
+			DE("listen failed\n");
+			return (NULL);
+		}
 
 		/* Connection is here, accept */
 		fd2 = accept(fd, NULL, NULL);
@@ -342,9 +332,9 @@ static int mp_shell_ask_openport(json_t *args)
 	while (0 == status) {
 		sleep(1);
 	}
-	
+
 	if (2 == status) {
-		return EBAD;
+		return (EBAD);
 	}
 	rc = EOK;
 
