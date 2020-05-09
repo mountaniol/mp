@@ -1,6 +1,6 @@
 GCC=gcc
 CFLAGS=-Wall -Wextra
-#DEBUG=-DDEBUG3
+DEBUG=-DDEBUG3
 DEBUG += -DEERROR3
 #CFLAGS += -fanalyzer
 

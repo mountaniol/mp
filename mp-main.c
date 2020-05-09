@@ -48,12 +48,16 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 
 	DD("Start\n");
 	TESTP(req, EBAD);
+	DD("Here\n");
 	TESTP(status, EBAD);
+	DD("Here\n");
 	j_ticket = j_new();
 	TESTP(j_ticket, EBAD);
+	DD("Here\n");
 
 	uid = j_find_ref(req, JK_UID_SRC);
 	TESTP(uid, EBAD);
+	DD("Here\n");
 
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
@@ -65,13 +69,17 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	DD("Found ticket :%s\n", ticket);
 	root = j_new();
 	TESTP(root, EBAD);
+	DD("Here\n");
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
 	TESTI(rc, EBAD);
+	DD("Here\n");
 	rc = j_add_str(root, JK_TICKET, ticket);
 	TESTI(rc, EBAD);
+	DD("Here\n");
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI(rc, EBAD);
+	DD("Here\n");
 
 	if (NULL != comment) {
 		rc = j_add_str(root, JK_REASON, comment);
@@ -81,10 +89,15 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	/* Send it */
 
 	ctl = ctl_get();
+	DD("Here\n");
 	forum = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	DD("Here\n");
 	TESTP(forum, EBAD);
+	DD("Here\n");
 	//mp_main_mosq_thread(arg);
 
+	DD("forum is : %s\n", forum);
+	j_print(root, "Ticket update is:");
 	rc = mp_communicate_send_json(ctl->mosq, forum, root);
 	free(forum);
 	return (rc);
@@ -159,6 +172,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *mapping = NULL;
 	const char *asked_port = NULL;
 	const char *protocol = NULL;
+	const char *uid = NULL;
 	//const char *ticket = NULL;
 	//port_t *port = NULL;
 	json_t *val = NULL;

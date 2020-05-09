@@ -232,6 +232,9 @@ static json_t *mp_cli_openport_l(json_t *root)
 	json_t *resp = NULL;
 
 	ctl = ctl_get_locked();
+
+	j_add_str(root, JK_UID_SRC, j_find_ref(ctl->me, JK_UID_ME));
+
 	DDD("Calling send_request_to_open_port\n");
 	if (NULL != ctl->mosq) {
 		rc = send_request_to_open_port(ctl->mosq, root);
