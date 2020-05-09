@@ -370,7 +370,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	/** All mesages except above should be dedicated to us ***/
 	if (EOK != j_test(root, JK_UID_DST, j_find_ref(ctl->me, JK_UID_ME))) {
 		rc = 0;
-		DDD("This request not for us\n");
+		DDD("This request not for us: JK_UID_DST = %s, us = %s\n",
+			j_find_ref(root, JK_UID_DST), j_find_ref(ctl->me, JK_UID_ME));
 		goto end;
 	}
 
