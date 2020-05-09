@@ -313,6 +313,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		return (EBAD);
 	}
 
+	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
+
 	/*** Message "keepalive" ***/
 	/* 
 	 * "keepalive" is a regular message every
