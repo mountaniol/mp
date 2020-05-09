@@ -17,19 +17,19 @@
 #ifndef S_SPLINT_S /* splint analyzer goes crazy if this included */
 	#include "libfort/src/fort.h"
 #else /* Mock for splint analyzer */
-	#define ft_table_t void
-	#define FT_ROW_HEADER (1)
-	#define FT_CPROP_ROW_TYPE (1)
-	#define FT_ANY_COLUMN (1)
-	#define FT_ROW_HEADER (1)
-	#define FT_ROW_HEADER (1)
-	int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
-	void ft_destroy_table(ft_table_t *table);
-	const char *ft_to_string(const ft_table_t *table);
-	int ft_write_ln(void *, ...);
-	ft_table_t *ft_create_table(void);
-	extern const struct ft_border_style *const FT_PLAIN_STYLE;
-	int ft_set_default_border_style(const struct ft_border_style *style);
+#define ft_table_t void
+#define FT_ROW_HEADER (1)
+#define FT_CPROP_ROW_TYPE (1)
+#define FT_ANY_COLUMN (1)
+#define FT_ROW_HEADER (1)
+#define FT_ROW_HEADER (1)
+int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
+void ft_destroy_table(ft_table_t *table);
+const char *ft_to_string(const ft_table_t *table);
+int ft_write_ln(void *, ...);
+ft_table_t *ft_create_table(void);
+extern const struct ft_border_style *const FT_PLAIN_STYLE;
+int ft_set_default_border_style(const struct ft_border_style *style);
 #endif
 
 #define SERVER_PATH     "/tmp/server"
@@ -40,10 +40,32 @@ int status = 0;
 
 /* Here we parse messages received from remote hosts.
    These messages are responces requests done from here */
-int mp_shell_parse_in_command(json_t *root){
+int mp_shell_parse_in_command(json_t *root)
+{
+#if 0 /* SEB 09/05/2020 02:59  */
+
+	{
+		"tp": "ticket-type-resp",
+		"ticket": "sGzJqyh",
+		"status": "working",
+		"uid-dst": "seb-452-222-496",
+		"reason": "Got IP of UPNP device"
+	}
+#endif /* SEB 09/05/2020 02:59 */
 	TESTP(root, EBAD);
-	j_print(root, "Received message from the CLI thread:");
-	return EOK;
+	//j_print(root, "Received message from the CLI thread:");
+	printf(">> %s\n", j_find_ref(root, JK_REASON));
+	if (EOK == j_test(root, JK_STATUS, JV_STATUS_FAIL)) {
+		printf(">> The operation failed\n");
+		status = 2;
+	}
+
+	if (EOK == j_test(root, JK_STATUS, JV_STATUS_SUCCESS)) {
+		printf(">> The operation finished\n");
+		status = 1;
+	}
+
+	return (EOK);
 }
 
 /* This thread accepts connection from CLI or from GUI client
@@ -78,7 +100,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	rc = (ssize_t)listen(fd, 2);
 	if (rc < 0) {
 		DE("listen failed\n");
-		return NULL;
+		return (NULL);
 	}
 
 	do {
@@ -232,7 +254,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
 	rc = j_add_str(ticket_resp, JK_TICKET, ticket);
 	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
-	
+
 	do {
 		if (resp) j_rm(resp);
 		DD("starting: getting tickets\n");
@@ -256,7 +278,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 
 
 
-	return EOK;
+	return (EOK);
 }
 
 static int mp_shell_ask_openport(json_t *args)
@@ -317,8 +339,13 @@ static int mp_shell_ask_openport(json_t *args)
 
 	//return (mp_shell_watch_ticket(ticket));
 
-	sleep(30);
-
+	while (0 == status) {
+		sleep(1);
+	}
+	
+	if (2 == status) {
+		return EBAD;
+	}
 	rc = EOK;
 
 	/* Now receive tickets until requiest not done */
