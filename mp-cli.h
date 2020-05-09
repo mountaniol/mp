@@ -3,7 +3,10 @@
 
 /* Todo: move it to common header */
 #define CLI_BUF_LEN 4096
+
+/* Socket _SRC - for commands from shell to CLI thread */
 #define CLI_SOCKET_PATH_SRV "/tmp/mightydaddysrv"
+/* Socket _CLI - for commands from CLI thread to shell */
 #define CLI_SOCKET_PATH_CLI "/tmp/mightydaddycli"
 
 extern void *mp_cli_thread(void *arg);

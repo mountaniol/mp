@@ -67,6 +67,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	struct sockaddr_un cli_addr;
 	ssize_t rc = -1;
 
+
 	DDD("CLI thread started\n");
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -89,8 +90,9 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	do {
 		int fd2 = -1;
 		char *buf = NULL;
-		//size_t len = CLI_BUF_LEN;
-		json_t *root = NULL;
+		json_t *root = NULL; 
+		ssize_t received = 0;
+		size_t allocated = 0;
 
 		/* Listen for incoming connection */
 		rc = (ssize_t)listen(fd, 2);
@@ -109,32 +111,47 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 		/* Allocate buffer for reading */
 		buf = zmalloc(CLI_BUF_LEN);
 		TESTP_MES(buf, NULL, "Can't allocate buf");
+		allocated = CLI_BUF_LEN;
 
+		//rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
+#if 0
 		rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
 		if (rc < 0) {
 			DE("setsockopt(SO_RCVLOWAT) failed\n");
 			free(buf);
 			break;
 		}
+#endif
 
-		/* Receive buffer from cli */
-		rc = recv(fd2, buf, CLI_BUF_LEN, 0);
-		if (rc < 0) {
-			DE("recv failed\n");
-			free(buf);
-			break;
-		}
+		do {
+			/* If we almost filled the buffer, we add memory */
+			if ((size_t) received == allocated - 1) {
+				char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
+
+				/* realloc can return new buffer. In this case the old one should be freed */
+				if (tmp != buf) {
+					free(buf);
+					buf = tmp;
+				}
+				/* If realloc succeeded we increase 'allocated' counter */
+				if (NULL != tmp) {
+					allocated += CLI_BUF_LEN;
+				}
+			}
+
+			/* Receive buffer from cli */
+			rc = recv(fd2, buf + rc, allocated - received, 0);
+			received += rc;
+		} while (rc > 0);
 
 		/* Add 0 terminator, else json decoding will fail */
-		*(buf + rc) = '\0';
+		*(buf + received) = '\0';
 		root = j_str2j(buf);
+		TFREE(buf);
 		if (NULL == root) {
 			DE("Can't decode buf to JSON object\n");
 			break;
 		}
-
-		TFREE(buf);
-		/* That's it, we don't need request objext any more */
 
 		mp_shell_parse_in_command(root);
 		rc = j_rm(root);
@@ -144,7 +161,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	return (NULL);
 }
 
-json_t *execute_requiest(json_t *root)
+json_t *mp_shell_do_requiest(json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -214,8 +231,8 @@ json_t *execute_requiest(json_t *root)
 	return (j_str2j(buffer));
 }
 
-static int mp_shell_watch_ticket(const char *ticket)
-{
+#if 0
+static int mp_shell_watch_ticket(const char *ticket){
 	json_t *ticket_req = NULL;
 	json_t *ticket_resp = NULL;
 	json_t *resp = NULL;
@@ -249,7 +266,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 		if (resp) j_rm(resp);
 		DD("starting: getting tickets\n");
 		j_print(ticket_req, "Sending ticket request");
-		resp = execute_requiest(ticket_req);
+		resp = mp_shell_do_requiest(ticket_req);
 		/* TODO: test answer */
 		if (resp) {
 			j_print(resp, "Got responce:");
@@ -260,7 +277,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 		sleep(1);
 
 		j_print(ticket_req, "Sending get ticket request");
-		resp = execute_requiest(ticket_resp);
+		resp = mp_shell_do_requiest(ticket_resp);
 		if (resp) {
 			j_print(resp, "Got responce:");
 		}
@@ -270,6 +287,7 @@ static int mp_shell_watch_ticket(const char *ticket)
 
 	return (EOK);
 }
+#endif
 
 static int mp_shell_ask_openport(json_t *args)
 {
@@ -316,7 +334,7 @@ static int mp_shell_ask_openport(json_t *args)
 	DDD("Going to execute the request\n");
 
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	TESTP_MES_GO(resp, err, "Responce is NULL\n");
 	rc = j_rm(root);
 	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
@@ -326,8 +344,6 @@ static int mp_shell_ask_openport(json_t *args)
 	}
 	root = j_new();
 	TESTP(root, EBAD);
-
-	//return (mp_shell_watch_ticket(ticket));
 
 	while (0 == status) {
 		sleep(1);
@@ -394,7 +410,7 @@ static int mp_shell_ask_closeport(json_t *args)
 	DDD("Going to execute the request\n");
 
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	TESTP_GO(resp, err);
 	rc = j_rm(root);
 	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
@@ -424,7 +440,7 @@ static int mp_shell_get_info()
 
 	rc = j_add_str(root, JK_COMMAND, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_ME");
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	if (NULL == resp) {
 		printf("An error: can't bring information\n");
 		return (EBAD);
@@ -461,7 +477,7 @@ static int mp_shell_ssh(json_t *args)
 	rc = j_cp(args, root, JK_UID_DST);
 	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
 	j_print(root, "Sending SSH command\n");
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	if (NULL == resp) {
 		printf("An error: can't bring information\n");
 		return (EBAD);
@@ -487,7 +503,7 @@ static int mp_shell_get_hosts()
 		return (EBAD);
 	}
 
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	rc = j_rm(root);
 	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
@@ -530,7 +546,7 @@ static int mp_shell_get_ports()
 		return (EBAD);
 	}
 
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	rc = j_rm(root);
 	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
@@ -578,7 +594,7 @@ static int mp_shell_get_remote_ports()
 		return (EBAD);
 	}
 
-	resp = execute_requiest(root);
+	resp = mp_shell_do_requiest(root);
 	rc = j_rm(root);
 	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
 
