@@ -288,16 +288,12 @@ static int mp_shell_ask_openport(json_t *args)
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
-#if 0
-	rc = j_add_str(root, JK_UID_SRC, uid_dst);
-	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
-#endif
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
 	rc = j_add_str(root, JK_PROTOCOL, protocol);
 	TESTI_MES_GO(rc, err, "Can't add 'protocol' field");
-	//rc = j_add_str(root, JK_UID_DST, uid_dst);
-	//TESTI_MES_GO(rc, err, "Can't add 'dest' field");
+	rc = j_add_str(root, JK_UID_DST, uid_dst);
+	TESTI_MES_GO(rc, err, "Can't add 'dest' field");
 
 	ticket = mp_os_rand_string(TICKET_SIZE);
 	TESTP(ticket, EBAD);
