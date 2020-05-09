@@ -233,15 +233,15 @@ static json_t *mp_cli_openport_l(json_t *root)
 	json_t *resp = NULL;
 
 	ctl = ctl_get_locked();
-
 	j_add_str(root, JK_UID_SRC, j_find_ref(ctl->me, JK_UID_ME));
+	ctl_unlock(ctl);
 
 	DDD("Calling send_request_to_open_port\n");
+	j_print(root, "Sending request to open a port:");
 	if (NULL != ctl->mosq) {
 		rc = send_request_to_open_port(ctl->mosq, root);
 	}
 
-	ctl_unlock(ctl);
 
 	resp = j_new();
 	TESTP(resp, NULL);
