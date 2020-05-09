@@ -17,7 +17,7 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-static int mp_cli_send_to_cli(json_t *root)
+int mp_cli_send_to_cli(json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;

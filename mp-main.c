@@ -443,7 +443,8 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	/* We received a ticket responce. We should keep it localy until shell client grab it */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
 		DD("Got 'JV_TYPE_TICKET_RESP' request\n");
-		mp_main_save_tickets(root);
+		//mp_main_save_tickets(root);
+		mp_cli_send_to_cli(root);
 		goto end;
 	}
 
