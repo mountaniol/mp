@@ -48,6 +48,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 
 	DD("Start\n");
 	TESTP(req, EBAD);
+	j_print(req, "Got req:");
 	DD("Here\n");
 	TESTP(status, EBAD);
 	DD("Here\n");

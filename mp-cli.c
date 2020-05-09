@@ -238,8 +238,8 @@ static json_t *mp_cli_openport_l(json_t *root)
 	DDD("Calling send_request_to_open_port\n");
 	if (NULL != ctl->mosq) {
 		rc = send_request_to_open_port(ctl->mosq, root);
-
 	}
+
 	ctl_unlock(ctl);
 
 	resp = j_new();
