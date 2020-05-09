@@ -225,6 +225,33 @@ static json_t *mp_cli_ssh_forward(json_t *root)
 	return (resp);
 }
 
+static json_t *mp_cli_execute_req(json_t *root)
+{
+	control_t *ctl = NULL;
+	int rc = EBAD;
+	json_t *resp = NULL;
+
+	ctl = ctl_get_locked();
+	j_add_str(root, JK_UID_SRC, j_find_ref(ctl->me, JK_UID_ME));
+	ctl_unlock(ctl);
+
+	DDD("Calling send_request_to_open_port\n");
+	j_print(root, "Sending request to open a port:");
+	if (NULL != ctl->mosq) {
+		rc = mp_communicate_send_request(ctl->mosq, root);
+	}
+
+	resp = j_new();
+	TESTP(resp, NULL);
+
+	if (EOK == rc) {
+		if (EOK != j_add_str(resp, JK_STATUS, JV_OK)) DE("Can't add JV_OK status\n");
+	} else {
+		if (EOK != j_add_str(resp, JK_STATUS, JV_BAD)) DE("Can't add JV_BAD status\n");
+	}
+
+	return (resp);
+}
 
 /* SEB:TODO: We should form JSON in the mp-shell and here we should just send the request */
 /* The CLI asked to open a port on remote machine. */
@@ -243,7 +270,6 @@ static json_t *mp_cli_openport_l(json_t *root)
 	if (NULL != ctl->mosq) {
 		rc = send_request_to_open_port(ctl->mosq, root);
 	}
-
 
 	resp = j_new();
 	TESTP(resp, NULL);
@@ -327,18 +353,22 @@ static json_t *mp_cli_parse_command(json_t *root)
 		return (NULL);
 	}
 
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
-		return (mp_cli_openport_l(root));
+	/* We forward this request to the remote client */
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
+		return (mp_cli_execute_req(root));
 	}
 
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
-		return (mp_cli_closeport_l(root));
+	/* We forward this request to the remote client */
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+		return (mp_cli_execute_req(root));
 	}
 
+	/* This is a local reuqest, extract data and return to shell */
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_PORTS)) {
 		return (mp_cli_get_ports_l());
 	}
 
+	/* This is local request, we open a port on remote machine and connect */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_SSH)) {
 		return (mp_cli_ssh_forward(root));
 	}

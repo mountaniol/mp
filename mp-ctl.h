@@ -56,6 +56,7 @@ typedef struct control_struct {
 	void *tickets_out;
 	void *tickets_in;
 	void *buffers; /* Here we keep allocate buffers until they sent */
+	void *buf_counters; /* Here we keep buffer counters that we couldn't find on the first run */
 } control_t;
 
 

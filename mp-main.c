@@ -641,7 +641,29 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 						   void *data __attribute__((unused)), int buf_id)
 {
-	buf_t *buf = mp_communicate_get_buf_t_from_ctl(buf_id);
+	buf_t *buf = NULL;
+	control_t *ctl = ctl_get();
+
+	/* First of all, we check if there old counters: the counters not freed on this call earlear.
+	   It may happen in case the mosq sent the buffer too fast and the couter was added AFTER this callback
+	   worked.*/
+
+	if (j_count(ctl->buf_counters)) {
+		json_t *val;
+		void *tmp;
+		const char *key;
+		DD("Found stuck buffers");
+		json_object_foreach_safe(ctl->buf_counters, tmp, key, val) {
+			buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
+			if (NULL != buf) {
+				buf_free_force(buf);
+				j_rm_key(ctl->buf_counters, key);
+				DD("found and deleted stuck counter %s\n", key);
+			}
+		}
+	}
+	
+	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 	if (NULL == buf) {
 		DE("Can't find buffer\n");
 		return;

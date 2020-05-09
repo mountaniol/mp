@@ -315,8 +315,6 @@ static int mp_shell_ask_openport(json_t *args)
 	protocol = j_find_ref(args, JK_PROTOCOL);
 	TESTP_MES_GO(protocol, err, "Can't find protocol");
 
-	rc = j_add_str(root, JK_COMMAND, JV_TYPE_OPENPORT);
-	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
@@ -393,7 +391,7 @@ static int mp_shell_ask_closeport(json_t *args)
 	protocol = j_find_ref(args, JK_PROTOCOL);
 	TESTP_MES_GO(protocol, err, "Can't find protocol");
 
-	rc = j_add_str(root, JK_COMMAND, JV_TYPE_CLOSEPORT);
+	rc = j_add_str(root, JK_TYPE, JV_TYPE_CLOSEPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_UID_DST, uid);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");

@@ -22,7 +22,7 @@ char *mp_communicate_forum_topic(const char *user, const char *uid)
 }
 
 /* Find a buffer in ctl->buffers by vounter 'counter' */
-buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
+buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
 	buf_t *buf_p;
 	size_t ret;
@@ -47,16 +47,27 @@ buf_t *mp_communicate_get_buf_t_from_ctl(int counter)
 
 	DD("Counter string = %s\n", buf_counter_s);
 
+	ctl_lock(ctl);
 	ret = j_find_int(ctl->buffers, buf_counter_s);
+	ctl_unlock(ctl);
 	if (0XDEADBEEF == ret) {
 		DE("Can't get buffer\n");
+		/* We can't get buffer it probably not set yet.
+		   We should save this counter and try it later. */
+
+		ctl_lock(ctl);
+		j_cp(ctl->buffers, ctl->buf_counters, buf_counter_s);
 		free(buf_counter_s);
+		j_print(ctl->buf_counters, "Now in stuck counters:");
+		ctl_unlock(ctl);
 		return (NULL);
 	}
 
 	//DD("Got ret: %ld / %lx\n", ret, ret);
 	buf_p = (buf_t *)ret;
+	ctl_lock(ctl);
 	rc = j_rm_key(ctl->buffers, buf_counter_s);
+	ctl_unlock(ctl);
 	if (EOK != rc) {
 		DE("Can't remove key from json: ctl->buffers, buf_counter_s");
 	}
@@ -208,6 +219,32 @@ int send_reveal_l(struct mosquitto *mosq)
 	}
 
 	return (EOK);
+}
+
+int mp_communicate_send_request(struct mosquitto *mosq, json_t *root)
+{
+	int rc = EBAD;
+	buf_t *buf = NULL;
+	char *forum_topic;
+	control_t *ctl = NULL;
+
+	TESTP(mosq, EBAD);
+
+	ctl = ctl_get();
+
+	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
+											 j_find_ref(ctl->me, JK_UID_ME));
+
+	DDD("Going to build request\n");
+	buf = j_2buf(root);
+
+	TESTP_MES(buf, EBAD, "Can't build open port request");
+	//DDD("Going to send request\n");
+	j_print(root, "Sending requiest:");
+	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	free(forum_topic);
+	DDD("Sent request, status is %d\n", rc);
+	return (rc);
 }
 
 int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
