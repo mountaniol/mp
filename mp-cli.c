@@ -59,6 +59,8 @@ int mp_cli_send_to_cli(json_t *root)
 		return (EBAD);
 	}
 
+	close(sd);
+
 	return EOK;
 }
 
