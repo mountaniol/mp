@@ -368,8 +368,9 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 
 
 	/** All mesages except above should be dedicated to us ***/
-	if (EOK != j_test(root, JK_DEST, j_find_ref(ctl->me, JK_UID_ME))) {
+	if (EOK != j_test(root, JK_UID_DST, j_find_ref(ctl->me, JK_UID_ME))) {
 		rc = 0;
+		DDD("This request not for us\n");
 		goto end;
 	}
 
@@ -421,6 +422,26 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		} else {
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 		}
+
+		if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+			DD("Got 'closeport' request\n");
+
+			rc = mp_main_do_close_port_l(root);
+			/* 
+			 * When the port opened, it added ctl global control_t structure 
+			 * We don't need to know what port exactly opened, 
+			 * we just send update to all listeners
+			 */
+
+			/*** TODO: SEB: Send update to all */
+			if (EOK == rc) {
+				mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
+				send_keepalive_l(mosq);
+			} else {
+				mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
+			}
+		}
+
 
 		j_print(ctl->tickets_out, "After closing port: tickets: ");
 

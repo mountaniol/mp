@@ -23,6 +23,7 @@ int mp_cli_send_to_cli(json_t *root)
 	ssize_t rc = -1;
 	struct sockaddr_un serveraddr;
 
+	DDD("start");
 	buf_t *buf = j_2buf(root);
 
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
