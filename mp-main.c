@@ -80,6 +80,9 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	DD("Here\n");
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI(rc, EBAD);
+	rc = j_add_str(root, JK_UID_DST, uid);
+	TESTI(rc, EBAD);
+
 	DD("Here\n");
 
 	if (NULL != comment) {
