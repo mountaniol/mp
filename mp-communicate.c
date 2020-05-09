@@ -229,7 +229,7 @@ int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	//DDD("Going to send request\n");
-	j_print(root,"Sending requiest:");
+	j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
