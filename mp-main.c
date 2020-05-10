@@ -44,42 +44,31 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	int rc;
 	char *forum;
 
-	DD("Start\n");
 	TESTP(req, EBAD);
 	j_print(req, "Got req:");
-	DD("Here\n");
 	TESTP(status, EBAD);
-	DD("Here\n");
-	DD("Here\n");
 
 	uid = j_find_ref(req, JK_UID_SRC);
 	TESTP(uid, EBAD);
-	DD("Here\n");
 
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
-		DD("No ticket\n");
+		DE("No ticket\n");
 		j_print(req, "req is:");
 		return (EOK);
 	}
 
-	DD("Found ticket :%s\n", ticket);
 	root = j_new();
 	TESTP(root, EBAD);
-	DD("Here\n");
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
 	TESTI(rc, EBAD);
-	DD("Here\n");
 	rc = j_add_str(root, JK_TICKET, ticket);
 	TESTI(rc, EBAD);
-	DD("Here\n");
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI(rc, EBAD);
 	rc = j_add_str(root, JK_UID_DST, uid);
 	TESTI(rc, EBAD);
-
-	DD("Here\n");
 
 	if (NULL != comment) {
 		rc = j_add_str(root, JK_REASON, comment);
@@ -89,15 +78,9 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	/* Send it */
 
 	ctl = ctl_get();
-	DD("Here\n");
 	forum = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
-	DD("Here\n");
 	TESTP(forum, EBAD);
-	DD("Here\n");
-	//mp_main_mosq_thread(arg);
 
-	DD("forum is : %s\n", forum);
-	j_print(root, "Ticket update is:");
 	rc = mp_communicate_send_json(ctl->mosq, forum, root);
 	j_rm(root);
 	free(forum);

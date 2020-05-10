@@ -90,7 +90,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	do {
 		int fd2 = -1;
 		char *buf = NULL;
-		json_t *root = NULL; 
+		json_t *root = NULL;
 		ssize_t received = 0;
 		size_t allocated = 0;
 
@@ -125,7 +125,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 
 		do {
 			/* If we almost filled the buffer, we add memory */
-			if ((size_t) received == allocated - 1) {
+			if ((size_t)received == allocated - 1) {
 				char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
 
 				/* realloc can return new buffer. In this case the old one should be freed */
@@ -415,6 +415,12 @@ static int mp_shell_ask_closeport(json_t *args)
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
+
+	if (2 == status) {
+		return (EBAD);
+	}
+	rc = EOK;
+	
 err:
 	if (root) {
 		rc = j_rm(root);

@@ -510,7 +510,6 @@ json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const c
 	size_t index = 0;
 	int rc;
 
-
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, NULL, "UPNP discover failed\n");
