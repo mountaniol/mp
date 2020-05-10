@@ -43,7 +43,6 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
-	//time_t t;
 	char *forum;
 
 	DD("Start\n");
@@ -105,36 +104,10 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	rc = mp_communicate_send_json(ctl->mosq, forum, root);
 	free(forum);
 	return (rc);
-
-#if 0
-	/***TODO:  Add time of the ticket creation ***/
-
-	t = time(NULL);
-	if ((time_t)-1 != t) {
-		rc = j_add_int(root, JK_TIME, t);
-		TESTI_MES(rc, EBAD, "Can't add int to json: JK_TIME, t");
-	} else {
-		DE("Can't add time to ticket");
-	}
-
-	DD("Created ticket json resp:\n");
-	j_print(root, "root");
-
-	ctl = ctl_get_locked();
-	DD("Going to add ticket to tickets\n");
-	rc = j_arr_add(ctl->tickets_out, root);
-	TESTI_MES(rc, EBAD, "Can't add ticket to array");
-
-	DD("Added ticket to tickets\n");
-	ctl_unlock(ctl);
-
-	j_print(ctl->tickets_out, "ctl->tickets");
-	return (rc);
-#endif
 }
 
-static int mp_main_save_tickets(json_t *root)
-{
+#if 0
+static int mp_main_save_tickets(json_t *root){
 	int index;
 	json_t *ticket;
 	control_t *ctl;
@@ -147,6 +120,7 @@ static int mp_main_save_tickets(json_t *root)
 	ctl_unlock(ctl);
 	return (EOK);
 }
+#endif
 
 static int mp_main_remove_host_l(json_t *root)
 {
@@ -186,6 +160,8 @@ static int mp_main_do_open_port_l(json_t *root)
 
 	TESTP(root, EBAD);
 
+	/*** Get fields from JSON request ***/
+
 	asked_port = j_find_ref(root, JK_PORT_INT);
 	TESTP_MES(asked_port, EBAD, "Can't find 'port' field");
 
@@ -194,6 +170,8 @@ static int mp_main_do_open_port_l(json_t *root)
 
 	ports = j_find_j(ctl->me, "ports");
 	TESTP(ports, EBAD);
+
+	/*** Check if the asked port + protocol is already mapped; if yes, return OK ***/
 
 	ctl_lock(ctl);
 	json_array_foreach(ports, index, val) {
@@ -204,29 +182,41 @@ static int mp_main_do_open_port_l(json_t *root)
 			return (EOK);
 		}
 	}
-
 	ctl_unlock(ctl);
+
+	/*** If we here, this means that we don't have a record about this port.
+	   So we run UPNP request to our router to test this port ***/
 
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
 	mapping = mp_ports_if_mapped_json(root, asked_port, j_find_ref(ctl->me, JK_IP_INT), protocol);
 
-	/* Found existing mapping */
+	/*** UPNP request found an existing mapping of asked port + protocol ***/
 	if (NULL != mapping) {
 		DD("Found existing mapping: %s -> %s | %s\n",
-		   j_find_ref(mapping, JK_PORT_EXT), j_find_ref(mapping, JK_PORT_INT), j_find_ref(mapping, JK_PROTOCOL));
-		/* Add this mapping to table */
+		   j_find_ref(mapping, JK_PORT_EXT),
+		   j_find_ref(mapping, JK_PORT_INT),
+		   j_find_ref(mapping, JK_PROTOCOL));
+
+		/* Add this mapping to our internal table table */
 		ctl_lock(ctl);
 		rc = j_arr_add(ports, mapping);
 		ctl_unlock(ctl);
 		TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
+
+		/* Return here. The new port added to internal table in ctl->me.
+		   At the end of the process the updated ctl->me object will be sent to the client.
+		   And this ctl->me object contains all port mappings.
+		   The client will check this host opened ports and see that asked port mapped. */
 		return (EOK);
 	}
 
-	/* If we here it means no such mapping exists. Let's map it */
+	/*** If we here it means no such mapping exists. Let's map it ***/
 	mapping = mp_ports_remap_any(root, asked_port, protocol);
+
+
 	TESTP_MES(mapping, EBAD, "Can't map port");
 
-	/* Ok, port mapped. Now we should update ctl->ports hash table */
+	/*** Ok, port mapped. Now we should update ctl->me->ports hash table ***/
 
 	ctl_lock(ctl);
 	rc = j_arr_add(ports, mapping);
@@ -652,7 +642,8 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		json_t *val;
 		void *tmp;
 		const char *key;
-		DD("Found stuck buffers");
+		DD("Found number of stuck buffers : %d\n", j_count(ctl->buf_counters));
+		j_print(ctl->buf_counters, "List of stuck counters:");
 		json_object_foreach_safe(ctl->buf_counters, tmp, key, val) {
 			buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 			if (NULL != buf) {
@@ -662,7 +653,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 			}
 		}
 	}
-	
+
 	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 	if (NULL == buf) {
 		DE("Can't find buffer\n");
@@ -685,9 +676,9 @@ static void *mp_main_mosq_thread(void *arg)
 	int rc = EBAD;
 	int i;
 	char *cert = (char *)arg;
-	char topic[TOPIC_MAX_LEN];
-	char forum_topic[TOPIC_MAX_LEN];
-	char personal_topic[TOPIC_MAX_LEN];
+	char *topic;
+	char *forum_topic;
+	char *personal_topic;
 	buf_t *buf = NULL;
 
 	/* Client ID, should be assigned on registartion and gotten from config file */
@@ -699,39 +690,30 @@ static void *mp_main_mosq_thread(void *arg)
 
 	mosquitto_lib_init();
 
-	ctl = ctl_get_locked();
+	ctl = ctl_get();
 
-	memset(forum_topic, 0, TOPIC_MAX_LEN);
-	memset(personal_topic, 0, TOPIC_MAX_LEN);
+	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	TESTP(forum_topic, NULL);
 
-	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
-			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID_ME));
-	snprintf(personal_topic, TOPIC_MAX_LEN, "users/%s/personal/%s",
-			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID_ME));
-	ctl_unlock(ctl);
+	personal_topic = mp_communicate_private_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	TESTP_GO(personal_topic, end);
 
 	DD("Creating mosquitto client.. ");
 	ctl_lock(ctl);
+	if (ctl->mosq) mosquitto_destroy(ctl->mosq);
+
 	ctl->mosq = mosquitto_new(j_find_ref(ctl->me, JK_UID_ME), true,
 							  (void *)j_find_ref(ctl->me, JK_UID_ME));
 	ctl_unlock(ctl);
-	DD("Done\n");
+	TESTP_GO(ctl->mosq, end);
 
-
-	if (NULL == ctl->mosq) {
-		DE("Can't create mosq object\n");
-		return (NULL);
-	}
-
+	/* TODO: Registration must be another function */
 	DD("Setting user / pass.. ");
 	rc = mosquitto_username_pw_set(ctl->mosq, clientid, PASS);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't set user / pass\n");
 		return (NULL);
 	}
-	DD("Done\n");
 
 	DD("Setting TLS.. ");
 	rc = mosquitto_tls_set(ctl->mosq, cert, NULL, NULL, NULL, NULL);
@@ -741,26 +723,13 @@ static void *mp_main_mosq_thread(void *arg)
 		ctl->status = ST_STOP;
 		return (NULL);
 	}
-	DD("Done\n");
-
-	DD("Connecting callbacks.. ");
-
 	mosquitto_connect_callback_set(ctl->mosq, connect_callback_l);
-	//TESTI_MES(rc, EBAD, "Can't register 'connect' callback");
 	mosquitto_message_callback_set(ctl->mosq, mp_main_on_message_cl);
-	//TESTI_MES(rc, EBAD, "Can't register 'message' callback");
 	mosquitto_disconnect_callback_set(ctl->mosq, mp_main_on_disconnect_l_cl);
-	//TESTI_MES(rc, EBAD, "Can't register 'disconnect' callback");
 	mosquitto_publish_callback_set(ctl->mosq, mp_main_on_publish_cb);
-	//TESTI_MES(rc, EBAD, "Can't register 'publish' callback");
-	DD("Done\n");
 
-	DD("Setting last will.. ");
-	ctl_lock(ctl);
 	buf = mp_requests_build_last_will();
-	ctl_unlock(ctl);
-
-	TESTP_MES(buf, NULL, "Can't build last will");
+	TESTP_MES_GO(buf, end, "Can't build last will");
 
 	rc = mosquitto_will_set(ctl->mosq, forum_topic, (int)buf->size, buf->data, 1, false);
 	buf_free_force(buf);
@@ -768,50 +737,34 @@ static void *mp_main_mosq_thread(void *arg)
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't register last will\n");
 		DE("Error: %s\n", mosquitto_strerror(rc));
-		return (NULL);
+		goto end;
 	}
-	DD("Done\n");
 
-	DD("Connecting.. ");
 	rc = mosquitto_connect(ctl->mosq, SERVER, PORT, 60);
 
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Error: %s\n", mosquitto_strerror(rc));
-		return (NULL);
+		goto end;
 	}
-	DD("Done\n");
 
-	memset(topic, 0, TOPIC_MAX_LEN);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", clientid);
-
-	DD("Subscribing to topic 1.. ");
-	rc = mosquitto_subscribe(ctl->mosq, NULL, topic, 0);
+	rc = mosquitto_subscribe(ctl->mosq, NULL, forum_topic, 0);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can not subsribe\n");
-		return (NULL);
+		goto end;
 	}
-	DD("Done\n");
 
-	ctl_lock(ctl);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/private/%s", clientid, j_find_ref(ctl->me, JK_UID_ME));
-	ctl_unlock(ctl);
-
-	DD("Subscribing to topic 2.. ");
-	rc = mosquitto_subscribe(ctl->mosq, NULL, topic, 0);
+	rc = mosquitto_subscribe(ctl->mosq, NULL, personal_topic, 0);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can not subsribe\n");
-		return (NULL);
+		goto end;
 	}
-	DD("Done\n");
 
 	rc = mosquitto_loop_start(ctl->mosq);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't start loop\n");
-		return (NULL);
+		goto end;
 	}
-	DDD("Starting main loop\n");
 
-	//while (counter++ < 40) {
 	while (ST_STOP != ctl->status) {
 		DDD("Client status is: %d\n", ctl->status);
 
@@ -856,21 +809,22 @@ static void *mp_main_mosq_thread(void *arg)
 		counter++;
 	}
 
-	ctl_lock(ctl);
 	rc = mosquitto_loop_stop(ctl->mosq, true);
+	ctl_lock(ctl);
 	mosquitto_destroy(ctl->mosq);
 	ctl->mosq = NULL;
-	ctl_unlock(ctl);
-	mosquitto_lib_cleanup();
+
 	rc = j_rm(ctl->hosts);
 	ctl->hosts = j_new();
-	TESTP(ctl->hosts, NULL);
-	if (EOK != rc) {
-		DE("Error: couldn't remove old ctl->hosts");
-	}
+	ctl_unlock(ctl);
+
+	mosquitto_lib_cleanup();
+
+end:
+	TFREE(forum_topic);
+	TFREE(personal_topic);
 	D("Exit thread\n");
 	return (NULL);
-
 }
 
 static void *mp_main_mosq_thread_manager(void *arg)

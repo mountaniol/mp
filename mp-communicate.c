@@ -21,6 +21,15 @@ char *mp_communicate_forum_topic(const char *user, const char *uid)
 	return (topic);
 }
 
+char *mp_communicate_private_topic(const char *user, const char *uid)
+{
+	char *topic = zmalloc(TOPIC_MAX_LEN);
+	TESTP(topic, NULL);
+	snprintf(topic, TOPIC_MAX_LEN, "users/%s/private/%s", user, uid);
+	return (topic);
+}
+
+
 /* Find a buffer in ctl->buffers by vounter 'counter' */
 buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {

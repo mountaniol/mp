@@ -74,7 +74,7 @@ static json_t *mp_cli_get_self_info_l()
 	return (j_dup(ctl->me));
 }
 
-static json_t *mp_cli_get_received_tickets(json_t *root)
+static json_t *mp_cli_get_received_tickets_l(json_t *root)
 {
 	control_t *ctl;
 	json_t *arr;
@@ -255,8 +255,8 @@ static json_t *mp_cli_execute_req(json_t *root)
 
 /* SEB:TODO: We should form JSON in the mp-shell and here we should just send the request */
 /* The CLI asked to open a port on remote machine. */
-static json_t *mp_cli_openport_l(json_t *root)
-{
+#if 0
+static json_t *mp_cli_openport_l(json_t *root){
 	control_t *ctl = NULL;
 	int rc = EBAD;
 	json_t *resp = NULL;
@@ -282,9 +282,10 @@ static json_t *mp_cli_openport_l(json_t *root)
 
 	return (resp);
 }
+#endif
 
-static json_t *mp_cli_closeport_l(json_t *root)
-{
+#if 0
+static json_t *mp_cli_closeport_l(json_t *root){
 	char *uid_src = NULL;
 	char *port = NULL;
 	char *protocol = NULL;
@@ -323,12 +324,13 @@ static json_t *mp_cli_closeport_l(json_t *root)
 		if (EOK != j_add_str(resp, JK_STATUS, JV_BAD)) DE("Can't add 'name'\n");
 	}
 
-err:
+	err:
 	TFREE(uid_src);
 	TFREE(port);
 	TFREE(protocol);
 	return (resp);
 }
+#endif
 
 static json_t *mp_cli_parse_command(json_t *root)
 {
@@ -378,7 +380,7 @@ static json_t *mp_cli_parse_command(json_t *root)
 	}
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
-		return (mp_cli_get_received_tickets(root));
+		return (mp_cli_get_received_tickets_l(root));
 	}
 
 	return (NULL);
