@@ -638,6 +638,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	   It may happen in case the mosq sent the buffer too fast and the couter was added AFTER this callback
 	   worked.*/
 
+#if 0
 	if (j_count(ctl->buf_missed)) {
 		json_t *val;
 		void *tmp;
@@ -653,6 +654,12 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 			}
 		}
 	}
+#endif
+
+	/* Sleep a couple of time to let the sending thread to add buffer */
+	usleep(5);
+	usleep(10);
+	usleep(20);
 
 	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 	if (NULL == buf) {
