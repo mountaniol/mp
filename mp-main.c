@@ -613,8 +613,8 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 		}
 	}
 
-	ctl->status = ST_DISCONNECTED;
 	ctl = ctl_get_locked();
+	ctl->status = ST_DISCONNECTED;
 	rc = j_rm(ctl->me);
 	ctl->me = j_new();
 	ctl_unlock(ctl);
@@ -678,7 +678,6 @@ static void *mp_main_mosq_thread(void *arg)
 	int rc = EBAD;
 	int i;
 	char *cert = (char *)arg;
-	char *topic;
 	char *forum_topic_all;
 	char *forum_topic_me;
 	char *personal_topic;
