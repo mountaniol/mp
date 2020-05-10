@@ -677,7 +677,8 @@ static void *mp_main_mosq_thread(void *arg)
 	int i;
 	char *cert = (char *)arg;
 	char *topic;
-	char *forum_topic;
+	char *forum_topic_all;
+	char *forum_topic_me;
 	char *personal_topic;
 	buf_t *buf = NULL;
 
@@ -692,10 +693,13 @@ static void *mp_main_mosq_thread(void *arg)
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
-	TESTP(forum_topic, NULL);
+	forum_topic_all = mp_communicate_forum_topic_all(j_find_ref(ctl->me, JK_USER));
+	TESTP(forum_topic_all, NULL);
 
-	personal_topic = mp_communicate_private_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic_me = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	TESTP(forum_topic_me, NULL);
+
+	personal_topic = mp_communicate_private_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_USER));
 	TESTP_GO(personal_topic, end);
 
 	DD("Creating mosquitto client\n");
@@ -731,7 +735,7 @@ static void *mp_main_mosq_thread(void *arg)
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
-	rc = mosquitto_will_set(ctl->mosq, forum_topic, (int)buf->size, buf->data, 1, false);
+	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->size, buf->data, 1, false);
 	buf_free_force(buf);
 
 	if (MOSQ_ERR_SUCCESS != rc) {
@@ -754,7 +758,7 @@ static void *mp_main_mosq_thread(void *arg)
 		goto end;
 	}
 
-	rc = mosquitto_subscribe(ctl->mosq, NULL, forum_topic, 0);
+	rc = mosquitto_subscribe(ctl->mosq, NULL, forum_topic_all, 0);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can not subsribe\n");
 		goto end;
@@ -832,7 +836,8 @@ static void *mp_main_mosq_thread(void *arg)
 	mosquitto_lib_cleanup();
 
 end:
-	TFREE(forum_topic);
+	TFREE(forum_topic_all);
+	TFREE(forum_topic_me);
 	TFREE(personal_topic);
 	D("Exit thread\n");
 	return (NULL);

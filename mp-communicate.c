@@ -21,6 +21,14 @@ char *mp_communicate_forum_topic(const char *user, const char *uid)
 	return (topic);
 }
 
+char *mp_communicate_forum_topic_all(const char *user)
+{
+	char *topic = zmalloc(TOPIC_MAX_LEN);
+	TESTP(topic, NULL);
+	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", user);
+	return (topic);
+}
+
 char *mp_communicate_private_topic(const char *user, const char *uid)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
@@ -28,6 +36,16 @@ char *mp_communicate_private_topic(const char *user, const char *uid)
 	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
 	return (topic);
 }
+
+char *mp_communicate_private_topic_all(const char *user)
+{
+	char *topic = zmalloc(TOPIC_MAX_LEN);
+	TESTP(topic, NULL);
+	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/#", user);
+	return (topic);
+}
+
+
 
 
 /* Find a buffer in ctl->buffers by vounter 'counter' */
