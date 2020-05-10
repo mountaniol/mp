@@ -40,7 +40,6 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	json_t *root = NULL;
 	const char *ticket = NULL;
 	const char *uid = NULL;
-	json_t *j_ticket;
 	control_t *ctl = NULL;
 	int rc;
 	char *forum;
@@ -51,8 +50,6 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	DD("Here\n");
 	TESTP(status, EBAD);
 	DD("Here\n");
-	j_ticket = j_new();
-	TESTP(j_ticket, EBAD);
 	DD("Here\n");
 
 	uid = j_find_ref(req, JK_UID_SRC);
@@ -102,6 +99,7 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	DD("forum is : %s\n", forum);
 	j_print(root, "Ticket update is:");
 	rc = mp_communicate_send_json(ctl->mosq, forum, root);
+	j_rm(root);
 	free(forum);
 	return (rc);
 }
@@ -125,11 +123,11 @@ static int mp_main_save_tickets(json_t *root){
 static int mp_main_remove_host_l(json_t *root)
 {
 	control_t *ctl = NULL;
-	char *uid_src = NULL;
+	const char *uid_src = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
-	uid_src = j_find_dup(root, JK_UID_SRC);
+	uid_src = j_find_ref(root, JK_UID_SRC);
 	TESTP_MES(uid_src, EBAD, "Can't extract uid from json\n");
 
 	ctl = ctl_get_locked();
@@ -657,6 +655,9 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 #endif
 
 	/* Sleep a couple of time to let the sending thread to add buffer */
+	/* When we sleep, the Kernel scheduler switches to another task and,
+	   most probably, the sending thread will manage to add the buffer.
+	   I saw a lot of stuck buffers; this several short sleeps seems to fix it*/
 	usleep(5);
 	usleep(10);
 	usleep(20);
