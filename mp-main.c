@@ -150,7 +150,7 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *mapping = NULL;
 	const char *asked_port = NULL;
 	const char *protocol = NULL;
-	const char *uid = NULL;
+	//const char *uid = NULL;
 	//const char *ticket = NULL;
 	//port_t *port = NULL;
 	json_t *val = NULL;
@@ -613,8 +613,8 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 		}
 	}
 
-	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
+	ctl = ctl_get_locked();
 	rc = j_rm(ctl->me);
 	ctl->me = j_new();
 	ctl_unlock(ctl);
@@ -681,7 +681,7 @@ static void *mp_main_mosq_thread(void *arg)
 	char *personal_topic;
 	buf_t *buf = NULL;
 
-	/* Client ID, should be assigned on registartion and gotten from config file */
+	/* TODO: Client ID, should be assigned on registartion and gotten from config file */
 	char clientid[24] = "seb";
 	/* Instance ID, we dont care, it always random */
 	int counter = 0;
@@ -698,7 +698,7 @@ static void *mp_main_mosq_thread(void *arg)
 	personal_topic = mp_communicate_private_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
 	TESTP_GO(personal_topic, end);
 
-	DD("Creating mosquitto client.. ");
+	DD("Creating mosquitto client\n");
 	ctl_lock(ctl);
 	if (ctl->mosq) mosquitto_destroy(ctl->mosq);
 
@@ -708,14 +708,14 @@ static void *mp_main_mosq_thread(void *arg)
 	TESTP_GO(ctl->mosq, end);
 
 	/* TODO: Registration must be another function */
-	DD("Setting user / pass.. ");
+	DD("Setting user / pass\n");
 	rc = mosquitto_username_pw_set(ctl->mosq, clientid, PASS);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't set user / pass\n");
 		return (NULL);
 	}
 
-	DD("Setting TLS.. ");
+	DD("Setting TLS\n");
 	rc = mosquitto_tls_set(ctl->mosq, cert, NULL, NULL, NULL, NULL);
 
 	if (MOSQ_ERR_SUCCESS != rc) {
@@ -736,6 +736,13 @@ static void *mp_main_mosq_thread(void *arg)
 
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't register last will\n");
+		DE("Error: %s\n", mosquitto_strerror(rc));
+		goto end;
+	}
+
+	rc = mosquitto_reconnect_delay_set(ctl->mosq, 1, 30, false);
+	if (MOSQ_ERR_SUCCESS != rc) {
+		DE("Can't set reconnection delay params\n");
 		DE("Error: %s\n", mosquitto_strerror(rc));
 		goto end;
 	}
@@ -765,12 +772,18 @@ static void *mp_main_mosq_thread(void *arg)
 		goto end;
 	}
 
+	/* The ST_STOP flag can be set:
+	   1. From sugnal trap, when user presses Ctrc-C
+	   2. From shell / gui client by sending request to disconnect
+	   3. TODO: by signal trap by USR1 / USR2 signal */
 	while (ST_STOP != ctl->status) {
-		DDD("Client status is: %d\n", ctl->status);
+		//DDD("Client status is: %d\n", ctl->status);
 
 		if (ST_DISCONNECTED == ctl->status) {
+			/* We are disconnected */
 			DD("Client is disconnected, trying reconnect\n");
 			rc = mosquitto_reconnect(ctl->mosq);
+
 			if (MOSQ_ERR_SUCCESS != rc) {
 				DE("Connection error: ");
 
@@ -781,23 +794,21 @@ static void *mp_main_mosq_thread(void *arg)
 				if (MOSQ_ERR_NOMEM == rc) {
 					DE("no memory\n");
 				}
-				if (MOSQ_ERR_SUCCESS == rc) {
-					DE("unkown, error: %d\n", rc);
-				}
 			} else {
 				DD("Finished reconnect\n");
 				ctl->status = ST_CONNECTED;
 			}
 		}
-		DDD("Finished disconnection check\n");
+		//DDD("Finished disconnection check\n");
 
 		usleep((__useconds_t)mp_os_random_in_range(100, 300));
 		if (0 == (counter % 7) && (ST_DISCONNECTED != ctl->status)) {
-			DD("Client connected, sending keepalive message\n");
+			// DD("Client connected, sending keepalive message\n");
 			rc = send_keepalive_l(ctl->mosq);
 			if (EOK != rc) {}
 			counter = 1;
 		}
+
 		if (ST_DISCONNECTED == ctl->status) {
 			DD("Client in DISCONNECTED status\n");
 		}

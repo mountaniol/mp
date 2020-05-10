@@ -44,21 +44,18 @@ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 		return (NULL);
 	}
 
-	ctl = ctl_get();
-
-	//DD("Got counter = %d\n", counter);
-
 	buf_counter_s = (char *)zmalloc(32);
 	TESTP(buf_counter_s, NULL);
 
-	/* Transfor counter to key (string) */
+	/* Transform counter to key (string) */
 	snprintf(buf_counter_s, 32, "%d", counter);
 
 	DD("Counter string = %s\n", buf_counter_s);
 
-	ctl_lock(ctl);
+	ctl = ctl_get_locked();
 	ret = j_find_int(ctl->buffers, buf_counter_s);
 	ctl_unlock(ctl);
+
 	if (0XDEADBEEF == ret) {
 		DE("Can't get buffer\n");
 		/* We can't get buffer it probably not set yet.
@@ -100,7 +97,6 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 		return (EBAD);
 	}
 
-	ctl = ctl_get();
 
 	DD("Got counter = %d\n", counter);
 
@@ -110,7 +106,9 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	/* Transfor counter to key (string) */
 	snprintf(buf_counter_s, 32, "%d", counter);
 
+	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
+	ctl_unlock(ctl);
 	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf");
 	free(buf_counter_s);
 
@@ -209,14 +207,19 @@ int send_reveal_l(struct mosquitto *mosq)
 	buf_t *buf = NULL;
 	int rc = EBAD;
 
-	ctl = ctl_get_locked();
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	ctl = ctl_get();
+	const char *user;
+	const char *uid;
 
+	user = j_find_ref(ctl->me, JK_USER);
+	TESTP(user, EBAD); 
+	uid = j_find_ref(ctl->me, JK_UID_ME);
+	TESTP(uid, EBAD); 
+
+	forum_topic = mp_communicate_forum_topic(user, uid);
 	TESTP(forum_topic, EBAD);
 
 	buf = mp_requests_build_reveal();
-	ctl_unlock(ctl);
 
 	TESTP_MES(buf, EBAD, "Can't build notification");
 
@@ -361,7 +364,7 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
 											 j_find_ref(ctl->me, JK_UID_ME));
-	
+
 	if (j_count(ctl->tickets_out) == 1) {
 		DD("No tickets to send\n");
 		return (EOK);
@@ -372,9 +375,9 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 			 j_find_ref(ctl->me, JK_UID_ME));
 
 	resp = j_arr();
-	if(NULL == resp) {
+	if (NULL == resp) {
 		free(forum_topic);
-		return EBAD;
+		return (EBAD);
 	}
 
 	json_array_foreach(ctl->tickets_out, index, val) {

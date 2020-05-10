@@ -99,9 +99,9 @@ static json_t *mp_cli_get_received_tickets_l(json_t *root)
 			json_array_remove(ctl->tickets_in, index);
 		}
 	}
+	mp_cli_send_to_cli(arr);
 
 	j_print(arr, "Sending to shell: ");
-	mp_cli_send_to_cli(arr);
 	return (arr);
 }
 

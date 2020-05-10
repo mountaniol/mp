@@ -121,7 +121,7 @@ static char *mp_network_get_internal_ip(void)
 /* Probe network and write all values to global ctl structure */
 int mp_network_init_network_l()
 {
-	control_t *ctl = ctl_get_locked();
+	control_t *ctl = ctl_get();
 	char *var;
 
 	/* Try to read external IP from Upnp */
@@ -133,7 +133,9 @@ int mp_network_init_network_l()
 		var = strdup("0.0.0.0");
 	}
 
+	ctl_lock(ctl);
 	if (EOK != j_add_str(ctl->me, JK_IP_EXT, var)) DE("Can't add 'JK_IP_EXT'\n");
+	ctl_unlock(ctl);
 	TFREE(var);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
@@ -141,6 +143,7 @@ int mp_network_init_network_l()
 
 	var = mp_network_get_internal_ip();
 	TESTP(var, EBAD);
+	ctl_lock(ctl);
 	if (EOK != j_add_str(ctl->me, JK_IP_INT, var)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock(ctl);
