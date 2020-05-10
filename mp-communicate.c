@@ -47,6 +47,43 @@ char *mp_communicate_private_topic_all(const char *user)
 
 
 /* Find a buffer in ctl->buffers by vounter 'counter' */
+int mp_communicate_clean_missed_counters(void)
+{
+	control_t *ctl;
+	void *tmp;
+	const char *key;
+	json_t *val;
+
+	ctl = ctl_get_locked();
+	if (j_count(ctl->buf_missed) < 1) {
+		DD("No missed counters\n");
+		ctl_unlock(ctl);
+		return (EOK);
+	}
+
+
+	json_object_foreach_safe(ctl->buf_missed, tmp, key, val) {
+		buf_t *buf;
+		size_t ret;
+
+		ret = j_find_int(ctl->buffers, key);
+		if (0XDEADBEEF == ret) {
+			DE("Comething wrong: can't find value for key %s\n", key);
+			continue;
+		}
+
+		buf = (buf_t *) ret;
+		buf_free_force(buf);
+		DD("Found missed key, removing: %s\n", key);
+		j_rm_key(ctl->buf_missed, key);
+		j_rm_key(ctl->buffers, key);
+	}
+	ctl_unlock(ctl);
+
+	return (EOK);
+}
+
+/* Find a buffer in ctl->buffers by vounter 'counter' */
 buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
 	buf_t *buf_p;
@@ -73,30 +110,17 @@ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 	ctl_unlock(ctl);
 
 	if (0XDEADBEEF == ret) {
-		/* No buffer found. Let's try in buf_counters, it may be there */
-		ctl = ctl_get_locked();
-		ret = j_find_int(ctl->buf_missed, buf_counter_s);
-		ctl_unlock(ctl);
-
-		/* Yes, we found it in missed */
-		if (0XDEADBEEF != ret) {
-			j_rm_key(ctl->buf_missed, buf_counter_s);
-			free(buf_counter_s);
-			return (buf_t *) ret;
-		}
-	}
-
-	if (0XDEADBEEF == ret) {
 		DE("Can't get buffer\n");
 
 		/* We can't get buffer it probably not set yet.
-			   We should save this counter and try it later. */
+		   We should save this counter and try it later. */
 
 		ctl_lock(ctl);
-		j_cp(ctl->buffers, ctl->buf_missed, buf_counter_s);
-		free(buf_counter_s);
+		j_add_int(ctl->buf_missed, buf_counter_s, counter);
 		ctl_unlock(ctl);
-		j_print(ctl->buf_missed, "Now in stuck counters:");
+		free(buf_counter_s);
+		DD("Added to missed counters: %d\n", counter);
+		j_print(ctl->buf_missed, "Now in missed counters:");
 		return (NULL);
 	}
 

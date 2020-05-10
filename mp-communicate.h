@@ -10,6 +10,7 @@ extern char *mp_communicate_forum_topic(const char *user, const char *uid);
 extern char *mp_communicate_forum_topic_all(const char *user);
 extern char *mp_communicate_private_topic(const char *user, const char *uid);
 extern char *mp_communicate_private_topic_all(const char *user);
+extern int mp_communicate_clean_missed_counters(void);
 extern buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter);
 extern int mp_communicate_mosquitto_publish(struct mosquitto *mosq, const char *topic, buf_t *buf);
 extern int mp_communicate_send_json(struct mosquitto *mosq, const char *forum_topic, json_t *root);

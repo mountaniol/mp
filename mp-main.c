@@ -660,6 +660,8 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		return;
 	}
 
+	mp_communicate_clean_missed_counters();
+
 	//DD("Found buffer: \n%s\n", buf->data);
 	buf_free_force(buf);
 }
