@@ -638,17 +638,17 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	   It may happen in case the mosq sent the buffer too fast and the couter was added AFTER this callback
 	   worked.*/
 
-	if (j_count(ctl->buf_counters)) {
+	if (j_count(ctl->buf_missed)) {
 		json_t *val;
 		void *tmp;
 		const char *key;
-		DD("Found number of stuck buffers : %d\n", j_count(ctl->buf_counters));
-		j_print(ctl->buf_counters, "List of stuck counters:");
-		json_object_foreach_safe(ctl->buf_counters, tmp, key, val) {
+		DD("Found number of stuck buffers : %d\n", j_count(ctl->buf_missed));
+		j_print(ctl->buf_missed, "List of stuck counters:");
+		json_object_foreach_safe(ctl->buf_missed, tmp, key, val) {
 			buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 			if (NULL != buf) {
 				buf_free_force(buf);
-				j_rm_key(ctl->buf_counters, key);
+				j_rm_key(ctl->buf_missed, key);
 				DD("found and deleted stuck counter %s\n", key);
 			}
 		}

@@ -29,8 +29,8 @@ int ctl_allocate_init(void)
 	g_ctl->buffers = j_new();
 	TESTP_MES(g_ctl->buffers, -1, "Can't allocate json object");
 
-	g_ctl->buf_counters = j_new();
-	TESTP_MES(g_ctl->buf_counters, -1, "Can't allocate json object");
+	g_ctl->buf_missed = j_new();
+	TESTP_MES(g_ctl->buf_missed, -1, "Can't allocate json object");
 
 	g_ctl->tickets_out = j_arr();
 	TESTP(g_ctl->tickets_out, -1);

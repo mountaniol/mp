@@ -46,8 +46,6 @@ char *mp_communicate_private_topic_all(const char *user)
 }
 
 
-
-
 /* Find a buffer in ctl->buffers by vounter 'counter' */
 buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
@@ -75,15 +73,30 @@ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 	ctl_unlock(ctl);
 
 	if (0XDEADBEEF == ret) {
+		/* No buffer found. Let's try in buf_counters, it may be there */
+		ctl = ctl_get_locked();
+		ret = j_find_int(ctl->buf_missed, buf_counter_s);
+		ctl_unlock(ctl);
+
+		/* Yes, we found it in missed */
+		if (0XDEADBEEF != ret) {
+			j_rm_key(ctl->buf_missed, buf_counter_s);
+			free(buf_counter_s);
+			return (buf_t *) ret;
+		}
+	}
+
+	if (0XDEADBEEF == ret) {
 		DE("Can't get buffer\n");
+
 		/* We can't get buffer it probably not set yet.
-		   We should save this counter and try it later. */
+			   We should save this counter and try it later. */
 
 		ctl_lock(ctl);
-		j_cp(ctl->buffers, ctl->buf_counters, buf_counter_s);
+		j_cp(ctl->buffers, ctl->buf_missed, buf_counter_s);
 		free(buf_counter_s);
-		j_print(ctl->buf_counters, "Now in stuck counters:");
 		ctl_unlock(ctl);
+		j_print(ctl->buf_missed, "Now in stuck counters:");
 		return (NULL);
 	}
 
@@ -115,7 +128,6 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 		return (EBAD);
 	}
 
-
 	DD("Got counter = %d\n", counter);
 
 	buf_counter_s = (char *)zmalloc(32);
@@ -127,7 +139,7 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
 	ctl_unlock(ctl);
-	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf");
+	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf\n");
 	free(buf_counter_s);
 
 	return (EOK);
@@ -230,9 +242,9 @@ int send_reveal_l(struct mosquitto *mosq)
 	const char *uid;
 
 	user = j_find_ref(ctl->me, JK_USER);
-	TESTP(user, EBAD); 
+	TESTP(user, EBAD);
 	uid = j_find_ref(ctl->me, JK_UID_ME);
-	TESTP(uid, EBAD); 
+	TESTP(uid, EBAD);
 
 	forum_topic = mp_communicate_forum_topic(user, uid);
 	TESTP(forum_topic, EBAD);
