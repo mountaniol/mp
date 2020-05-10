@@ -25,7 +25,7 @@ char *mp_communicate_private_topic(const char *user, const char *uid)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/private/%s", user, uid);
+	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
 	return (topic);
 }
 
