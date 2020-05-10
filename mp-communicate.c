@@ -61,14 +61,13 @@ int mp_communicate_clean_missed_counters(void)
 		return (EOK);
 	}
 
-
 	json_object_foreach_safe(ctl->buf_missed, tmp, key, val) {
 		buf_t *buf;
 		size_t ret;
 
 		ret = j_find_int(ctl->buffers, key);
 		if (0XDEADBEEF == ret) {
-			DE("Comething wrong: can't find value for key %s\n", key);
+			DE("Something wrong: can't find value for key %s\n", key);
 			continue;
 		}
 
@@ -120,7 +119,8 @@ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 		ctl_unlock(ctl);
 		free(buf_counter_s);
 		DD("Added to missed counters: %d\n", counter);
-		j_print(ctl->buf_missed, "Now in missed counters:");
+		j_print(ctl->buf_missed, "Now in missed  counters:");
+		j_print(ctl->buffers, "Now in buffers counters:");
 		return (NULL);
 	}
 
