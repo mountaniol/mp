@@ -931,10 +931,10 @@ int mp_main_complete_me_init(void)
 
 	if (EOK != j_test_key(ctl->me, JK_UID_ME)) {
 		var = mp_os_generate_uid(j_find_ref(ctl->me, JK_USER));
-		TESTP(var, EBAD);
 		TESTI_MES(rc, EBAD, "Can't generate UID\n");
 
 		rc = j_add_str(ctl->me, JK_UID_ME, var);
+		free(var);
 		TESTI_MES(rc, EBAD, "Can't add JK_UID into etcl->me");
 	}
 
