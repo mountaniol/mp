@@ -888,7 +888,6 @@ int mp_main_complete_me_init(void)
 
 		ctl_uid_set(var);
 		free(var);
-		TESTI_MES(rc, EBAD, "Can't add JK_UID into etcl->me");
 	}
 
 	if (EOK != j_test_key(ctl->me, JK_SOURCE)) {
