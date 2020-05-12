@@ -245,7 +245,7 @@ int mp_cli_send_to_cli(json_t *root)
 	json_t *resp = NULL;
 
 	ctl = ctl_get_locked();
-	j_add_str(root, JK_UID_SRC, j_find_ref(ctl->me, JK_UID_ME));
+	j_add_str(root, JK_UID_SRC, ctl_uid_get());
 	ctl_unlock(ctl);
 
 	DDD("Calling send_request_to_open_port\n");

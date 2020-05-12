@@ -249,12 +249,9 @@ end:
 
 int send_reveal_l(struct mosquitto *mosq)
 {
-	control_t *ctl = NULL;
 	char *forum_topic;
 	buf_t *buf = NULL;
 	int rc = EBAD;
-
-	ctl = ctl_get();
 
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 	TESTP(forum_topic, EBAD);
@@ -278,11 +275,8 @@ int mp_communicate_send_request(struct mosquitto *mosq, json_t *root)
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
-	control_t *ctl = NULL;
 
 	TESTP(mosq, EBAD);
-
-	ctl = ctl_get();
 
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
@@ -303,11 +297,8 @@ int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
-	control_t *ctl = NULL;
 
 	TESTP(mosq, EBAD);
-
-	ctl = ctl_get();
 
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
@@ -328,14 +319,11 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
-	control_t *ctl = NULL;
 
 	TESTP(mosq, EBAD);
 	TESTP(target_uid, EBAD);
 	TESTP(port, EBAD);
 	TESTP(protocol, EBAD);
-
-	ctl = ctl_get();
 
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
@@ -355,16 +343,13 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
-	control_t *ctl = NULL;
 
 	TESTP(mosq, EBAD);
 	TESTP(target_uid, EBAD);
 	TESTP(port, EBAD);
 	TESTP(protocol, EBAD);
 
-	ctl = ctl_get();
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
-
 
 	DDD("Going to build request\n");
 	buf = mp_requests_close_port(target_uid, port, protocol);

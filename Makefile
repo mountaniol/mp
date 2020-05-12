@@ -1,5 +1,5 @@
-#GCC=gcc
-GCC=clang-10
+GCC=gcc
+#GCC=clang-10
 CFLAGS=-Wall -Wextra
 DEBUG=-DDEBUG3
 DEBUG += -DEERROR3
