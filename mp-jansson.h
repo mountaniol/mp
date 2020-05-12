@@ -46,7 +46,7 @@
  * @param void 
  * @return void* 
  */
-void *j_arr(void);
+/*@null@*/ void *j_arr(void);
 
 /**
  *  
@@ -70,7 +70,7 @@ int j_arr_add(json_t *arr, json_t *obj);
  * 
  * @return void* 
  */
-void *j_new(void);
+/*@null@*/ void *j_new(void);
 
 
 /**
@@ -279,7 +279,7 @@ int j_replace(json_t *root, const char *key, json_t *j_new);
  * 
  * @return int 
  */
-json_t *j_dup(const json_t *root);
+/*@null@*/ json_t *j_dup(const json_t *root);
 
 /**
  * @func int j_rm_key(hson_t *root, const char *key)
@@ -314,6 +314,5 @@ int j_rm(json_t *root);
  * 
  * @return int 
  */
-int j_print(json_t *root, const char *prefix)
-;
+void j_print(json_t *root, const char *prefix);
 #endif /* _SEC_SERVER_JANSSON_H_ */

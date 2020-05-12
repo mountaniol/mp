@@ -10,7 +10,7 @@
 
 /* SEB:TODO: What exactly the params? */
 /* Connect request: ask remote host to open port for ssh connection */
-/*@unused@*/ buf_t *mp_requests_build_connect(const char *uid_remote, const char *user_remote)
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_connect(const char *uid_remote, const char *user_remote)
 {
 	buf_t *buf = NULL;
 
@@ -34,15 +34,13 @@ err:
 }
 
 /* Last well sent by server on the client disconnect to all other listeners  */
-buf_t *mp_requests_build_last_will()
+/*@null@*/ buf_t *mp_requests_build_last_will()
 {
 	const char *name;
-	const char *uid_me;
 	buf_t *buf = NULL;
 	control_t *ctl = ctl_get();
 
 	name = j_find_ref(ctl->me, JK_NAME);
-	uid_me = j_find_ref(ctl->me, JK_UID_ME);
 
 	TESTP_MES(name, NULL, "Got NULL");
 
@@ -52,7 +50,7 @@ buf_t *mp_requests_build_last_will()
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECT)) goto err;
 	/* SEB: TODO: Whay exactly do I send the machine name to remote? */
 	if (EOK != j_add_str(root, JK_NAME, name)) goto err;
-	if (EOK != j_add_str(root, JK_UID_SRC, uid_me)) goto err;
+	if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;
 
 	buf = j_2buf(root);
 
@@ -66,15 +64,13 @@ err:
 }
 
 /* Reveal request: ask all my clients to send information */
-buf_t *mp_requests_build_reveal()
+/*@null@*/ buf_t *mp_requests_build_reveal()
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;
-	const char *uid;
 	const char *name;
 	control_t *ctl = ctl_get();
 	name = j_find_ref(ctl->me, JK_NAME);
-	uid = j_find_ref(ctl->me, JK_UID_ME);
 
 	TESTP_MES(name, NULL, "Got NULL");
 
@@ -82,7 +78,7 @@ buf_t *mp_requests_build_reveal()
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) goto err;
-	if (EOK != j_add_str(root, JK_UID_SRC, uid)) goto err;
+	if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;
 
 	buf = j_2buf(root);
 
@@ -96,7 +92,7 @@ err:
 
 /* ssh request this client want to connect to client "uid"
    The client "uid" should open a port and return it in "ssh-done" responce */
-/*@unused@*/ buf_t *mp_requests_build_ssh(const char *uid)
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh(const char *uid)
 {
 	buf_t *buf = NULL;
 	json_t *root = j_new();
@@ -121,7 +117,7 @@ err:
 
 /* "ssh-done" responce: this client opened a port and informes
    about it. This is responce to "ssh" requiest */
-/*@unused@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port)
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port)
 {
 	buf_t *buf = NULL;
 	json_t *root = j_new();
@@ -155,7 +151,7 @@ err:
    already tried to open a port and failed.
    Another scenario: the remote client "uid" succeeded to open
    port, but we cannot connect. In this case we move on to "sshr" requiest */
-/*@unused@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port)
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port)
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;
@@ -187,7 +183,7 @@ err:
 /* sshr-done: we opened reversed channel to the client "uid".
    The remote client "uid" may use "localport" on its side
    to establish connection */
-/*@unused@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status)
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status)
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;
@@ -216,14 +212,14 @@ err:
 }
 
 /* SEB:TODO: I should just send ctl->me structure as keepalive */
-buf_t *mp_requests_build_keepalive()
+/*@null@*/ buf_t *mp_requests_build_keepalive()
 {
 	control_t *ctl = ctl_get();
 	return (j_2buf(ctl->me));
 }
 
 /* SEB:TODO: We should form this request in mp-shell */
-buf_t *mp_requests_open_port(const char *uid, const char *port, const char *protocol)
+/*@null@*/ buf_t *mp_requests_open_port(const char *uid, const char *port, const char *protocol)
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;
@@ -250,7 +246,7 @@ err:
 	return (buf);
 }
 
-buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol)
+/*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol)
 {
 	buf_t *buf = NULL;
 	json_t *root = NULL;

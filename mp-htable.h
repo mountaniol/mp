@@ -32,14 +32,14 @@ typedef struct htable_struct {
 	for(index = 0, hnode = ((hnode_t **)htab->misc)[index] ; index < htab->members - 1; hnode = ((hnode_t **)htab->misc)[++index]) 
 
 
-extern htable_t *htable_alloc(size_t size);
+extern /*@null@*/ htable_t *htable_alloc(size_t size);
 extern int htable_free(htable_t *ht);
 extern int htable_insert(htable_t *ht, char *key, void *data);
-extern void *htable_delete(htable_t *ht, char *key);
+extern /*@null@*/ void *htable_delete(htable_t *ht, char *key);
 //extern void *htable_replace(htable_t *ht, char *key, void *data);
-extern void *htable_find(htable_t *ht, char *key);
+extern /*@null@*/ void *htable_find(htable_t *ht, char *key);
 //extern int htable_test_key(htable_t *ht, char *key);
-extern void *htable_first_key(htable_t *ht);
+extern /*@null@*/ void *htable_first_key(htable_t *ht);
 extern int htable_sort(htable_t *ht);
 extern int htable_unsort(htable_t *ht);
 

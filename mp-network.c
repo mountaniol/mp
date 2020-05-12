@@ -11,7 +11,7 @@
 #include "mp-ports.h"
 #include "mp-dict.h"
 
-static char *mp_network_find_wan_interface(void)
+/*@null@*/ static char *mp_network_find_wan_interface(void)
 {
 	FILE *fd = NULL;
 	char *buf = NULL;
@@ -73,7 +73,7 @@ err:
 }
 
 /* Find interface connected to WAN and return its IP */
-static char *mp_network_get_internal_ip(void)
+/*@null@*/ static char *mp_network_get_internal_ip(void)
 {
 	struct ifaddrs *ifaddr = NULL;
 	struct ifaddrs *ifa = NULL;

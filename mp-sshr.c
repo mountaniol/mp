@@ -47,7 +47,7 @@ enum {
 };
 
 
-void *start_ssh_forward_thread(void *arg)
+/*@null@*/ void *start_ssh_forward_thread(void *arg)
 //int main()
 {
 	int rc, i, auth = AUTH_NONE;

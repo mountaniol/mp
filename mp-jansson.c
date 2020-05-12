@@ -79,12 +79,12 @@ int j_arr_add(json_t *arr, json_t *obj)
 	return (json_array_append_new(arr, obj));
 }
 
-void *j_arr()
+/*@null@*/ void *j_arr()
 {
 	return (json_array());
 }
 
-void *j_new()
+/*@null@*/ void *j_new()
 {
 	return (json_object());
 }
@@ -332,7 +332,7 @@ int j_replace(json_t *root, const char *key, json_t *j_new)
 	return (json_object_set_new(root, key, j_new));
 }
 
-json_t *j_dup(const json_t *root)
+/*@null@*/ json_t *j_dup(const json_t *root)
 {
 	return (json_deep_copy(root));
 }
@@ -371,15 +371,18 @@ int j_rm(json_t *root)
 	return (0);
 }
 
-int j_print(json_t *root, const char *prefix)
+void j_print(json_t *root, const char *prefix)
 {
 
 	buf_t *buf = j_2buf(root);
-	TESTP(buf, EBAD);
+	if(NULL == buf) {
+		DE("Got NULL\n");
+		return;
+	}
+
 	if (prefix) D("%s :\n", prefix);
 	printf("%s\n", buf->data);
 	buf_free_force(buf);
-	return EOK;
 	
 #if 0
 	const char *key;

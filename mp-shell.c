@@ -60,7 +60,7 @@ int mp_shell_parse_in_command(json_t *root)
 
 /* This thread accepts connection from CLI or from GUI client
    Only one client a time */
-void *mp_shell_in_thread(void *arg __attribute__((unused)))
+/*@null@*/ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
 	int fd = -1;
@@ -161,7 +161,7 @@ void *mp_shell_in_thread(void *arg __attribute__((unused)))
 	return (NULL);
 }
 
-json_t *mp_shell_do_requiest(json_t *root)
+/*@null@*/ json_t *mp_shell_do_requiest(json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -584,7 +584,7 @@ static int mp_shell_get_remote_ports()
 {
 	json_t *resp = NULL;
 	json_t *root = j_new();
-	int index;
+	size_t index;
 	const char *key;
 	json_t *val = NULL;
 	ft_table_t *table = NULL;
@@ -754,15 +754,15 @@ int main(int argc, char *argv[])
 	}
 
 	if (0 == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
-		mp_shell_get_hosts(args);
+		mp_shell_get_hosts();
 	}
 
 	if (0 == j_test(args, JK_SHOW_PORTS, JV_YES)) {
-		mp_shell_get_ports(args);
+		mp_shell_get_ports();
 	}
 
 	if (0 == j_test(args, JK_SHOW_INFO, JV_YES)) {
-		mp_shell_get_info(args);
+		mp_shell_get_info();
 	}
 
 	if (0 == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
@@ -780,7 +780,7 @@ int main(int argc, char *argv[])
 
 	if (0 == j_test(args, JK_SHOW_RPORTS, JV_YES)) {
 		D("Founf RPORTS command\n");
-		mp_shell_get_remote_ports(args);
+		mp_shell_get_remote_ports();
 	}
 
 	return (0);

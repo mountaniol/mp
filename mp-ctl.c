@@ -45,18 +45,16 @@ int ctl_allocate_init(void)
 	return (sem_init(&g_ctl->lock, 0, 1));
 }
 
-int ctl_lock(control_t *ctl)
+void ctl_lock(control_t *ctl)
 {
 	TESTP_ASSERT(ctl, "NULL!");
 	sem_wait(&ctl->lock);
-	return (0);
 }
 
-int ctl_unlock(control_t *ctl)
+void ctl_unlock(control_t *ctl)
 {
 	TESTP_ASSERT(ctl, "NULL!");
 	sem_post(&ctl->lock);
-	return (EOK);
 }
 
 control_t *ctl_get(void)
@@ -67,5 +65,48 @@ control_t *ctl_get(void)
 control_t *ctl_get_locked(void)
 {
 	return (g_ctl);
+}
+
+
+/*** Interface function for most important control_t fields ***/
+const char *ctl_uid_get()
+{
+	const char *uid;
+	TESTP_ASSERT(g_ctl->me, "NULL!");
+	uid = j_find_ref(g_ctl->me, JK_UID_ME);
+	return (uid);
+}
+
+void ctl_uid_set(const char *uid)
+{
+	int rc;
+	TESTP_ASSERT(g_ctl->me, "NULL!");
+	TESTP_ASSERT(uid, "NULL!");
+	rc = j_add_str(g_ctl->me, JK_UID_ME, uid);
+	if (EOK != rc) {
+		DE("Can't set uid\n");
+		abort();
+	}
+}
+
+const char *ctl_user_get()
+{
+	const char *user;
+	TESTP_ASSERT(g_ctl->me, "NULL!");
+	user = j_find_ref(g_ctl->me, JK_USER);
+	TESTP_ASSERT(user, "NULL!");
+	return (user);
+}
+
+void ctl_user_set(const char *user)
+{
+	int rc;
+	TESTP_ASSERT(g_ctl->me, "NULL!");
+	TESTP_ASSERT(user, "NULL!");
+	rc = j_add_str(g_ctl->me, JK_USER, user);
+	if (EOK != rc) {
+		DE("Can't set uid\n");
+		abort();
+	}
 }
 

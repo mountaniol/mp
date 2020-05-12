@@ -78,12 +78,16 @@ int mp_main_ticket_responce(json_t *req, const char *status, const char *comment
 	/* Send it */
 
 	ctl = ctl_get();
-	forum = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
-	TESTP(forum, EBAD);
+	forum = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	TESTP_ASSERT(forum, "Can't allocate forum!");
 
 	rc = mp_communicate_send_json(ctl->mosq, forum, root);
-	j_rm(root);
 	free(forum);
+	if (0 != j_rm(root)) {
+		DE("Can't remove json object 'root'");
+		return (EBAD);
+	}
+
 	return (rc);
 }
 
@@ -131,12 +135,10 @@ static int mp_main_do_open_port_l(json_t *root)
 	json_t *mapping = NULL;
 	const char *asked_port = NULL;
 	const char *protocol = NULL;
-	//const char *uid = NULL;
-	//const char *ticket = NULL;
-	//port_t *port = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
-	int index = 0;
+	size_t index = 0;
+	const char *ip_internal = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -169,14 +171,16 @@ static int mp_main_do_open_port_l(json_t *root)
 	   So we run UPNP request to our router to test this port ***/
 
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
-	mapping = mp_ports_if_mapped_json(root, asked_port, j_find_ref(ctl->me, JK_IP_INT), protocol);
+	ip_internal = j_find_ref(ctl->me, JK_IP_INT); 
+	TESTP_ASSERT(ip_internal, "internal IP is NULL");
+	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
 
 	/*** UPNP request found an existing mapping of asked port + protocol ***/
 	if (NULL != mapping) {
-		DD("Found existing mapping: %s -> %s | %s\n",
-		   j_find_ref(mapping, JK_PORT_EXT),
-		   j_find_ref(mapping, JK_PORT_INT),
-		   j_find_ref(mapping, JK_PROTOCOL));
+		//DD("Found existing mapping: %s -> %s | %s\n",
+		//   j_find_ref(mapping, JK_PORT_EXT),
+		//   j_find_ref(mapping, JK_PORT_INT),
+		//   j_find_ref(mapping, JK_PROTOCOL));
 
 		/* Add this mapping to our internal table table */
 		ctl_lock(ctl);
@@ -214,7 +218,7 @@ static int mp_main_do_close_port_l(json_t *root)
 	const char *protocol = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
-	int index = 0;
+	size_t index = 0;
 	int index_save = 0;
 	const char *external_port = NULL;
 	int rc = EBAD;
@@ -283,19 +287,10 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		j_print(root, "root");
 		rc = j_rm(root);
 		TESTI_MES(rc, EBAD, "Can't remove json object");
-		free(tp);
 		return (EBAD);
 	}
 
 	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
-
-	/*** Message "keepalive" ***/
-	/* 
-	 * "keepalive" is a regular message every
-	 * that every client send once a while 
-	 * This is a broadcast message, everyone receive it  
-	 * This is aa status update.
-	 */
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
@@ -342,10 +337,10 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 
 
 	/** All mesages except above should be dedicated to us ***/
-	if (EOK != j_test(root, JK_UID_DST, j_find_ref(ctl->me, JK_UID_ME))) {
+	if (EOK != j_test(root, JK_UID_DST, ctl_uid_get())) {
 		rc = 0;
 		DDD("This request not for us: JK_UID_DST = %s, us = %s\n",
-			j_find_ref(root, JK_UID_DST), j_find_ref(ctl->me, JK_UID_ME));
+			j_find_ref(root, JK_UID_DST), ctl_uid_get());
 		goto end;
 	}
 
@@ -613,29 +608,6 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 						   void *data __attribute__((unused)), int buf_id)
 {
 	buf_t *buf = NULL;
-	control_t *ctl = ctl_get();
-
-	/* First of all, we check if there old counters: the counters not freed on this call earlear.
-	   It may happen in case the mosq sent the buffer too fast and the couter was added AFTER this callback
-	   worked.*/
-
-#if 0
-	if (j_count(ctl->buf_missed)) {
-		json_t *val;
-		void *tmp;
-		const char *key;
-		DD("Found number of stuck buffers : %d\n", j_count(ctl->buf_missed));
-		j_print(ctl->buf_missed, "List of stuck counters:");
-		json_object_foreach_safe(ctl->buf_missed, tmp, key, val) {
-			buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
-			if (NULL != buf) {
-				buf_free_force(buf);
-				j_rm_key(ctl->buf_missed, key);
-				DD("found and deleted stuck counter %s\n", key);
-			}
-		}
-	}
-#endif
 
 	/* Sleep a couple of time to let the sending thread to add buffer */
 	/* When we sleep, the Kernel scheduler switches to another task and,
@@ -663,7 +635,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 #define PASS "asasqwqw"
 
 /* This thread is responsible for connection to the broker */
-static void *mp_main_mosq_thread(void *arg)
+/*@null@*/ static void *mp_main_mosq_thread(void *arg)
 {
 	control_t *ctl = NULL;
 	int rc = EBAD;
@@ -685,21 +657,20 @@ static void *mp_main_mosq_thread(void *arg)
 
 	ctl = ctl_get();
 
-	forum_topic_all = mp_communicate_forum_topic_all(j_find_ref(ctl->me, JK_USER));
+	forum_topic_all = mp_communicate_forum_topic_all(ctl_user_get());
 	TESTP(forum_topic_all, NULL);
 
-	forum_topic_me = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic_me = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 	TESTP(forum_topic_me, NULL);
 
-	personal_topic = mp_communicate_private_topic(j_find_ref(ctl->me, JK_USER), j_find_ref(ctl->me, JK_USER));
+	personal_topic = mp_communicate_private_topic(ctl_user_get(), ctl_uid_get());
 	TESTP_GO(personal_topic, end);
 
 	DD("Creating mosquitto client\n");
 	ctl_lock(ctl);
 	if (ctl->mosq) mosquitto_destroy(ctl->mosq);
 
-	ctl->mosq = mosquitto_new(j_find_ref(ctl->me, JK_UID_ME), true,
-							  (void *)j_find_ref(ctl->me, JK_UID_ME));
+	ctl->mosq = mosquitto_new(ctl_uid_get(), true, (void *)ctl_uid_get());
 	ctl_unlock(ctl);
 	TESTP_GO(ctl->mosq, end);
 
@@ -835,7 +806,7 @@ end:
 	return (NULL);
 }
 
-static void *mp_main_mosq_thread_manager(void *arg)
+/*@null@*/ static void *mp_main_mosq_thread_manager(void *arg)
 {
 	control_t *ctl = NULL;
 	void *status = NULL;
@@ -859,8 +830,8 @@ static int mp_main_print_info_banner()
 	printf("Router IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_EXT), j_find_ref(ctl->me, JK_PORT_EXT));
 	printf("Local IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_INT), j_find_ref(ctl->me, JK_PORT_INT));
 	printf("Name of comp:\t%s\n", j_find_ref(ctl->me, JK_NAME));
-	printf("Name of user:\t%s\n", j_find_ref(ctl->me, JK_USER));
-	printf("UID of user:\t%s\n", j_find_ref(ctl->me, JK_UID_ME));
+	printf("Name of user:\t%s\n", ctl_user_get());
+	printf("UID of user:\t%s\n", ctl_uid_get());
 	printf("=======================================\n");
 	return (EOK);
 }
@@ -895,8 +866,7 @@ int mp_main_complete_me_init(void)
 
 	/* SEB: TODO: This should be defined by user from first time config */
 	if (EOK != j_test_key(ctl->me, JK_USER)) {
-		rc = j_add_str(ctl->me, JK_USER, "seb");
-		TESTI_MES(rc, EBAD, "Can't add 'user'\n");
+		ctl_user_set("seb");
 	}
 
 	/* Try to read hostname of this machine. */
@@ -913,10 +883,10 @@ int mp_main_complete_me_init(void)
 	}
 
 	if (EOK != j_test_key(ctl->me, JK_UID_ME)) {
-		var = mp_os_generate_uid(j_find_ref(ctl->me, JK_USER));
+		var = mp_os_generate_uid(ctl_user_get());
 		TESTI_MES(rc, EBAD, "Can't generate UID\n");
 
-		rc = j_add_str(ctl->me, JK_UID_ME, var);
+		ctl_uid_set(var);
 		free(var);
 		TESTI_MES(rc, EBAD, "Can't add JK_UID into etcl->me");
 	}
@@ -936,7 +906,7 @@ int mp_main_complete_me_init(void)
 		TESTI_MES(rc, EBAD, "Can't add JK_BRIDGE");
 	}
 
-	printf("UID: %s\n", j_find_ref(ctl->me, JK_UID_ME));
+	printf("UID: %s\n", ctl_uid_get());
 	return (EOK);
 }
 

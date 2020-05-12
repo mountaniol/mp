@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #define STATICLIB
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -90,7 +91,7 @@ err:
 	return (NULL);
 }
 
-static struct UPNPDev *mp_ports_upnp_discover(void)
+/*@null@*/ static struct UPNPDev *mp_ports_upnp_discover(void)
 {
 	int error = 0;
 	return (upnpDiscover(
@@ -104,7 +105,6 @@ static struct UPNPDev *mp_ports_upnp_discover(void)
 #endif
 			&error)); // error condition
 }
-
 
 /* Send upnp request to router, ask to remap "external_port" of the router
    to "internal_port" on this machine */
@@ -206,7 +206,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-json_t *mp_ports_remap_any(json_t *req, const char *internal_port, const char *protocol)
+/*@null@*/ json_t *mp_ports_remap_any(json_t *req, const char *internal_port, const char *protocol)
 {
 	//size_t index = 0;
 	struct UPNPDev *upnp_dev = NULL;
@@ -332,7 +332,7 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
 	if (EOK != rc) DD("Can't add ticket\n");
-	
+
 	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
 	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
@@ -495,7 +495,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const char *local_host, const char *protocol)
+/*@null@*/ json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const char *local_host, const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -689,7 +689,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 
 /* Test if internal port already mapped.
    If it mapped, the external port returned */
-char *mp_ports_get_external_ip()
+/*@null@*/ char *mp_ports_get_external_ip()
 {
 	struct UPNPDev *upnp_dev = NULL;
 
@@ -730,7 +730,7 @@ char *mp_ports_get_external_ip()
 /*** Local port manipulation ****/
 
 /* Find ip and port for ssh connection to UID */
-json_t *mp_ports_ssh_port_for_uid(const char *uid)
+/*@null@*/ json_t *mp_ports_ssh_port_for_uid(const char *uid)
 {
 	json_t *root = NULL;
 	//json_t *val = NULL;
@@ -742,7 +742,7 @@ json_t *mp_ports_ssh_port_for_uid(const char *uid)
 		if (EOK == strcmp(key, uid)) {
 			json_t *ports = NULL;
 			json_t *port;
-			int index;
+			size_t index;
 			/* Found host */
 			ports = j_find_j(host, "ports");
 

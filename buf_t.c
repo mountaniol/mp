@@ -4,10 +4,11 @@
 #include "buf_t.h"
 #include "mp-common.h"
 #include "mp-debug.h"
+#include "mp-memory.h"
 
 /*@null@*/ buf_t *buf_new(/*@null@*/ char *data, size_t size)
 {
-	buf_t *buf = malloc(sizeof(buf_t));
+	buf_t *buf = zmalloc(sizeof(buf_t));
 	if (NULL == buf) {
 		return (NULL);
 	}

@@ -13,7 +13,8 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
-char *mp_communicate_forum_topic(const char *user, const char *uid)
+/*@null@*/ char *mp_communicate_forum_topic(const char *user, const char
+											*uid)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -21,7 +22,7 @@ char *mp_communicate_forum_topic(const char *user, const char *uid)
 	return (topic);
 }
 
-char *mp_communicate_forum_topic_all(const char *user)
+/*@null@*/ char *mp_communicate_forum_topic_all(const char *user)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -29,7 +30,7 @@ char *mp_communicate_forum_topic_all(const char *user)
 	return (topic);
 }
 
-char *mp_communicate_private_topic(const char *user, const char *uid)
+/*@null@*/ char *mp_communicate_private_topic(const char *user, const char *uid)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -37,7 +38,7 @@ char *mp_communicate_private_topic(const char *user, const char *uid)
 	return (topic);
 }
 
-char *mp_communicate_private_topic_all(const char *user)
+/*@null@*/ char *mp_communicate_private_topic_all(const char *user)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -71,7 +72,7 @@ int mp_communicate_clean_missed_counters(void)
 			continue;
 		}
 
-		buf = (buf_t *) ret;
+		buf = (buf_t *)ret;
 		buf_free_force(buf);
 		DD("Found missed key, removing: %s\n", key);
 		j_rm_key(ctl->buf_missed, key);
@@ -83,7 +84,7 @@ int mp_communicate_clean_missed_counters(void)
 }
 
 /* Find a buffer in ctl->buffers by vounter 'counter' */
-buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
+/*@null@*/ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
 	buf_t *buf_p;
 	size_t ret;
@@ -209,16 +210,8 @@ int send_keepalive_l(struct mosquitto *mosq)
 	buf_t *buf = NULL;
 	int rc = EBAD;
 
-	//memset(forum_topic, 0, TOPIC_MAX_LEN);
-
 	ctl = ctl_get();
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
-
-	//ctl_lock(ctl);
-	//snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
-	//		 j_find_ref(ctl->me, JK_USER),
-	//		 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	buf = mp_requests_build_keepalive();
 	ctl_unlock(ctl);
@@ -262,15 +255,8 @@ int send_reveal_l(struct mosquitto *mosq)
 	int rc = EBAD;
 
 	ctl = ctl_get();
-	const char *user;
-	const char *uid;
 
-	user = j_find_ref(ctl->me, JK_USER);
-	TESTP(user, EBAD);
-	uid = j_find_ref(ctl->me, JK_UID_ME);
-	TESTP(uid, EBAD);
-
-	forum_topic = mp_communicate_forum_topic(user, uid);
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 	TESTP(forum_topic, EBAD);
 
 	buf = mp_requests_build_reveal();
@@ -298,8 +284,7 @@ int mp_communicate_send_request(struct mosquitto *mosq, json_t *root)
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -324,8 +309,7 @@ int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -353,8 +337,7 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	DDD("Going to build request\n");
 	buf = mp_requests_open_port(target_uid, port, protocol);
@@ -380,8 +363,7 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 	TESTP(protocol, EBAD);
 
 	ctl = ctl_get();
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 
 	DDD("Going to build request\n");
@@ -401,11 +383,11 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 	buf_t *buf = NULL;
 	char *forum_topic;
 	control_t *ctl = NULL;
-	json_t *resp;
-	int index;
-	json_t *val;
-	const char *ticket;
-	const char *target_uid;
+	json_t *resp = NULL;
+	size_t index;
+	json_t *val = NULL;
+	const char *ticket = NULL;
+	const char *target_uid = NULL;
 
 	TESTP(mosq, EBAD);
 
@@ -416,17 +398,14 @@ int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(j_find_ref(ctl->me, JK_USER),
-											 j_find_ref(ctl->me, JK_UID_ME));
+	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	if (j_count(ctl->tickets_out) == 1) {
 		DD("No tickets to send\n");
 		return (EOK);
 	}
 
-	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s",
-			 j_find_ref(ctl->me, JK_USER),
-			 j_find_ref(ctl->me, JK_UID_ME));
+	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", ctl_user_get(), ctl_uid_get());
 
 	resp = j_arr();
 	if (NULL == resp) {

@@ -57,7 +57,7 @@ uint32_t murmur3_32(const uint8_t *key, size_t len)
 }
 
 /* Allocate new hash table node */
-static hnode_t *hnode_alloc()
+/*@null@*/ static hnode_t *hnode_alloc()
 {
 	hnode_t *node = zmalloc(sizeof(hnode_t));
 	TESTP_MES(node, NULL, "Can't alloc");
@@ -65,7 +65,7 @@ static hnode_t *hnode_alloc()
 }
 
 /* Allocate new hash table */
-htable_t *htable_alloc(size_t size)
+/*@null@*/ htable_t *htable_alloc(size_t size)
 {
 	htable_t *ht;
 
@@ -158,7 +158,7 @@ int htable_insert(htable_t *ht, char *key, void *data)
 }
 
 /* remove data for the given key; the data returned */
-void *htable_delete(htable_t *ht, char *key)
+/*@null@*/ void *htable_delete(htable_t *ht, char *key)
 {
 	hnode_t *node;
 	hnode_t *node_p;
@@ -221,7 +221,7 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 #endif
 
 /* find data for the given key */
-void *htable_find(htable_t *ht, char *key)
+/*@null@*/ void *htable_find(htable_t *ht, char *key)
 {
 	hnode_t *node;
 	uint32_t hash;
@@ -263,7 +263,7 @@ int htable_test_key(htable_t *ht, char *key){
 #endif
 
 /* remove first found key from hash table */
-void *htable_first_key(htable_t *ht)
+/*@null@*/ void *htable_first_key(htable_t *ht)
 {
 	hnode_t *node;
 	size_t i;

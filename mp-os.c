@@ -9,7 +9,7 @@
 #include "mp-debug.h"
 #include "mp-memory.h"
 
-char *mp_os_get_hostname()
+/*@null@*/ char *mp_os_get_hostname()
 {
 	struct addrinfo hints, *info;
 	int gai_result = -1;
@@ -39,7 +39,7 @@ char *mp_os_get_hostname()
 const char charset_alpha[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK0123456789";
 const char charset_num[] = "0123456789";
 
-static char *_rand_string(size_t size, const char charset[], size_t charset_size)
+/*@null@*/ static char *_rand_string(size_t size, const char charset[], size_t charset_size)
 {
 	FILE *fd = NULL;
 	char *str = NULL;
@@ -74,12 +74,12 @@ static char *_rand_string(size_t size, const char charset[], size_t charset_size
 	return (str);
 }
 
-char *mp_os_rand_string(size_t size)
+/*@null@*/ char *mp_os_rand_string(size_t size)
 {
 	return (_rand_string(size, charset_alpha, sizeof(charset_alpha)));
 }
 
-static char *mp_os_rand_string_numeric(size_t size)
+/*@null@*/ static char *mp_os_rand_string_numeric(size_t size)
 {
 	return (_rand_string(size, charset_num, sizeof(charset_num)));
 }
@@ -89,12 +89,12 @@ int mp_os_random_in_range(int lower, int upper)
 	return ((rand() % (upper - lower + 1)) + lower);
 }
 
-char *mp_os_generate_uid(const char *name)
+/*@null@*/ char *mp_os_generate_uid(const char *name)
 {
 	char *str = NULL;
-	char *part1;
-	char *part2;
-	char *part3;
+	char *part1 = NULL;
+	char *part2 = NULL;
+	char *part3 = NULL;
 
 	TESTP(name, NULL);
 

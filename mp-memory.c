@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-void *zmalloc(size_t sz)
+/*@null@*/ void *zmalloc(size_t sz)
 {
 	void *ret = malloc(sz);
 	if (NULL == ret) return NULL;

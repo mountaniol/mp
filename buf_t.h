@@ -3,7 +3,7 @@
 
 /* Simple struct to hold a buffer / string and its size / lenght */
 struct buf_t_struct {
-	char *data;		/* Pointer to data */
+	/*@null@*/ char *data;		/* Pointer to data */
 	size_t size;	/* Allocated size */
 	size_t len;		/* Used size */
 };

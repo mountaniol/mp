@@ -328,7 +328,7 @@ shutdown:
 	return (0);
 }
 
-void *ssh_thread(void *arg)
+/*@null@*/ void *ssh_thread(void *arg)
 {
 	json_t *root = arg;
 	int rc = EBAD;

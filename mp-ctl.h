@@ -51,8 +51,8 @@ typedef struct control_struct {
 	   to describe themselves. */
 	void *hosts;
 
-	htable_t *htab_ports; /* Here we keep mapped ports (port_t, see above), sorted by internal port */
-	void *config; /* The config file in form of JSON object */
+	/*@null@*/ htable_t *htab_ports; /* Here we keep mapped ports (port_t, see above), sorted by internal port */
+	/*@null@*/ void *config; /* The config file in form of JSON object */
 	void *tickets_out;
 	void *tickets_in;
 	void *buffers; /* Here we keep allocate buffers until they sent */
@@ -67,8 +67,18 @@ extern control_t *ctl_get(void);
 /* Lock ctl and get pointer to global  control_structure */
 extern control_t *ctl_get_locked(void);
 /* Lock global control_structure */
-extern int ctl_lock(control_t *ctl);
+extern void ctl_lock(control_t *ctl);
 /* Unock global control_structure */
-extern int ctl_unlock(control_t *ctl);
+extern void ctl_unlock(control_t *ctl);
+
+/* Get JK_UID_ME. This function always returns not NULL; if it can't extract JK_UID_ME it aborts execution */
+extern const char *ctl_uid_get(void);
+/* Set JK_UID_ME */
+extern void ctl_uid_set(const char *uid);
+
+/* Get JK_USER. This function always returns not NULL; if it can't extract JK_USER it aborts execution */
+extern const char *ctl_user_get(void);
+/* Set JK_USER */
+extern void ctl_user_set(const char *uid);
 
 #endif /* _SEC_CTL_H_ */
