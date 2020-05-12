@@ -884,7 +884,7 @@ int mp_main_complete_me_init(void)
 
 	if (EOK != j_test_key(ctl->me, JK_UID_ME)) {
 		var = mp_os_generate_uid(ctl_user_get());
-		TESTI_MES(rc, EBAD, "Can't generate UID\n");
+		TESTP_MES(var, EBAD, "Can't generate UID\n");
 
 		ctl_uid_set(var);
 		free(var);
