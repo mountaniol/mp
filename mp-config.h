@@ -14,7 +14,7 @@
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_save(void *_ctl);
+extern int mp_config_save(/*@only@*/const void *_ctl);
 
 /**
  * @brief Used in the first run, when no config file. Creates 
@@ -54,5 +54,5 @@ extern int mp_config_load(void *ctl);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_set(void *_ctl, const char *key, const char *val);
+extern int mp_config_set(void *_ctl, /*@only@*/const char *key, /*@only@*/const char *val);
 #endif /* _SEC_CLIENT_MOSQ_CONFIG_H_ */

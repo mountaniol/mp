@@ -133,9 +133,9 @@ int mp_network_init_network_l()
 		var = strdup("0.0.0.0");
 	}
 
-	ctl_lock(ctl);
+	ctl_lock();
 	if (EOK != j_add_str(ctl->me, JK_IP_EXT, var)) DE("Can't add 'JK_IP_EXT'\n");
-	ctl_unlock(ctl);
+	ctl_unlock();
 	TFREE(var);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
@@ -143,10 +143,10 @@ int mp_network_init_network_l()
 
 	var = mp_network_get_internal_ip();
 	TESTP(var, EBAD);
-	ctl_lock(ctl);
+	ctl_lock();
 	if (EOK != j_add_str(ctl->me, JK_IP_INT, var)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
-	ctl_unlock(ctl);
+	ctl_unlock();
 	TFREE(var);
 	return (0);
 }

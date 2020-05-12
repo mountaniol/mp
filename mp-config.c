@@ -133,7 +133,7 @@ err:
 }
 
 /* Write config object to config file */
-int mp_config_save(void *_ctl)
+int mp_config_save(/*@only@*/const void *_ctl)
 {
 	FILE *fd = NULL;
 	char *filename = NULL;

@@ -21,7 +21,7 @@
 #endif // DEBUG3
 #define DE _D_PRINT_ERR
 
-#ifdef DEERROR3
+#ifdef DERROR3
 	#define DDE _D_PRINT_ERR
 #else
 	/* Extra debug */

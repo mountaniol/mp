@@ -2,7 +2,7 @@ GCC=gcc
 #GCC=clang-10
 CFLAGS=-Wall -Wextra
 DEBUG=-DDEBUG3
-DEBUG += -DEERROR3
+DEBUG += -DDERROR3
 #CFLAGS += -fanalyzer
 
 #GCCVERSION=$(shell gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$/&00/')
@@ -32,6 +32,9 @@ U_C=mp-ports.c sec-memory.c
 
 all: m cli
 	@echo "Version = $(GCCVERSION)"
+	@echo "DEBUG = $(DEBUG)"
+	@echo "CFLAGS = $(CFLAGS)"
+	@echo "Compiler = $(GCC)"
 
 m: $(MOSQ_O)
 	@echo "|>> Linking mserver"
@@ -75,6 +78,8 @@ splint:
 	#splint -forcehints -standard -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -checks -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
+flaw:
+	flawfinder ./*.[ch] 
 
 %.o:%.c
 	@echo "|>" $@...

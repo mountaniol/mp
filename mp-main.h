@@ -4,6 +4,6 @@
 
 #define TOPIC_MAX_LEN 1024
 
-int mp_main_ticket_responce(json_t *req, const char *status, const char *comment);
+extern int mp_main_ticket_responce(/*@only@*/ const json_t *req, /*@only@*/const char *status, /*@only@*/const char *comment);
 
 #endif /* _SEC_CLIENT_MOSQ_H_ */

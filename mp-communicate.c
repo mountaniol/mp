@@ -13,8 +13,7 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
-/*@null@*/ char *mp_communicate_forum_topic(const char *user, const char
-											*uid)
+/*@null@*/ char *mp_communicate_forum_topic(/*@only@*/const char *user, /*@only@*/const char *uid) 
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -22,7 +21,7 @@
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_forum_topic_all(const char *user)
+/*@null@*/ char *mp_communicate_forum_topic_all(/*@only@*/const char *user)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -30,7 +29,7 @@
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_private_topic(const char *user, const char *uid)
+/*@null@*/ char *mp_communicate_private_topic(/*@only@*/const char *user, /*@only@*/const char *uid)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -38,7 +37,7 @@
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_private_topic_all(const char *user)
+/*@null@*/ char *mp_communicate_private_topic_all(/*@only@*/const char *user)
 {
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
@@ -58,7 +57,7 @@ int mp_communicate_clean_missed_counters(void)
 	ctl = ctl_get_locked();
 	if (j_count(ctl->buf_missed) < 1) {
 		DD("No missed counters\n");
-		ctl_unlock(ctl);
+		ctl_unlock();
 		return (EOK);
 	}
 
@@ -78,7 +77,7 @@ int mp_communicate_clean_missed_counters(void)
 		j_rm_key(ctl->buf_missed, key);
 		j_rm_key(ctl->buffers, key);
 	}
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	return (EOK);
 }
@@ -107,7 +106,7 @@ int mp_communicate_clean_missed_counters(void)
 
 	ctl = ctl_get_locked();
 	ret = j_find_int(ctl->buffers, buf_counter_s);
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	if (0XDEADBEEF == ret) {
 		DE("Can't get buffer\n");
@@ -115,9 +114,9 @@ int mp_communicate_clean_missed_counters(void)
 		/* We can't get buffer it probably not set yet.
 		   We should save this counter and try it later. */
 
-		ctl_lock(ctl);
+		ctl_lock();
 		j_add_int(ctl->buf_missed, buf_counter_s, counter);
-		ctl_unlock(ctl);
+		ctl_unlock();
 		free(buf_counter_s);
 		DD("Added to missed counters: %d\n", counter);
 		j_print(ctl->buf_missed, "Now in missed  counters:");
@@ -127,9 +126,9 @@ int mp_communicate_clean_missed_counters(void)
 
 	//DD("Got ret: %ld / %lx\n", ret, ret);
 	buf_p = (buf_t *)ret;
-	ctl_lock(ctl);
+	ctl_lock();
 	rc = j_rm_key(ctl->buffers, buf_counter_s);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	if (EOK != rc) {
 		DE("Can't remove key from json: ctl->buffers, buf_counter_s");
 	}
@@ -163,19 +162,19 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 
 	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf\n");
 	free(buf_counter_s);
 
 	return (EOK);
 }
 
-int mp_communicate_mosquitto_publish(struct mosquitto *mosq, const char *topic, buf_t *buf)
+int mp_communicate_mosquitto_publish(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *topic, /*@only@*/buf_t *buf)
 {
 	int rc;
 	int rc2;
 	int counter = -1;
-	rc = mosquitto_publish(mosq, &counter, topic, (int)buf->size, buf->data, 0, false);
+	rc = mosquitto_publish((struct mosquitto *)mosq, &counter, topic, (int)buf->size, buf->data, 0, false);
 	rc2 = mp_communicate_save_buf_t_to_ctl(buf, counter);
 	if (EOK != rc2) {
 		DE("Can't save buf_t to ctl\n");
@@ -187,7 +186,7 @@ int mp_communicate_mosquitto_publish(struct mosquitto *mosq, const char *topic, 
 	return (rc);
 }
 
-int mp_communicate_send_json(struct mosquitto *mosq, const char *forum_topic, json_t *root)
+int mp_communicate_send_json(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *forum_topic, /*@only@*/json_t *root)
 {
 	buf_t *buf;
 
@@ -202,19 +201,16 @@ int mp_communicate_send_json(struct mosquitto *mosq, const char *forum_topic, js
 	return (mp_communicate_mosquitto_publish(mosq, forum_topic, buf));
 }
 
-int send_keepalive_l(struct mosquitto *mosq)
+extern int send_keepalive_l(/*@only@*/const struct mosquitto *mosq)
 {
-	control_t *ctl = NULL;
-	//char forum_topic[TOPIC_MAX_LEN];
 	char *forum_topic;
 	buf_t *buf = NULL;
 	int rc = EBAD;
 
-	ctl = ctl_get();
 	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
 
 	buf = mp_requests_build_keepalive();
-	ctl_unlock(ctl);
+	ctl_unlock();
 	if (NULL == buf) {
 		DE("can't build notification\n");
 		return (EBAD);
@@ -227,7 +223,7 @@ int send_keepalive_l(struct mosquitto *mosq)
 	}
 
 	DE("Failed to send notification\n");
-	rc = mosquitto_reconnect(mosq);
+	rc = mosquitto_reconnect((struct mosquitto *)mosq);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to reconnect\n");
 		rc = EBAD;
@@ -247,7 +243,7 @@ end:
 	return (rc);
 }
 
-int send_reveal_l(struct mosquitto *mosq)
+int send_reveal_l(/*@only@*/const struct mosquitto *mosq)
 {
 	char *forum_topic;
 	buf_t *buf = NULL;
@@ -270,7 +266,7 @@ int send_reveal_l(struct mosquitto *mosq)
 	return (EOK);
 }
 
-int mp_communicate_send_request(struct mosquitto *mosq, json_t *root)
+int mp_communicate_send_request(/*@only@*/const struct mosquitto *mosq, /*@only@*/const json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -292,7 +288,7 @@ int mp_communicate_send_request(struct mosquitto *mosq, json_t *root)
 	return (rc);
 }
 
-int send_request_to_open_port(struct mosquitto *mosq, json_t *root)
+int send_request_to_open_port(/*@only@*/const struct mosquitto *mosq, /*@only@*/const json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -338,7 +334,7 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 	return (rc);
 }
 
-int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *port, char *protocol)
+int send_request_to_close_port(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *target_uid, /*@only@*/const char *port, /*@only@*/const char *protocol)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -362,7 +358,7 @@ int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *p
 	return (rc);
 }
 
-int send_request_return_tickets(struct mosquitto *mosq, json_t *root)
+int send_request_return_tickets(/*@only@*/const struct mosquitto *mosq, /*@only@*/json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;

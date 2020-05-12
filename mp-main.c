@@ -35,12 +35,12 @@
    req - request which must contain JK_TICKET with ticket id
    status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
    comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
-int mp_main_ticket_responce(json_t *req, const char *status, const char *comment)
+int mp_main_ticket_responce(/*@only@*/ const json_t *req, /*@only@*/const char *status, /*@only@*/const char *comment)
 {
 	json_t *root = NULL;
-	const char *ticket = NULL;
-	const char *uid = NULL;
-	control_t *ctl = NULL;
+	/*@only@*/const char *ticket = NULL;
+	/*@only@*/const char *uid = NULL;
+	/*@only@*/const control_t *ctl = NULL;
 	int rc;
 	char *forum;
 
@@ -107,10 +107,10 @@ static int mp_main_save_tickets(json_t *root){
 }
 #endif
 
-static int mp_main_remove_host_l(json_t *root)
+static int mp_main_remove_host_l(/*@only@*/ const json_t *root)
 {
-	control_t *ctl = NULL;
-	const char *uid_src = NULL;
+	/*@only@*/const control_t *ctl = NULL;
+	/*@only@*/const char *uid_src = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -119,7 +119,7 @@ static int mp_main_remove_host_l(json_t *root)
 
 	ctl = ctl_get_locked();
 	rc = j_rm_key(ctl->hosts, uid_src);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	if (rc) {
 		DE("Cant remove key from ctl->hosts:\n");
 		DE("UID_SRC = |%s|\n", uid_src);
@@ -129,16 +129,16 @@ static int mp_main_remove_host_l(json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_open_port_l(json_t *root)
+static int mp_main_do_open_port_l(/*@only@*/const json_t *root)
 {
-	control_t *ctl = ctl_get();
+	/*@only@*/ const control_t *ctl = ctl_get();
 	json_t *mapping = NULL;
-	const char *asked_port = NULL;
-	const char *protocol = NULL;
+	/*@only@*/const char *asked_port = NULL;
+	/*@only@*/const char *protocol = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
 	size_t index = 0;
-	const char *ip_internal = NULL;
+	/*@only@*/const char *ip_internal = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -156,16 +156,16 @@ static int mp_main_do_open_port_l(json_t *root)
 
 	/*** Check if the asked port + protocol is already mapped; if yes, return OK ***/
 
-	ctl_lock(ctl);
+	ctl_lock();
 	json_array_foreach(ports, index, val) {
 		if (EOK == j_test(val, JK_IP_INT, asked_port) &&
 			EOK == j_test(val, JK_PROTOCOL, protocol)) {
-			ctl_unlock(ctl);
+			ctl_unlock();
 			DD("Already mapped port\n");
 			return (EOK);
 		}
 	}
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	/*** If we here, this means that we don't have a record about this port.
 	   So we run UPNP request to our router to test this port ***/
@@ -183,9 +183,9 @@ static int mp_main_do_open_port_l(json_t *root)
 		//   j_find_ref(mapping, JK_PROTOCOL));
 
 		/* Add this mapping to our internal table table */
-		ctl_lock(ctl);
+		ctl_lock();
 		rc = j_arr_add(ports, mapping);
-		ctl_unlock(ctl);
+		ctl_unlock();
 		TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 
 		/* Return here. The new port added to internal table in ctl->me.
@@ -203,24 +203,24 @@ static int mp_main_do_open_port_l(json_t *root)
 
 	/*** Ok, port mapped. Now we should update ctl->me->ports hash table ***/
 
-	ctl_lock(ctl);
+	ctl_lock();
 	rc = j_arr_add(ports, mapping);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 	return (EOK);
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_close_port_l(json_t *root)
+static int mp_main_do_close_port_l(/*@only@*/const json_t *root)
 {
-	control_t *ctl = ctl_get();
-	const char *asked_port = NULL;
-	const char *protocol = NULL;
+	/*@only@*/const control_t *ctl = ctl_get();
+	/*@only@*/const char *asked_port = NULL;
+	/*@only@*/const char *protocol = NULL;
 	json_t *val = NULL;
 	json_t *ports = NULL;
 	size_t index = 0;
 	int index_save = 0;
-	const char *external_port = NULL;
+	/*@only@*/const char *external_port = NULL;
 	int rc = EBAD;
 
 	TESTP(root, EBAD);
@@ -234,18 +234,18 @@ static int mp_main_do_close_port_l(json_t *root)
 	ports = j_find_j(ctl->me, "ports");
 	TESTP(ports, EBAD);
 
-	ctl_lock(ctl);
+	ctl_lock();
 	json_array_foreach(ports, index, val) {
 		if (EOK == j_test(val, JK_PORT_INT, asked_port) &&
 			EOK == j_test(val, JK_PROTOCOL, protocol)) {
 			external_port = j_find_ref(val, JK_PORT_EXT);
 			index_save = index;
 			D("Found opened port: %s -> %sd %s\n", asked_port, external_port, protocol);
-			ctl_unlock(ctl);
+			ctl_unlock();
 		}
 	}
 
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	if (NULL == external_port) {
 		DE("No such a open port\n");
@@ -261,9 +261,9 @@ static int mp_main_do_close_port_l(json_t *root)
 		return (EBAD);
 	}
 
-	ctl_lock(ctl);
+	ctl_lock();
 	json_array_remove(ports, index_save);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	return (EOK);
 }
 
@@ -272,10 +272,9 @@ static int mp_main_do_close_port_l(json_t *root)
  * type: "keepalive" - a source sends its status 
  * type: "reveal" - a new host asks all clients to send information
  */
-static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *root)
+static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *uid, json_t *root)
 {
 	int rc = EBAD;
-	char *tp = NULL;
 	control_t *ctl = ctl_get();
 
 	TESTP(root, EBAD);
@@ -301,9 +300,9 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 		/* Is this host already in the list? Just for information */
 		//j_print(root, "Received ME from remote host:");
 
-		ctl_lock(ctl);
+		ctl_lock();
 		rc = j_replace(ctl->hosts, uid_src, root);
-		ctl_unlock(ctl);
+		ctl_unlock();
 		return (rc);
 	}
 
@@ -456,24 +455,23 @@ static int mp_main_parse_message_l(struct mosquitto *mosq, char *uid, json_t *ro
 	 * Responce to "sshr" message, see above
 	 */
 
-	if (rc) DE("Unknown type: %s\n", tp);
+	if (rc) DE("Unknown type\n");
 
 end:
 	if (root) {
 		rc = j_rm(root);
 		TESTI_MES(rc, EBAD, "Can't remove json object");
 	}
-	TFREE(tp);
 	return (rc);
 }
 
-static int mp_main_on_message_processor(struct mosquitto *mosq, void *topic_v, void *data_v)
+static int mp_main_on_message_processor(/*@only@*/ const struct mosquitto *mosq, void *topic_v, void *data_v)
 {
 	char **topics;
 	int topics_count = 0;
 	char *topic = (char *)topic_v;
 	int rc = EBAD;
-	char *uid = NULL;
+	/*@only@*/ const char *uid = NULL;
 	json_t *root = NULL;
 
 	TESTP(topic, EBAD);
@@ -492,10 +490,7 @@ static int mp_main_on_message_processor(struct mosquitto *mosq, void *topic_v, v
 	}
 
 	/* This define is a splint fix - splint parsing fails here */
-#ifndef S_SPLINT_S
-	uid = mosquitto_userdata(mosq);
-	TESTP_MES(uid, EBAD, "Can't extract my uid");
-#endif
+	uid = ctl_uid_get(); //mosquitto_userdata(mosq);
 
 	if (0 == strcmp(uid, topics[3])) {
 		mosquitto_sub_topic_tokens_free(&topics, topics_count);
@@ -519,7 +514,7 @@ err:
 	return (rc);
 }
 
-static void mp_main_on_message_cl(struct mosquitto *mosq, void *userdata __attribute__((unused)), const struct mosquitto_message *msg)
+static void mp_main_on_message_cl( struct mosquitto *mosq, void *userdata __attribute__((unused)), const struct mosquitto_message *msg)
 {
 	mp_main_on_message_processor(mosq, msg->topic, msg->payload);
 }
@@ -529,9 +524,9 @@ static void connect_callback_l(struct mosquitto *mosq, void *obj __attribute__((
 	control_t *ctl = ctl_get();
 	printf("connected!\n");
 	send_reveal_l(mosq);
-	ctl_lock(ctl);
+	ctl_lock();
 	ctl->status = ST_CONNECTED;
-	ctl_unlock(ctl);
+	ctl_unlock();
 }
 
 static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unused)), void *data __attribute__((unused)), int reason)
@@ -593,7 +588,7 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 	ctl->status = ST_DISCONNECTED;
 	rc = j_rm(ctl->me);
 	ctl->me = j_new();
-	ctl_unlock(ctl);
+	ctl_unlock();
 	if (NULL == ctl->me) {
 		DE("Can't allocate ctl->me\n");
 		return;
@@ -640,7 +635,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	control_t *ctl = NULL;
 	int rc = EBAD;
 	int i;
-	char *cert = (char *)arg;
+	/*@only@*/const char *cert = (char *)arg;
 	char *forum_topic_all;
 	char *forum_topic_me;
 	char *personal_topic;
@@ -667,11 +662,11 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	TESTP_GO(personal_topic, end);
 
 	DD("Creating mosquitto client\n");
-	ctl_lock(ctl);
+	ctl_lock();
 	if (ctl->mosq) mosquitto_destroy(ctl->mosq);
 
 	ctl->mosq = mosquitto_new(ctl_uid_get(), true, (void *)ctl_uid_get());
-	ctl_unlock(ctl);
+	ctl_unlock();
 	TESTP_GO(ctl->mosq, end);
 
 	/* TODO: Registration must be another function */
@@ -690,10 +685,10 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		ctl->status = ST_STOP;
 		return (NULL);
 	}
-	mosquitto_connect_callback_set(ctl->mosq, connect_callback_l);
-	mosquitto_message_callback_set(ctl->mosq, mp_main_on_message_cl);
-	mosquitto_disconnect_callback_set(ctl->mosq, mp_main_on_disconnect_l_cl);
-	mosquitto_publish_callback_set(ctl->mosq, mp_main_on_publish_cb);
+	mosquitto_connect_callback_set((struct mosquitto *) ctl->mosq, connect_callback_l);
+	mosquitto_message_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_message_cl);
+	mosquitto_disconnect_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_disconnect_l_cl);
+	mosquitto_publish_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_publish_cb);
 
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
@@ -788,13 +783,13 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	}
 
 	rc = mosquitto_loop_stop(ctl->mosq, true);
-	ctl_lock(ctl);
+	ctl_lock();
 	mosquitto_destroy(ctl->mosq);
 	ctl->mosq = NULL;
 
 	rc = j_rm(ctl->hosts);
 	ctl->hosts = j_new();
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	mosquitto_lib_cleanup();
 
@@ -825,7 +820,7 @@ end:
 
 static int mp_main_print_info_banner()
 {
-	control_t *ctl = ctl_get();
+	/*@only@*/const control_t *ctl = ctl_get();
 	printf("=======================================\n");
 	printf("Router IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_EXT), j_find_ref(ctl->me, JK_PORT_EXT));
 	printf("Local IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_INT), j_find_ref(ctl->me, JK_PORT_INT));
@@ -862,7 +857,7 @@ int mp_main_complete_me_init(void)
 {
 	int rc = EBAD;
 	char *var = NULL;
-	control_t *ctl = ctl_get();
+	/*@only@*/const control_t *ctl = ctl_get();
 
 	/* SEB: TODO: This should be defined by user from first time config */
 	if (EOK != j_test_key(ctl->me, JK_USER)) {
@@ -945,7 +940,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 	}
 
 	ports = j_find_j(ctl->me, "ports");
-	if (mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
+	if (EOK != mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
 		DE("Port scanning failed\n");
 	}
 

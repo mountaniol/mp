@@ -108,7 +108,7 @@ err:
 
 /* Send upnp request to router, ask to remap "external_port" of the router
    to "internal_port" on this machine */
-int mp_ports_remap_port(const int external_port, const int internal_port, const char *protocol)
+int mp_ports_remap_port(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *protocol)
 {
 	size_t index = 0;
 	int error = 0;
@@ -206,7 +206,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-/*@null@*/ json_t *mp_ports_remap_any(json_t *req, const char *internal_port, const char *protocol)
+/*@null@*/ json_t *mp_ports_remap_any(/*@only@*/const json_t *req, /*@only@*/const char *internal_port, /*@only@*/const char *protocol /* "TCP", "UDP" */)
 {
 	//size_t index = 0;
 	struct UPNPDev *upnp_dev = NULL;
@@ -221,7 +221,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 	//upnp_req_str_t *req = NULL;
 	int i_port = 0;
 	int i = 0;
-	json_t *root = NULL;
+	json_t *resp = NULL;
 	int rc;
 
 	TESTP_MES(internal_port, NULL, "Got NULL\n");
@@ -272,16 +272,16 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 	}
 
 	/* If there was an error we try to generate some random port and map it */
-	root = j_new();
-	TESTP(root, NULL);
-	rc = j_add_str(root, JK_PORT_EXT, reservedPort);
+	resp = j_new();
+	TESTP(resp, NULL);
+	rc = j_add_str(resp, JK_PORT_EXT, reservedPort);
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_EXT, reservedPort");
-	rc = j_add_str(root, JK_PORT_INT, internal_port);
+	rc = j_add_str(resp, JK_PORT_INT, internal_port);
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, internal_port");
-	rc = j_add_str(root, JK_PROTOCOL, protocol);
+	rc = j_add_str(resp, JK_PROTOCOL, protocol);
 	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
 	FreeUPNPUrls(&upnp_urls);
-	return (root);
+	return (resp);
 #if 0 /* SEB DEADCODE 04/05/2020 10:10  */
 	/* The port is remapped */
 	mapping = port_map_t_alloc();
@@ -295,8 +295,6 @@ int mp_ports_remap_port(const int external_port, const int internal_port, const 
 	mapping->port_external = strndup(reservedPort, PORT_STR_LEN);
 	//upnp_req_str_t_free(req);
 #endif /* SEB DEADCODE 04/05/2020 10:10 */
-
-	return (root);
 }
 
 #if 0 /* SEB 28/04/2020 16:46  */
@@ -311,7 +309,7 @@ printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
 
 #endif /* SEB 28/04/2020 16:46 */
 
-int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *external_port, const char *protocol)
+int mp_ports_unmap_port(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *external_port, /*@only@*/const char *protocol)
 {
 	int error = 0;
 	struct UPNPDev *upnp_dev;
@@ -382,7 +380,7 @@ int mp_ports_unmap_port(json_t *root, const char *internal_port, const char *ext
  * 3 if port not mapped at all 
  * -1 on an error 
  */
-int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, char *protocol)
+int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -495,7 +493,7 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*/ json_t *mp_ports_if_mapped_json(json_t *root, const char *internal_port, const char *local_host, const char *protocol)
+/*@null@*/ json_t *mp_ports_if_mapped_json(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -595,9 +593,9 @@ int mp_ports_if_mapped(int external_port, int internal_port, char *local_host, c
 }
 
 /* Scan existing mappings to this machine and add them to the given array 'arr' */
-int mp_ports_scan_mappings(json_t *arr, const char *local_host)
+int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
 {
-	struct UPNPDev *upnp_dev;
+	struct UPNPDev *upnp_dev = NULL;
 	char lan_address[IP_STR_LEN];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
@@ -610,6 +608,8 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 	size_t index = 0;
 	int rc;
 
+	TESTP_ASSERT(arr, "Bad param NULL");
+	TESTP_ASSERT(local_host, "Bad param NULL");
 
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, EBAD, "UPNP discover failed\n");
@@ -649,12 +649,36 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 				req->map_remote_host,
 				req->map_lease_duration);
 
+		/* All these errors are real errors */
+		switch (error) {
+		case UPNPCOMMAND_SUCCESS:
+			break;
+		case UPNPCOMMAND_UNKNOWN_ERROR:
+			DE("Error on ports scanning: UPNPCOMMAND_SUCCESS\n");
+			return (EBAD);
+		case UPNPCOMMAND_INVALID_ARGS:
+			DE("Error on ports scanning: UPNPCOMMAND_INVALID_ARGS\n");
+			return (EBAD);
+		case UPNPCOMMAND_HTTP_ERROR:
+			DE("Error on ports scanning: UPNPCOMMAND_HTTP_ERROR\n");
+			return (EBAD);
+		case UPNPCOMMAND_INVALID_RESPONSE:
+			DE("Error on ports scanning: UPNPCOMMAND_INVALID_RESPONSE\n");
+			return (EBAD);
+		case UPNPCOMMAND_MEM_ALLOC_ERROR:
+			DE("Error on ports scanning: UPNPCOMMAND_MEM_ALLOC_ERROR\n");
+			return (EBAD);
+		default:
+			break;
+		}
+
 		if (error) {
+			/* This error is a legal situation and happens when no more entries */
 			/* No more ports, and asked port not found in the list */
 			upnp_req_str_t_free(req);
 			/* Port not mapped at all */
 			FreeUPNPUrls(&upnp_urls);
-			return (EBAD);
+			return (EOK);
 		}
 
 		index++;
@@ -730,7 +754,7 @@ int mp_ports_scan_mappings(json_t *arr, const char *local_host)
 /*** Local port manipulation ****/
 
 /* Find ip and port for ssh connection to UID */
-/*@null@*/ json_t *mp_ports_ssh_port_for_uid(const char *uid)
+/*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@only@*/const char *uid)
 {
 	json_t *root = NULL;
 	//json_t *val = NULL;

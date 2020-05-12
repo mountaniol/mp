@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "mp-ctl.h"
 #include "mp-common.h"
 #include "mp-debug.h"
@@ -37,7 +38,7 @@ int ctl_allocate_init(void)
 
 	g_ctl->tickets_in = j_arr();
 	TESTP(g_ctl->tickets_out, -1);
-	
+
 	rc = j_add_str(g_ctl->me, JK_TYPE, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't JK_TYPE = JV_TYPE_ME");
 
@@ -45,16 +46,29 @@ int ctl_allocate_init(void)
 	return (sem_init(&g_ctl->lock, 0, 1));
 }
 
-void ctl_lock(control_t *ctl)
+void ctl_lock()
 {
-	TESTP_ASSERT(ctl, "NULL!");
-	sem_wait(&ctl->lock);
+	int rc = sem_getvalue(&g_ctl->lock, &rc);
+	if (rc > 1) {
+		DE("Semaphor count is too high: %d > 1\n", rc);
+		abort();
+	}
+	
+	sem_wait(&g_ctl->lock);
 }
 
-void ctl_unlock(control_t *ctl)
+void ctl_unlock()
 {
-	TESTP_ASSERT(ctl, "NULL!");
-	sem_post(&ctl->lock);
+	int rc = sem_getvalue(&g_ctl->lock, &rc);
+	if (rc > 0) {
+		DE("Tried to unlock not locked semaphor\n");
+		abort();
+	}
+	rc = sem_post(&g_ctl->lock);
+	if (0 != rc) {
+		DE("Can't unlock ctl->lock");
+		abort();
+	}
 }
 
 control_t *ctl_get(void)
@@ -64,6 +78,7 @@ control_t *ctl_get(void)
 
 control_t *ctl_get_locked(void)
 {
+	ctl_lock();
 	return (g_ctl);
 }
 

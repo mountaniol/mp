@@ -17,7 +17,7 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-int mp_cli_send_to_cli(json_t *root)
+int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -84,7 +84,7 @@ int mp_cli_send_to_cli(json_t *root)
 	json_t *arr = NULL;
 	json_t *val = NULL;
 	size_t index = 0;
-	const char *ticket = NULL;
+	/*@only@*/ const char *ticket = NULL;
 	DDD("Starting\n");
 	//int rc;
 
@@ -98,7 +98,7 @@ int mp_cli_send_to_cli(json_t *root)
 
 	json_array_foreach(ctl->tickets_in, index, val) {
 		if (j_test(val, JK_TICKET, ticket)) {
-			json_t * copied = j_dup(val);
+			/*@only@*/ json_t * copied = j_dup(val);
 			TESTP(copied, NULL);
 			rc = j_arr_add(arr, copied);
 			TESTI(rc, NULL);
@@ -149,11 +149,11 @@ int mp_cli_send_to_cli(json_t *root)
 	ports = j_find_j(ctl->me, "ports");
 	if (NULL == ports) {
 		DE("Can't extract array 'ports'\n");
-		ctl_unlock(ctl);
+		ctl_unlock();
 		return (NULL);
 	}
 	resp = j_dup(ports);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	return (resp);
 }
 
@@ -165,7 +165,7 @@ int mp_cli_send_to_cli(json_t *root)
 	DDD("Starting\n");
 	ctl = ctl_get_locked();
 	resp = j_dup(ctl->hosts);
-	ctl_unlock(ctl);
+	ctl_unlock();
 	return (resp);
 }
 
@@ -246,7 +246,7 @@ int mp_cli_send_to_cli(json_t *root)
 
 	ctl = ctl_get_locked();
 	j_add_str(root, JK_UID_SRC, ctl_uid_get());
-	ctl_unlock(ctl);
+	ctl_unlock();
 
 	DDD("Calling send_request_to_open_port\n");
 	j_print(root, "Sending request to open a port:");

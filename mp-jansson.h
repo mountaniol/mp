@@ -14,7 +14,7 @@
  * 
  * @return json_t* 
  */
-/*@null@*/ json_t *j_str2j(char *str);
+/*@null@*/ json_t *j_str2j(/*@only@*/const char *str);
 
 /**
  * @brief Get buf_t containing JSON in text form. Creates and 
@@ -26,7 +26,7 @@
  * 
  * @return json_t* 
  */
-/*@null@*/ json_t *j_buf2j(const buf_t *buf);
+/*@null@*/ json_t *j_buf2j(/*@only@*/const buf_t *buf);
 
 /**
  * @func buf_t* encode_json(const json_t *j_obj)
@@ -37,7 +37,7 @@
  * 
  * @return buf_t* 
  */
-/*@null@*/ buf_t *j_2buf(const json_t *j_obj);
+/*@null@*/ buf_t *j_2buf(/*@only@*/const json_t *j_obj);
 
 
 /**
@@ -86,7 +86,7 @@ int j_arr_add(json_t *arr, json_t *obj);
  * 
  * @return int EOK on success, EBAD on failure
  */
-int j_add_j2arr(json_t *root, const char *arr_name, json_t *obj);
+int j_add_j2arr(json_t *root, const char *arr_name, /*@only@*/json_t *obj);
 
 /**
  * @brief Add json 'obj' into json 'root' by key 'key'
@@ -99,7 +99,7 @@ int j_add_j2arr(json_t *root, const char *arr_name, json_t *obj);
  * 
  * @return int EOK on success, EBAD on failure
  */
-int j_add_j(json_t *root, const char *key, json_t *obj);
+int j_add_j(json_t *root, /*@only@*/const char *key, /*@only@*/json_t *obj);
 
 /**
  * @func int json_add_string_string(json_t *root, char *key, char *val)
@@ -112,7 +112,7 @@ int j_add_j(json_t *root, const char *key, json_t *obj);
  * 
  * @return int 
  */
-int j_add_str(json_t *root, const char *key, const char *val);
+int j_add_str(json_t *root, /*@only@*/const char *key, /*@only@*/const char *val);
 
 /**
  * @brief Add integer value to 'root' by key 'key'
@@ -125,7 +125,7 @@ int j_add_str(json_t *root, const char *key, const char *val);
  * 
  * @return int EOK on success, EBAD on failure
  */
-int j_add_int(json_t *root, const char *key, json_int_t val);
+int j_add_int(json_t *root, /*@only@*/const char *key, json_int_t val);
 
 #if 0
 /**
@@ -154,7 +154,7 @@ int json_add_string_int(json_t *root, char *key, int val);
  * 
  * @return int 
  */
-int j_cp(json_t *from, json_t *to, const char *key);
+int j_cp(/*@only@*/const json_t *from, json_t *to, /*@only@*/const char *key);
 
 /**
  * @brief Copy string value from 'from' to 'to'. THe value found 
@@ -168,7 +168,7 @@ int j_cp(json_t *from, json_t *to, const char *key);
  * 
  * @return int 
  */
-int j_cp_val(json_t *from, json_t *to, char *key_from, char *key_to);
+int j_cp_val(/*@only@*/const json_t *from, json_t *to, /*@only@*/const char *key_from, /*@only@*/const char *key_to);
 
 
 /**
@@ -181,7 +181,7 @@ int j_cp_val(json_t *from, json_t *to, char *key_from, char *key_to);
  * 
  * @return json_t* on success, NULL otherwise
  */
-/*@null@*/ json_t *j_find_j(json_t *root, const char *key);
+/*@null@*/ json_t *j_find_j(/*@only@*/const json_t *root, /*@only@*/const char *key);
 
 /**
  * @func char *j_find_dup(json_t *root, const char *key)
@@ -194,7 +194,7 @@ int j_cp_val(json_t *from, json_t *to, char *key_from, char *key_to);
  * 
  * @return char* 
  */
-/*@null@*/ const char *j_find_ref(json_t *root, const char *key);
+/*@null@*/ /*@only@*/ const char *j_find_ref(/*@only@*/const json_t *root, /*@only@*/const char *key);
 
 /**
  * @brief Find long value saved by 'key'
@@ -206,7 +206,7 @@ int j_cp_val(json_t *from, json_t *to, char *key_from, char *key_to);
  * 
  * @return json_int_t value if found, 0XDEADBEEF on error
  */
-json_int_t j_find_int(json_t *root, const char *key);
+json_int_t j_find_int(/*@only@*/const json_t *root, /*@only@*/const char *key);
 /**
  * @func char *j_find_dup(json_t *root, const char *key)
  * @brief Extract from JSON object string value for key "key"
@@ -217,7 +217,7 @@ json_int_t j_find_int(json_t *root, const char *key);
  * 
  * @return char* 
  */
-/*@null@*/ char *j_find_dup(json_t *root, const char *key);
+/*@null@*/ char *j_find_dup(/*@only@*/const json_t *root, /*@only@*/const char *key);
 
 /**
  * @brief Test that given key exists
@@ -229,7 +229,7 @@ json_int_t j_find_int(json_t *root, const char *key);
  * 
  * @return int EOK if exists, EBAF if not 
  */
-/*@null@*/ int j_test_key(json_t *root, const char *key);
+/*@null@*/ int j_test_key(/*@only@*/const json_t *root, /*@only@*/const char *key);
 
 /**
  * @func int json_validate_field(json_t *root, const char *type_name, const char *expected_val)
@@ -243,7 +243,7 @@ json_int_t j_find_int(json_t *root, const char *key);
  * 
  * @return int 
  */
-int j_test(json_t *root, const char *type_name, const char *expected_val);
+int j_test(/*@only@*/const json_t *root, /*@only@*/const char *type_name, /*@only@*/const char *expected_val);
 
 /**
  * @func int j_count(const json_t *root);
@@ -255,7 +255,7 @@ int j_test(json_t *root, const char *type_name, const char *expected_val);
  * @return int 
  */
 
-int j_count(const json_t *root);
+int j_count(/*@only@*/const json_t *root);
 
 /**
  * @func j_replace(json_t *root, const char *key, const json_t 
@@ -268,7 +268,7 @@ int j_count(const json_t *root);
  * 
  * @return int 
  */
-int j_replace(json_t *root, const char *key, json_t *j_new);
+int j_replace(json_t *root, /*@only@*/const char *key, json_t *j_new);
 
 /**
  * @func json_t *j_dup(const json_t *root)
@@ -279,7 +279,7 @@ int j_replace(json_t *root, const char *key, json_t *j_new);
  * 
  * @return int 
  */
-/*@null@*/ json_t *j_dup(const json_t *root);
+/*@null@*/ json_t *j_dup(/*@only@*/const json_t *root);
 
 /**
  * @func int j_rm_key(hson_t *root, const char *key)
@@ -290,7 +290,7 @@ int j_replace(json_t *root, const char *key, json_t *j_new);
  * 
  * @return int 
  */
-int j_rm_key(json_t *root, const char *key);
+int j_rm_key(json_t *root, /*@only@*/const char *key);
 
 /**
  * @func int json_remove_it(json_t *root)
@@ -314,5 +314,5 @@ int j_rm(json_t *root);
  * 
  * @return int 
  */
-void j_print(json_t *root, const char *prefix);
+void j_print(/*@only@*/const json_t *root, /*@only@*/const char *prefix);
 #endif /* _SEC_SERVER_JANSSON_H_ */
