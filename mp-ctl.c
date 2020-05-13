@@ -6,7 +6,7 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
-control_t *g_ctl = NULL;
+/*@shared@*/control_t *g_ctl = NULL;
 int ctl_allocate_init(void)
 {
 	json_t *ports = NULL;
@@ -71,20 +71,22 @@ void ctl_unlock()
 	}
 }
 
-control_t *ctl_get(void)
+/*@shared@*//*@notnull@*/control_t *ctl_get(void)
 {
+	TESTP_ASSERT(g_ctl, "NULL!");
 	return (g_ctl);
 }
 
-control_t *ctl_get_locked(void)
+/*@shared@*//*@notnull@*/control_t *ctl_get_locked(void)
 {
 	ctl_lock();
+	TESTP_ASSERT(g_ctl, "NULL!");
 	return (g_ctl);
 }
 
 
 /*** Interface function for most important control_t fields ***/
-const char *ctl_uid_get()
+/*@only@*//*@notnull@*/ const char *ctl_uid_get(void)
 {
 	const char *uid;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -92,7 +94,7 @@ const char *ctl_uid_get()
 	return (uid);
 }
 
-void ctl_uid_set(const char *uid)
+void ctl_uid_set(/*@only@*/const char *uid)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -104,7 +106,7 @@ void ctl_uid_set(const char *uid)
 	}
 }
 
-const char *ctl_user_get()
+/*@only@*//*@notnull@*/const char *ctl_user_get()
 {
 	const char *user;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -113,7 +115,7 @@ const char *ctl_user_get()
 	return (user);
 }
 
-void ctl_user_set(const char *user)
+void ctl_user_set(/*@only@*/const char *user)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");

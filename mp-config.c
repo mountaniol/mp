@@ -133,7 +133,7 @@ err:
 }
 
 /* Write config object to config file */
-int mp_config_save(/*@only@*/const void *_ctl)
+int mp_config_save()
 {
 	FILE *fd = NULL;
 	char *filename = NULL;
@@ -141,7 +141,7 @@ int mp_config_save(/*@only@*/const void *_ctl)
 	buf_t *buf = NULL;
 	int rc = EBAD;
 	size_t written = 0;
-	control_t *ctl = (control_t *)_ctl;
+	/*@shared@*/control_t *ctl = ctl_get();
 	DIR *dir;
 
 	TESTP(ctl, EBAD);
@@ -199,10 +199,10 @@ err:
 }
 
 /* Create config from content of ctl->me */
-int mp_config_from_ctl(void *_ctl)
+int mp_config_from_ctl()
 {
 	int rc = -1;
-	control_t *ctl = _ctl;
+	/*@shared@*/control_t *ctl = ctl_get();
 	if (NULL == ctl->config) {
 		ctl->config = j_new();
 	}
@@ -224,16 +224,16 @@ int mp_config_from_ctl(void *_ctl)
 	rc = j_add_str(ctl->config, JK_BRIDGE, JV_YES);
 	TESTI_MES(rc, EBAD, "Can't add JK_BRIDGE");
 
-	return (mp_config_save(ctl));
+	return (mp_config_save());
 }
 
 /* Read config from file. If there is no config file - return error */
-int mp_config_load(void *_ctl)
+int mp_config_load()
 {
 	int rc = EBAD;
 	const char *key = NULL;
 	json_t *val = NULL;
-	control_t *ctl = (control_t *)_ctl;
+	/*@shared@*/control_t *ctl = ctl_get();
 	ctl->config = mp_config_read();
 	if (NULL == ctl->config) {
 		return (EBAD);

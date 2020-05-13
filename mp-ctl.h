@@ -63,21 +63,21 @@ typedef struct control_struct {
 /* Allocate and init sct scruct, must be called once */
 extern int ctl_allocate_init(void);
 /* Get pointer to global  control_structure */
-extern /*@only@*/control_t *ctl_get(void);
+extern /*@shared@*//*@notnull@*/control_t *ctl_get(void);
 /* Lock ctl and get pointer to global  control_structure */
-extern /*@only@*/control_t *ctl_get_locked(void);
+extern /*@shared@*//*@notnull@*/control_t *ctl_get_locked(void);
 /* Lock global control_structure */
 extern void ctl_lock(void);
 /* Unock global control_structure */
 extern void ctl_unlock(void);
 
 /* Get JK_UID_ME. This function always returns not NULL; if it can't extract JK_UID_ME it aborts execution */
-extern /*@only@*/ const char *ctl_uid_get(void);
+extern /*@only@*//*@notnull@*/ const char *ctl_uid_get(void);
 /* Set JK_UID_ME */
 extern void ctl_uid_set(/*@only@*/const char *uid);
 
 /* Get JK_USER. This function always returns not NULL; if it can't extract JK_USER it aborts execution */
-extern /*@only@*/ const char *ctl_user_get(void);
+extern /*@only@*//*@notnull@*/ const char *ctl_user_get(void);
 /* Set JK_USER */
 extern void ctl_user_set(/*@only@*/const char *uid);
 

@@ -17,16 +17,14 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
+int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
 	struct sockaddr_un serveraddr;
+	buf_t *buf = NULL;
 
 	DDD("start");
-	buf_t *buf = j_2buf(root);
-
-	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
 	sd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sd < 0) {
@@ -51,8 +49,11 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 
 	DDD("Connected\n");
 
-	// memset(buf, '0', CLI_BUF_LEN);
+	buf = j_2buf(root);
+	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
+
 	rc = send(sd, buf->data, buf->size, 0);
+	buf_free_force(buf);
 	if (rc < 0) {
 		DE("Failed\n");
 		perror("send() failed");
@@ -71,16 +72,16 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 /* Get this machine info */
 /*@null@*/ static json_t *mp_cli_get_self_info_l()
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	DDD("Starting\n");
 	ctl = ctl_get();
 	return (j_dup(ctl->me));
 }
 
-/*@null@*/ static json_t *mp_cli_get_received_tickets_l(json_t *root)
+/*@null@*/ static json_t *mp_cli_get_received_tickets_l(/*@temp@*/json_t *root)
 {
 	int rc = -1;
-	control_t *ctl;
+	/*@shared@*/control_t *ctl;
 	json_t *arr = NULL;
 	json_t *val = NULL;
 	size_t index = 0;
@@ -98,7 +99,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 
 	json_array_foreach(ctl->tickets_in, index, val) {
 		if (j_test(val, JK_TICKET, ticket)) {
-			/*@only@*/ json_t * copied = j_dup(val);
+			json_t * copied = j_dup(val);
 			TESTP(copied, NULL);
 			rc = j_arr_add(arr, copied);
 			TESTI(rc, NULL);
@@ -117,16 +118,14 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 	return (arr);
 }
 
-/*@null@*/ static json_t *mp_cli_send_ticket_req(json_t *root)
+/*@null@*/ static json_t *mp_cli_send_ticket_req(/*@temp@*/json_t *root)
 {
-	control_t *ctl = ctl_get();
 	json_t *resp;
-	//json_t *ports;
 	int rc;
 
 	DDD("Starting\n");
 
-	rc = send_request_return_tickets(ctl->mosq, root);
+	rc = send_request_return_tickets(root);
 	resp = j_new();
 	TESTP(resp, NULL);
 	if (0 == rc) {
@@ -140,7 +139,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 
 /*@null@*/ static json_t *mp_cli_get_ports_l()
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	json_t *resp;
 	json_t *ports;
 	DDD("Starting\n");
@@ -160,7 +159,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 /* Get list of all sources and targets */
 /*@null@*/ static json_t *mp_cli_get_list_l()
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	json_t *resp;
 	DDD("Starting\n");
 	ctl = ctl_get_locked();
@@ -169,7 +168,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_ssh_forward(json_t *root)
+/*@null@*/ static json_t *mp_cli_ssh_forward(/*@temp@*/json_t *root)
 {
 	//control_t *ctl = NULL;
 	int rc = EBAD;
@@ -238,9 +237,9 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_execute_req(json_t *root)
+/*@null@*/ static json_t *mp_cli_execute_req(/*@temp@*/json_t *root)
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	int rc = EBAD;
 	json_t *resp = NULL;
 
@@ -251,7 +250,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 	DDD("Calling send_request_to_open_port\n");
 	j_print(root, "Sending request to open a port:");
 	if (NULL != ctl->mosq) {
-		rc = mp_communicate_send_request(ctl->mosq, root);
+		rc = mp_communicate_send_request(root);
 	}
 
 	resp = j_new();
@@ -266,7 +265,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_parse_command(json_t *root)
+/*@null@*/ static json_t *mp_cli_parse_command(/*@temp@*/json_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
 
@@ -322,7 +321,7 @@ int mp_cli_send_to_cli(/*@only@*/ const json_t *root)
 
 /* This thread accepts connection from CLI or from GUI client
    Only one client a time */
-/*@null@*/ void *mp_cli_thread(void *arg __attribute__((unused)))
+/*@null@*/ void *mp_cli_thread(/*@temp@*/void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
 	int fd = -1;

@@ -3,7 +3,7 @@
 
 /* Simple struct to hold a buffer / string and its size / lenght */
 struct buf_t_struct {
-	/*@null@*/ char *data;		/* Pointer to data */
+	char *data;		/* Pointer to data */
 	size_t size;	/* Allocated size */
 	size_t len;		/* Used size */
 };
@@ -22,7 +22,7 @@ typedef struct buf_t_struct buf_t;
  * 
  * @return buf_t* 
  */
-extern /*@null@*/ buf_t *buf_new(/*@null@*/ char *data, size_t size);
+extern /*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size);
 
 /**
  * 
@@ -52,7 +52,7 @@ extern int buf_free(buf_t *buf);
  * 
  * @return int 
  */
-extern int buf_room(buf_t *buf, size_t size);
+extern int buf_room(/*@temp@*/buf_t *buf, size_t size);
 
 /**
  * 
@@ -80,7 +80,7 @@ extern int buf_test_room(buf_t *buf, size_t expect);
  * 
  * @return int 
  */
-extern int buf_free_force(buf_t *buf);
+int buf_free_force(/*@only@*/buf_t *buf);
 
 /**
  * 

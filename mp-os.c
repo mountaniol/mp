@@ -97,18 +97,24 @@ int mp_os_random_in_range(int lower, int upper)
 	char *part3 = NULL;
 
 	TESTP(name, NULL);
+	size_t len = 0;
 
 	part1 = mp_os_rand_string_numeric(4);
 	TESTP_GO(part1, err);
+	len += 4;
 	part2 = mp_os_rand_string_numeric(4);
 	TESTP_GO(part2, err);
+	len += 4;
 	part3 = mp_os_rand_string_numeric(4);
 	TESTP_GO(part3, err);
+	len += 4;
 
-	str = zmalloc(strlen(name) + 11 + 2);
+	len += 2 + strlen(name);
+
+	str = zmalloc(len);
 	//DD("name: %s, part1: %s, part2: %s", name, part1, part2);
 	/* SEB: TODO: Use snsprintf */
-	sprintf(str, "%s-%s-%s-%s", name, part1, part2, part3);
+	snprintf(str, len, "%s-%s-%s-%s", name, part1, part2, part3);
 err:
 	TFREE(part1);
 	TFREE(part2);

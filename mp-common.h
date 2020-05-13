@@ -13,13 +13,16 @@
 #define TESTP_MES(x, ret, mes) do {if(NULL == x) { DE("%s\n", mes); return ret; } } while(0)
 
 /* Shorter form of the tester: print message "Pointer x is NULL", x replaced with argument x name */
-#define TESTP(x, ret) do {if(NULL == x) { DDE("Pointer %s is NULL\n", #x); return ret; } } while(0)
+#define /*@*/ TESTP(x, ret) do {if(NULL == x) { DDE("Pointer %s is NULL\n", #x); return ret; }} while(0)
 
 /* Test if x == 0 . If x != 0, print "mes" and return "ret" */
 #define TESTI_MES(x, ret, mes) do {if(0 != x) { DE("%s\n", mes); return ret; } } while(0)
 
 /* Shorter form of the tester: print message "Pointer x is NULL", x replaced with argument x name */
 #define TESTI(x, ret) do {if(0 != x) { DE("Pointer %s is NULL\n", #x); return ret; } } while(0)
+
+/* Test if x == 0 . If x != 0, print "mes" and goto "lable" */
+#define  TESTI_GO(x, lable) do {if(0 != x) { DE("Pointer %s is NULL\n", #x); goto lable; } } while(0)
 
 /* Testing macros. Part 1: Test and goto */
 /* Test pointer for NULL. If NULL, print "mes" and goto "lable" */

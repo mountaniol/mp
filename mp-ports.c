@@ -108,7 +108,7 @@ err:
 
 /* Send upnp request to router, ask to remap "external_port" of the router
    to "internal_port" on this machine */
-int mp_ports_remap_port(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *protocol)
+int mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
 	size_t index = 0;
 	int error = 0;
@@ -206,7 +206,7 @@ int mp_ports_remap_port(/*@only@*/const int external_port, /*@only@*/const int i
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-/*@null@*/ json_t *mp_ports_remap_any(/*@only@*/const json_t *req, /*@only@*/const char *internal_port, /*@only@*/const char *protocol /* "TCP", "UDP" */)
+/*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/ const json_t *req, /*@temp@*/ const char *internal_port, /*@temp@*/ const char *protocol /* "TCP", "UDP" */)
 {
 	//size_t index = 0;
 	struct UPNPDev *upnp_dev = NULL;
@@ -309,7 +309,7 @@ printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
 
 #endif /* SEB 28/04/2020 16:46 */
 
-int mp_ports_unmap_port(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *external_port, /*@only@*/const char *protocol)
+int mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
 	int error = 0;
 	struct UPNPDev *upnp_dev;
@@ -380,8 +380,8 @@ int mp_ports_unmap_port(/*@only@*/const json_t *root, /*@only@*/const char *inte
  * 3 if port not mapped at all 
  * -1 on an error 
  */
-int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol)
-{
+#if 0
+int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol){
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
 	struct UPNPUrls upnp_urls;
@@ -394,6 +394,11 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 	int status;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
+
+	int error;
+	int l_ext_port;
+	int l_int_port;
+
 
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
@@ -416,27 +421,77 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 	req = upnp_req_str_t_alloc();
 	TESTP_MES(req, -1, "Can't allocate upnp_req_str_t");
 
-	while (1) {
-		int error;
-		int l_ext_port;
-		int l_int_port;
 
-#ifndef S_SPLINT_S /* For splint: it has a problem with %zu */
+	error = UPNP_GetGenericPortMappingEntry(
+											upnp_urls.controlURL,
+											upnp_data.first.servicetype,
+											//std::to_string(index).c_str()   ,
+											req->s_index,
+											req->map_wan_port,
+											req->map_lan_address,
+											req->map_lan_port,
+											req->map_protocol,
+											req->map_description,
+											req->map_mapping_enabled,
+											req->map_remote_host,
+											req->map_lease_duration);
+	if (UPNPCOMMAND_SUCCESS != error) {
+		/* No more ports, and asked port not found in the list */
+		upnp_req_str_t_free(req);
+		/* Port not mapped at all */
+		FreeUPNPUrls(&upnp_urls);
+		return (3);
+	}
+
+	l_ext_port = atoi(req->map_wan_port);
+	l_int_port = atoi(req->map_lan_port);
+
+	/* port mapped but internal port is different */
+	if (l_ext_port == external_port && l_int_port != internal_port) {
+		upnp_req_str_t_free(req);
+		FreeUPNPUrls(&upnp_urls);
+		return (2);
+	}
+
+	/* Check case 1: port mapped but local port is different */
+	if (l_ext_port == external_port && l_int_port == internal_port) {
+		D("Asked mapping done: ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
+
+		if ((0 != local_host) && (0 != strncmp(req->map_lan_port, local_host, REQ_STR_LEN))) {
+			upnp_req_str_t_free(req);
+			FreeUPNPUrls(&upnp_urls);
+			return (1);
+		}
+
+		/* If we here it means that local_host is the same as asked, or it is NULL and should not be testes*/
+		upnp_req_str_t_free(req);
+		FreeUPNPUrls(&upnp_urls);
+		return (0);
+	}
+
+	upnp_req_str_t_free(req);
+	FreeUPNPUrls(&upnp_urls);
+	return (-1);
+	#if 0
+	while (1) {
+
+
+		#ifndef S_SPLINT_S /* For splint: it has a problem with %zu */
 		snprintf(req->s_index, PORT_STR_LEN, "%zu", index);
-#endif
+		#endif
 		error = UPNP_GetGenericPortMappingEntry(
-				upnp_urls.controlURL,
-				upnp_data.first.servicetype,
-				//std::to_string(index).c_str()   ,
-				req->s_index,
-				req->map_wan_port,
-				req->map_lan_address,
-				req->map_lan_port,
-				req->map_protocol,
-				req->map_description,
-				req->map_mapping_enabled,
-				req->map_remote_host,
-				req->map_lease_duration);
+												upnp_urls.controlURL,
+												upnp_data.first.servicetype,
+												//std::to_string(index).c_str()   ,
+												req->s_index,
+												req->map_wan_port,
+												req->map_lan_address,
+												req->map_lan_port,
+												req->map_protocol,
+												req->map_description,
+												req->map_mapping_enabled,
+												req->map_remote_host,
+												req->map_lease_duration);
 
 		if (error) {
 			/* No more ports, and asked port not found in the list */
@@ -482,7 +537,9 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 	upnp_req_str_t_free(req);
 	FreeUPNPUrls(&upnp_urls);
 	return (-1);
+	#endif
 }
+#endif
 
 /* 
  * Test if the port mapping exists. 
@@ -493,14 +550,13 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*/ json_t *mp_ports_if_mapped_json(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol)
+/*@null@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char wan_address[IP_STR_LEN];
 	char s_ext[PORT_STR_LEN];
 	int status;
 	json_t *mapping = NULL;
@@ -521,7 +577,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 	}
 
 	memset(s_ext, 0, PORT_STR_LEN);
-	UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	//UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
 
@@ -593,15 +649,14 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 }
 
 /* Scan existing mappings to this machine and add them to the given array 'arr' */
-int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
+int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 {
 	struct UPNPDev *upnp_dev = NULL;
-	char lan_address[IP_STR_LEN];
+	char *lan_address = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char wan_address[IP_STR_LEN];
-	char s_ext[PORT_STR_LEN];
+	char *wan_address = NULL;
 	int status;
 	json_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
@@ -613,7 +668,12 @@ int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
 
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, EBAD, "UPNP discover failed\n");
-	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, (int)sizeof(lan_address));
+
+	lan_address = zmalloc(IP_STR_LEN);
+	TESTP_MES(lan_address, EBAD, "Can't allocate memory");
+
+	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, IP_STR_LEN);
+	free(lan_address);
 	freeUPNPDevlist(upnp_dev);
 
 	if (1 != status) {
@@ -621,8 +681,11 @@ int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
 		return (EBAD);
 	}
 
-	memset(s_ext, 0, PORT_STR_LEN);
+	wan_address = zmalloc(IP_STR_LEN);
+	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
+
 	UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	free(wan_address);
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
@@ -716,11 +779,11 @@ int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
 /*@null@*/ char *mp_ports_get_external_ip()
 {
 	struct UPNPDev *upnp_dev = NULL;
-
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char lan_address[IP_STR_LEN];
+	//char lan_address[IP_STR_LEN];
+	char *lan_address = NULL;
 	char *wan_address = NULL;
 	int status = -1;
 
@@ -750,16 +813,14 @@ int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host)
 	return (wan_address);
 }
 
-
 /*** Local port manipulation ****/
 
 /* Find ip and port for ssh connection to UID */
-/*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@only@*/const char *uid)
+/*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
 {
 	json_t *root = NULL;
-	//json_t *val = NULL;
 	json_t *host = NULL;
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 	const char *key;
 
 	json_object_foreach(ctl->hosts, key, host) {

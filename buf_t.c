@@ -6,7 +6,7 @@
 #include "mp-debug.h"
 #include "mp-memory.h"
 
-/*@null@*/ buf_t *buf_new(/*@null@*/ char *data, size_t size)
+/*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size)
 {
 	buf_t *buf = zmalloc(sizeof(buf_t));
 	if (NULL == buf) {
@@ -20,7 +20,7 @@
 	return (buf);
 }
 
-int buf_room(buf_t *buf, size_t size)
+int buf_room(/*@temp@*/buf_t *buf, size_t size)
 {
 	void *tmp;
 	if (NULL == buf || 0 == size) {
@@ -51,7 +51,7 @@ int buf_room(buf_t *buf, size_t size)
 	return (EOK);
 }
 
-int buf_test_room(buf_t *buf, size_t expect)
+int buf_test_room(/*@temp@*/buf_t *buf, size_t expect)
 {
 	if (NULL == buf) {
 		DE("Got NULL\n");
@@ -75,7 +75,7 @@ int buf_free(buf_t *buf)
 	return (EOK);
 }
 
-int buf_free_force(buf_t *buf)
+int buf_free_force(/*@only@*/buf_t *buf)
 {
 	if (NULL != buf->data) {
 		free(buf->data);

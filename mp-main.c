@@ -35,14 +35,13 @@
    req - request which must contain JK_TICKET with ticket id
    status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
    comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
-int mp_main_ticket_responce(/*@only@*/ const json_t *req, /*@only@*/const char *status, /*@only@*/const char *comment)
+int mp_main_ticket_responce(/*@temp@*/const json_t *req, /*@temp@*/const char *status, /*@temp@*/const char *comment)
 {
-	json_t *root = NULL;
-	/*@only@*/const char *ticket = NULL;
-	/*@only@*/const char *uid = NULL;
-	/*@only@*/const control_t *ctl = NULL;
+	/*@only@*/json_t *root = NULL;
+	/*@shared@*/const char *ticket = NULL;
+	/*@shared@*/const char *uid = NULL;
 	int rc;
-	char *forum;
+	/*@only@*/char *forum = NULL;
 
 	TESTP(req, EBAD);
 	j_print(req, "Got req:");
@@ -62,27 +61,28 @@ int mp_main_ticket_responce(/*@only@*/ const json_t *req, /*@only@*/const char *
 	TESTP(root, EBAD);
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
-	TESTI(rc, EBAD);
+	TESTI_GO(rc, end);
 	rc = j_add_str(root, JK_TICKET, ticket);
-	TESTI(rc, EBAD);
+	TESTI_GO(rc, end);
 	rc = j_add_str(root, JK_STATUS, status);
-	TESTI(rc, EBAD);
+	TESTI_GO(rc, end);
 	rc = j_add_str(root, JK_UID_DST, uid);
-	TESTI(rc, EBAD);
+	TESTI_GO(rc, end);
 
 	if (NULL != comment) {
 		rc = j_add_str(root, JK_REASON, comment);
-		TESTI(rc, EBAD);
+		TESTI_GO(rc, end);
 	}
 
 	/* Send it */
 
-	ctl = ctl_get();
-	forum = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum = mp_communicate_forum_topic();
 	TESTP_ASSERT(forum, "Can't allocate forum!");
-
-	rc = mp_communicate_send_json(ctl->mosq, forum, root);
+	rc = mp_communicate_send_json(forum, root);
 	free(forum);
+
+end:
+
 	if (0 != j_rm(root)) {
 		DE("Can't remove json object 'root'");
 		return (EBAD);
@@ -91,26 +91,10 @@ int mp_main_ticket_responce(/*@only@*/ const json_t *req, /*@only@*/const char *
 	return (rc);
 }
 
-#if 0
-static int mp_main_save_tickets(json_t *root){
-	int index;
-	json_t *ticket;
-	control_t *ctl;
-	TESTP(root, EBAD);
-
-	ctl = ctl_get_locked();
-	json_array_foreach(root, index, ticket) {
-		j_arr_add(ctl->tickets_in, ticket);
-	}
-	ctl_unlock(ctl);
-	return (EOK);
-}
-#endif
-
-static int mp_main_remove_host_l(/*@only@*/ const json_t *root)
+static int mp_main_remove_host_l(/*@temp@*/const json_t *root)
 {
-	/*@only@*/const control_t *ctl = NULL;
-	/*@only@*/const char *uid_src = NULL;
+	/*@shared@*/const control_t *ctl = NULL;
+	/*@shared@*/const char *uid_src = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -120,7 +104,7 @@ static int mp_main_remove_host_l(/*@only@*/ const json_t *root)
 	ctl = ctl_get_locked();
 	rc = j_rm_key(ctl->hosts, uid_src);
 	ctl_unlock();
-	if (rc) {
+	if (EOK != rc) {
 		DE("Cant remove key from ctl->hosts:\n");
 		DE("UID_SRC = |%s|\n", uid_src);
 		j_print(ctl->hosts, "Hosts in ctl->hosts:");
@@ -129,16 +113,16 @@ static int mp_main_remove_host_l(/*@only@*/ const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_open_port_l(/*@only@*/const json_t *root)
+static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 {
-	/*@only@*/ const control_t *ctl = ctl_get();
+	/*@shared@*/ const control_t *ctl = ctl_get();
 	json_t *mapping = NULL;
-	/*@only@*/const char *asked_port = NULL;
-	/*@only@*/const char *protocol = NULL;
-	json_t *val = NULL;
-	json_t *ports = NULL;
+	/*@shared@*/const char *asked_port = NULL;
+	/*@shared@*/const char *protocol = NULL;
+	/*@shared@*/json_t *val = NULL;
+	/*@shared@*/json_t *ports = NULL;
 	size_t index = 0;
-	/*@only@*/const char *ip_internal = NULL;
+	/*@shared@*/const char *ip_internal = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -171,7 +155,7 @@ static int mp_main_do_open_port_l(/*@only@*/const json_t *root)
 	   So we run UPNP request to our router to test this port ***/
 
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
-	ip_internal = j_find_ref(ctl->me, JK_IP_INT); 
+	ip_internal = j_find_ref(ctl->me, JK_IP_INT);
 	TESTP_ASSERT(ip_internal, "internal IP is NULL");
 	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
 
@@ -211,16 +195,16 @@ static int mp_main_do_open_port_l(/*@only@*/const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_close_port_l(/*@only@*/const json_t *root)
+static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
 {
-	/*@only@*/const control_t *ctl = ctl_get();
-	/*@only@*/const char *asked_port = NULL;
-	/*@only@*/const char *protocol = NULL;
-	json_t *val = NULL;
-	json_t *ports = NULL;
+	/*@shared@*/const control_t *ctl = ctl_get();
+	/*@shared@*/const char *asked_port = NULL;
+	/*@shared@*/const char *protocol = NULL;
+	/*@shared@*/json_t *val = NULL;
+	/*@shared@*/json_t *ports = NULL;
 	size_t index = 0;
 	int index_save = 0;
-	/*@only@*/const char *external_port = NULL;
+	/*@shared@*/const char *external_port = NULL;
 	int rc = EBAD;
 
 	TESTP(root, EBAD);
@@ -272,14 +256,14 @@ static int mp_main_do_close_port_l(/*@only@*/const json_t *root)
  * type: "keepalive" - a source sends its status 
  * type: "reveal" - a new host asks all clients to send information
  */
-static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *uid, json_t *root)
+static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *root)
 {
 	int rc = EBAD;
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 
 	TESTP(root, EBAD);
-	TESTP(uid, EBAD);
-	TESTP(mosq, EBAD);
+	TESTP_GO(uid, end);
+	//TESTP(mosq, EBAD);
 
 	if (EOK != j_test_key(root, JK_TYPE)) {
 		DE("No type in the message\n");
@@ -296,7 +280,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 
 		/* Find uid of this remote host */
 		const char *uid_src = j_find_ref(root, JK_UID_ME);
-		TESTP(uid_src, EBAD);
+		TESTP_GO(uid_src, end);
 		/* Is this host already in the list? Just for information */
 		//j_print(root, "Received ME from remote host:");
 
@@ -315,7 +299,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_REVEAL)) {
-		send_keepalive_l(mosq);
+		send_keepalive_l();
 		DD("Found reveal\n");
 		rc = EOK;
 		goto end;
@@ -363,7 +347,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
 			mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port opening finished OK");
-			send_keepalive_l(mosq);
+			send_keepalive_l();
 		} else {
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
 		}
@@ -387,7 +371,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
 			mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-			send_keepalive_l(mosq);
+			send_keepalive_l();
 		} else {
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 		}
@@ -405,7 +389,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 			/*** TODO: SEB: Send update to all */
 			if (EOK == rc) {
 				mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-				send_keepalive_l(mosq);
+				send_keepalive_l();
 			} else {
 				mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 			}
@@ -426,7 +410,7 @@ static int mp_main_parse_message_l(/*@only@*/const struct mosquitto *mosq, /*@on
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		DD("Got 'JV_TYPE_TICKET_REQ' request\n");
-		send_request_return_tickets(mosq, root);
+		send_request_return_tickets(root);
 		goto end;
 	}
 
@@ -465,28 +449,35 @@ end:
 	return (rc);
 }
 
-static int mp_main_on_message_processor(/*@only@*/ const struct mosquitto *mosq, void *topic_v, void *data_v)
+//static int mp_main_on_message_processor(/*@temp@*/void *topic_v, /*@temp@*/void *data_v)
+/* Message processor, runs as a thread */
+void *mp_main_on_message_processor(void *v)
 {
-	char **topics;
+	///*@shared@*/const struct mosquitto_message *msg = v; 
+	mes_params_t *mes_params = v;
+	/*@only@*/char **topics;
 	int topics_count = 0;
-	char *topic = (char *)topic_v;
+	/*@shared@*/char *topic = mes_params->topic;
+	/*@shared@*/void *data_v = mes_params->payload;
 	int rc = EBAD;
-	/*@only@*/ const char *uid = NULL;
-	json_t *root = NULL;
+	/*@shared@*/ const char *uid = NULL;
+	/*@shared@*/json_t *root = NULL;
 
-	TESTP(topic, EBAD);
+	TESTP(topic, NULL);
+
+	pthread_detach(pthread_self());
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't tokenize topic\n");
 		mosquitto_sub_topic_tokens_free(&topics, topics_count);
-		return (EBAD);
+		return (NULL);
 	}
 
 	/* TODO: SEB: Move numner of levels intopic to a define */
 	if (topics_count < 4) {
 		DE("Expected at least 4 levels of topic, got %d\n", topics_count);
-		return (EBAD);
+		return (NULL);
 	}
 
 	/* This define is a splint fix - splint parsing fails here */
@@ -494,36 +485,43 @@ static int mp_main_on_message_processor(/*@only@*/ const struct mosquitto *mosq,
 
 	if (0 == strcmp(uid, topics[3])) {
 		mosquitto_sub_topic_tokens_free(&topics, topics_count);
-		return (EOK);
+		return (NULL);
 	}
 
 	root = j_str2j((char *)data_v);
 	TESTP_GO(root, err);
 
 	/* The client uid always 4'th param */
-	mp_main_parse_message_l(mosq, topics[3], root);
+	mp_main_parse_message_l(topics[3], root);
 	mosquitto_sub_topic_tokens_free(&topics, topics_count);
-	return (rc);
+	return (NULL);
 err:
 	if (root) {
 		rc = j_rm(root);
-		TESTI_MES(rc, EBAD, "Can't remove json object");
+		TESTI_MES(rc, NULL, "Can't remove json object");
 	}
 
 	mosquitto_sub_topic_tokens_free(&topics, topics_count);
-	return (rc);
+	return (NULL);
 }
 
-static void mp_main_on_message_cl( struct mosquitto *mosq, void *userdata __attribute__((unused)), const struct mosquitto_message *msg)
+static void mp_main_on_message_cl(struct mosquitto *mosq __attribute__((unused)), void *userdata __attribute__((unused)), const struct mosquitto_message *msg)
 {
-	mp_main_on_message_processor(mosq, msg->topic, msg->payload);
+	pthread_t message_thread;
+	mes_params_t *mes_params = zmalloc(sizeof(mes_params_t));
+	mes_params->topic = zmalloc(TOPIC_MAX_LEN);
+	mes_params->payload = zmalloc(msg->payloadlen + 1);
+	strncpy(mes_params->topic, msg->topic, TOPIC_MAX_LEN);
+	memcpy(mes_params->payload, msg->payload, msg->payloadlen);
+	pthread_create(&message_thread, NULL, mp_main_on_message_processor, mes_params);
+	//mp_main_on_message_processor(msg->topic, msg->payload);
 }
 
-static void connect_callback_l(struct mosquitto *mosq, void *obj __attribute__((unused)), int result __attribute__((unused)))
+static void connect_callback_l(struct mosquitto *mosq __attribute__((unused)), void *obj __attribute__((unused)), int result __attribute__((unused)))
 {
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 	printf("connected!\n");
-	send_reveal_l(mosq);
+	send_reveal_l();
 	ctl_lock();
 	ctl->status = ST_CONNECTED;
 	ctl_unlock();
@@ -531,8 +529,8 @@ static void connect_callback_l(struct mosquitto *mosq, void *obj __attribute__((
 
 static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unused)), void *data __attribute__((unused)), int reason)
 {
-	control_t *ctl = NULL;
-	int rc;
+	/*@shared@*/control_t *ctl = NULL;
+	//int rc;
 	if (0 != reason) {
 		switch (reason) {
 		case MOSQ_ERR_NOMEM:
@@ -586,23 +584,16 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 
 	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
-	rc = j_rm(ctl->me);
-	ctl->me = j_new();
+	j_rm(ctl->hosts);
+	ctl->hosts = j_new();
 	ctl_unlock();
-	if (NULL == ctl->me) {
-		DE("Can't allocate ctl->me\n");
-		return;
-	}
-	if (rc) {
-		DE("Error: couldn't remove json object ctl->me\n");
-	}
 	DDD("Exit from function\n");
 }
 
 void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 						   void *data __attribute__((unused)), int buf_id)
 {
-	buf_t *buf = NULL;
+	/*@only@*/buf_t *buf = NULL;
 
 	/* Sleep a couple of time to let the sending thread to add buffer */
 	/* When we sleep, the Kernel scheduler switches to another task and,
@@ -632,14 +623,14 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 /* This thread is responsible for connection to the broker */
 /*@null@*/ static void *mp_main_mosq_thread(void *arg)
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	int rc = EBAD;
 	int i;
 	/*@only@*/const char *cert = (char *)arg;
 	char *forum_topic_all;
-	char *forum_topic_me;
-	char *personal_topic;
-	buf_t *buf = NULL;
+	/*@only@*/char *forum_topic_me;
+	/*@only@*/char *personal_topic;
+	/*@only@*/buf_t *buf = NULL;
 
 	/* TODO: Client ID, should be assigned on registartion and gotten from config file */
 	char clientid[24] = "seb";
@@ -652,13 +643,13 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 
 	ctl = ctl_get();
 
-	forum_topic_all = mp_communicate_forum_topic_all(ctl_user_get());
+	forum_topic_all = mp_communicate_forum_topic_all();
 	TESTP(forum_topic_all, NULL);
 
-	forum_topic_me = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic_me = mp_communicate_forum_topic();
 	TESTP(forum_topic_me, NULL);
 
-	personal_topic = mp_communicate_private_topic(ctl_user_get(), ctl_uid_get());
+	personal_topic = mp_communicate_private_topic();
 	TESTP_GO(personal_topic, end);
 
 	DD("Creating mosquitto client\n");
@@ -685,7 +676,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		ctl->status = ST_STOP;
 		return (NULL);
 	}
-	mosquitto_connect_callback_set((struct mosquitto *) ctl->mosq, connect_callback_l);
+	mosquitto_connect_callback_set((struct mosquitto *)ctl->mosq, connect_callback_l);
 	mosquitto_message_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_message_cl);
 	mosquitto_disconnect_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_disconnect_l_cl);
 	mosquitto_publish_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_publish_cb);
@@ -766,7 +757,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 		usleep((__useconds_t)mp_os_random_in_range(100, 300));
 		if (0 == (counter % 7) && (ST_DISCONNECTED != ctl->status)) {
 			// DD("Client connected, sending keepalive message\n");
-			rc = send_keepalive_l(ctl->mosq);
+			rc = send_keepalive_l();
 			if (EOK != rc) {}
 			counter = 1;
 		}
@@ -803,7 +794,7 @@ end:
 
 /*@null@*/ static void *mp_main_mosq_thread_manager(void *arg)
 {
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	void *status = NULL;
 	pthread_t mosq_thread_id;
 	pthread_detach(pthread_self());
@@ -820,7 +811,7 @@ end:
 
 static int mp_main_print_info_banner()
 {
-	/*@only@*/const control_t *ctl = ctl_get();
+	/*@shared@*/const control_t *ctl = ctl_get();
 	printf("=======================================\n");
 	printf("Router IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_EXT), j_find_ref(ctl->me, JK_PORT_EXT));
 	printf("Local IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_INT), j_find_ref(ctl->me, JK_PORT_INT));
@@ -833,7 +824,7 @@ static int mp_main_print_info_banner()
 
 static void mp_main_signal_handler(int sig)
 {
-	control_t *ctl;
+	/*@shared@*/control_t *ctl;
 	if (SIGINT != sig) {
 		DD("Got signal: %d, ignore\n", sig);
 		return;
@@ -856,8 +847,8 @@ static void mp_main_signal_handler(int sig)
 int mp_main_complete_me_init(void)
 {
 	int rc = EBAD;
-	char *var = NULL;
-	/*@only@*/const control_t *ctl = ctl_get();
+	/*@shared@*/char *var = NULL;
+	/*@shared@*/const control_t *ctl = ctl_get();
 
 	/* SEB: TODO: This should be defined by user from first time config */
 	if (EOK != j_test_key(ctl->me, JK_USER)) {
@@ -906,11 +897,11 @@ int mp_main_complete_me_init(void)
 
 int main(int argc __attribute__((unused)), char *argv[])
 {
-	char *cert = NULL;
-	control_t *ctl = NULL;
+	/*@shared@*/char *cert = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	pthread_t cli_thread_id;
 	pthread_t mosq_thread_id;
-	json_t *ports;
+	/*@shared@*/json_t *ports;
 
 	int rc = EOK;
 
@@ -920,7 +911,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 	/* We don't need it locked - nothing is running yet */
 	ctl = ctl_get();
 
-	if (EOK != mp_config_load(ctl) || NULL == ctl->config) {
+	if (EOK != mp_config_load() || NULL == ctl->config) {
 		DDD("Can't read config\n");
 	}
 
@@ -951,9 +942,9 @@ int main(int argc __attribute__((unused)), char *argv[])
 
 	/* Here test the config. If it not loaded - we create it and save it */
 	if (NULL == ctl->config) {
-		rc = mp_config_from_ctl(ctl);
+		rc = mp_config_from_ctl();
 		if (EOK == rc) {
-			rc = mp_config_save(ctl);
+			rc = mp_config_save();
 			if (EOK != rc) {
 				DE("Cant' save config\n");;
 			}

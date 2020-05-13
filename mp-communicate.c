@@ -13,32 +13,38 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
-/*@null@*/ char *mp_communicate_forum_topic(/*@only@*/const char *user, /*@only@*/const char *uid) 
+/*@null@*/ char *mp_communicate_forum_topic()
 {
+	const char *user = ctl_user_get();
+	const char *uid = ctl_uid_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
 	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/%s", user, uid);
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_forum_topic_all(/*@only@*/const char *user)
+/*@null@*/ char *mp_communicate_forum_topic_all()
 {
+	const char *user = ctl_user_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
 	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", user);
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_private_topic(/*@only@*/const char *user, /*@only@*/const char *uid)
+/*@null@*/ char *mp_communicate_private_topic()
 {
+	const char *user = ctl_user_get();
+	const char *uid = ctl_uid_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
 	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_private_topic_all(/*@only@*/const char *user)
+/*@null@*/ char *mp_communicate_private_topic_all()
 {
+	const char *user = ctl_user_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
 	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/#", user);
@@ -49,7 +55,7 @@
 /* Find a buffer in ctl->buffers by vounter 'counter' */
 int mp_communicate_clean_missed_counters(void)
 {
-	control_t *ctl;
+	/*@shared@*/control_t *ctl;
 	void *tmp;
 	const char *key;
 	json_t *val;
@@ -88,7 +94,7 @@ int mp_communicate_clean_missed_counters(void)
 	buf_t *buf_p;
 	size_t ret;
 	char *buf_counter_s;
-	control_t *ctl;
+	/*@shared@*/control_t *ctl;
 	int rc;
 
 	if (counter < 0) {
@@ -143,7 +149,7 @@ int mp_communicate_clean_missed_counters(void)
 int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 {
 	char *buf_counter_s;
-	control_t *ctl;
+	/*@shared@*/control_t *ctl;
 	int rc;
 
 	TESTP(buf, EBAD);
@@ -169,28 +175,28 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	return (EOK);
 }
 
-int mp_communicate_mosquitto_publish(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *topic, /*@only@*/buf_t *buf)
+int mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_t *buf)
 {
 	int rc;
 	int rc2;
 	int counter = -1;
-	rc = mosquitto_publish((struct mosquitto *)mosq, &counter, topic, (int)buf->size, buf->data, 0, false);
+	/*@shared@*/control_t *ctl = ctl_get();
+	rc = mosquitto_publish(ctl->mosq, &counter, topic, (int)buf->size, buf->data, 0, false);
 	rc2 = mp_communicate_save_buf_t_to_ctl(buf, counter);
 	if (EOK != rc2) {
 		DE("Can't save buf_t to ctl\n");
 	} else {
-		control_t *ctl = ctl_get();
+		/*@shared@*/control_t *ctl = ctl_get();
 		j_print(ctl->buffers, "ctl->buffers: ");
 	}
 
 	return (rc);
 }
 
-int mp_communicate_send_json(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *forum_topic, /*@only@*/json_t *root)
+int mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t *root)
 {
 	buf_t *buf;
 
-	TESTP(mosq, EBAD);
 	TESTP(forum_topic, EBAD);
 	TESTP(root, EBAD);
 
@@ -198,32 +204,34 @@ int mp_communicate_send_json(/*@only@*/const struct mosquitto *mosq, /*@only@*/c
 	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
 	TESTP(buf, EBAD);
 
-	return (mp_communicate_mosquitto_publish(mosq, forum_topic, buf));
+	return (mp_communicate_mosquitto_publish(forum_topic, buf));
 }
 
-extern int send_keepalive_l(/*@only@*/const struct mosquitto *mosq)
+extern int send_keepalive_l()
 {
 	char *forum_topic;
 	buf_t *buf = NULL;
 	int rc = EBAD;
 
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	/*@shared@*/control_t *ctl = ctl_get();
+
+	forum_topic = mp_communicate_forum_topic();
 
 	buf = mp_requests_build_keepalive();
-	ctl_unlock();
+
 	if (NULL == buf) {
 		DE("can't build notification\n");
 		return (EBAD);
 	}
 
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	if (MOSQ_ERR_SUCCESS == rc) {
 		rc = EOK;
 		goto end;
 	}
 
 	DE("Failed to send notification\n");
-	rc = mosquitto_reconnect((struct mosquitto *)mosq);
+	rc = mosquitto_reconnect(ctl->mosq);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to reconnect\n");
 		rc = EBAD;
@@ -232,7 +240,7 @@ extern int send_keepalive_l(/*@only@*/const struct mosquitto *mosq)
 
 	DD("Reconnected\n");
 
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to send notification\n");
 		rc = EBAD;
@@ -243,20 +251,20 @@ end:
 	return (rc);
 }
 
-int send_reveal_l(/*@only@*/const struct mosquitto *mosq)
+int send_reveal_l()
 {
 	char *forum_topic;
 	buf_t *buf = NULL;
 	int rc = EBAD;
 
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 	TESTP(forum_topic, EBAD);
 
 	buf = mp_requests_build_reveal();
 
 	TESTP_MES(buf, EBAD, "Can't build notification");
 
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to send reveal request\n");
@@ -266,15 +274,13 @@ int send_reveal_l(/*@only@*/const struct mosquitto *mosq)
 	return (EOK);
 }
 
-int mp_communicate_send_request(/*@only@*/const struct mosquitto *mosq, /*@only@*/const json_t *root)
+int mp_communicate_send_request(const json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
 
-	TESTP(mosq, EBAD);
-
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -282,21 +288,19 @@ int mp_communicate_send_request(/*@only@*/const struct mosquitto *mosq, /*@only@
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	//DDD("Going to send request\n");
 	j_print(root, "Sending requiest:");
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
 
-int send_request_to_open_port(/*@only@*/const struct mosquitto *mosq, /*@only@*/const json_t *root)
+int send_request_to_open_port(/*@temp@*/const json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
 
-	TESTP(mosq, EBAD);
-
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -304,7 +308,7 @@ int send_request_to_open_port(/*@only@*/const struct mosquitto *mosq, /*@only@*/
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	//DDD("Going to send request\n");
 	j_print(root, "Sending requiest:");
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
@@ -321,56 +325,53 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 	TESTP(port, EBAD);
 	TESTP(protocol, EBAD);
 
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 
 	DDD("Going to build request\n");
 	buf = mp_requests_open_port(target_uid, port, protocol);
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
 
-int send_request_to_close_port(/*@only@*/const struct mosquitto *mosq, /*@only@*/const char *target_uid, /*@only@*/const char *port, /*@only@*/const char *protocol)
+int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const char *port, /*@temp@*/const char *protocol)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
 
-	TESTP(mosq, EBAD);
 	TESTP(target_uid, EBAD);
 	TESTP(port, EBAD);
 	TESTP(protocol, EBAD);
 
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 
 	DDD("Going to build request\n");
 	buf = mp_requests_close_port(target_uid, port, protocol);
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mp_communicate_mosquitto_publish(mosq, forum_topic, buf);
+	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
 
-int send_request_return_tickets(/*@only@*/const struct mosquitto *mosq, /*@only@*/json_t *root)
+int send_request_return_tickets(/*@temp@*/json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
-	control_t *ctl = NULL;
+	/*@shared@*/control_t *ctl = NULL;
 	json_t *resp = NULL;
 	size_t index;
 	json_t *val = NULL;
 	const char *ticket = NULL;
 	const char *target_uid = NULL;
-
-	TESTP(mosq, EBAD);
 
 	ticket = j_find_ref(root, JK_TICKET);
 	TESTP(ticket, EBAD);
@@ -379,7 +380,7 @@ int send_request_return_tickets(/*@only@*/const struct mosquitto *mosq, /*@only@
 
 	ctl = ctl_get();
 
-	forum_topic = mp_communicate_forum_topic(ctl_user_get(), ctl_uid_get());
+	forum_topic = mp_communicate_forum_topic();
 
 	if (j_count(ctl->tickets_out) == 1) {
 		DD("No tickets to send\n");
@@ -406,7 +407,7 @@ int send_request_return_tickets(/*@only@*/const struct mosquitto *mosq, /*@only@
 	/* TODO: Memory leak forum_topic */
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
-	rc = mp_communicate_send_json(mosq, forum_topic, resp);
+	rc = mp_communicate_send_json(forum_topic, resp);
 	free(forum_topic);
 	rc = j_rm(resp);
 	TESTI_MES(rc, EBAD, "Can't remove json object");

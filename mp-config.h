@@ -14,7 +14,7 @@
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_save(/*@only@*/const void *_ctl);
+extern int mp_config_save(void);
 
 /**
  * @brief Used in the first run, when no config file. Creates 
@@ -27,7 +27,7 @@ extern int mp_config_save(/*@only@*/const void *_ctl);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_from_ctl(void *ctl);
+extern int mp_config_from_ctl(void);
 
 /**
  * @brief Load config from file, decode it into object and 
@@ -39,7 +39,7 @@ extern int mp_config_from_ctl(void *ctl);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_load(void *ctl);
+extern int mp_config_load(void);
 
 /**
  * @brief Adds new pair 'key' = 'val' into ctl->config and also 

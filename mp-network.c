@@ -121,7 +121,7 @@ err:
 /* Probe network and write all values to global ctl structure */
 int mp_network_init_network_l()
 {
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 	char *var;
 
 	/* Try to read external IP from Upnp */

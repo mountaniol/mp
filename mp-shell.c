@@ -37,6 +37,7 @@ int ft_set_default_border_style(const struct ft_border_style *style);
 #define FALSE              0
 
 int status = 0;
+int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
    These messages are responces requests done from here */
@@ -54,6 +55,8 @@ int mp_shell_parse_in_command(json_t *root)
 		printf(">> The operation finished\n");
 		status = 1;
 	}
+
+	waiting_counter = 0;
 
 	return (EOK);
 }
@@ -343,7 +346,8 @@ static int mp_shell_ask_openport(json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	while (0 == status) {
+	while (0 == status && waiting_counter < 10) {
+		waiting_counter++;
 		sleep(1);
 	}
 
@@ -416,10 +420,14 @@ static int mp_shell_ask_closeport(json_t *args)
 		rc = EOK;
 	}
 
+	while (0 == status && waiting_counter < 10) {
+		waiting_counter++;
+		sleep(1);
+	}
+
 	if (2 == status) {
 		return (EBAD);
 	}
-	rc = EOK;
 	
 err:
 	if (root) {

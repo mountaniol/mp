@@ -11,16 +11,14 @@ typedef struct port_map_struct {
 	char *protocol;
 } port_map_t;
 
-extern int mp_ports_remap_port(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *protocol /* "TCP", "UDP" */);
-extern int mp_ports_unmap_port(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *external_port, /*@only@*/const char *protocol);
-extern int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol);
+extern int mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */);
+extern int mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol);
 extern int test_if_port_mapped(int internal_port);
 extern /*@null@*/ char *mp_ports_get_external_ip(void);
 
-extern /*@null@*/ json_t *mp_ports_if_mapped_json(/*@only@*/const json_t *root, /*@only@*/const char *internal_port, /*@only@*/const char *local_host, /*@only@*/const char *protocol);
-extern int mp_ports_scan_mappings(json_t *arr, /*@only@*/const char *local_host);
-extern /*@null@*/ json_t *mp_ports_remap_any(/*@only@*/ const json_t *root, /*@only@*/ const char *internal_port, /*@only@*/ const char *protocol /* "TCP", "UDP" */);
-
-extern /*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@only@*/const char *uid);
+extern /*@null@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol);
+extern int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host);
+extern /*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/ const json_t *root, /*@temp@*/ const char *internal_port, /*@temp@*/ const char *protocol /* "TCP", "UDP" */);
+extern /*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid);
 
 #endif /* _SEC_REMAP_PORT_H_ */

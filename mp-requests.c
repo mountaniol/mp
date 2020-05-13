@@ -38,7 +38,7 @@ err:
 {
 	const char *name;
 	buf_t *buf = NULL;
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 
 	name = j_find_ref(ctl->me, JK_NAME);
 
@@ -69,7 +69,7 @@ err:
 	buf_t *buf = NULL;
 	json_t *root = NULL;
 	const char *name;
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 	name = j_find_ref(ctl->me, JK_NAME);
 
 	TESTP_MES(name, NULL, "Got NULL");
@@ -214,7 +214,7 @@ err:
 /* SEB:TODO: I should just send ctl->me structure as keepalive */
 /*@null@*/ buf_t *mp_requests_build_keepalive()
 {
-	control_t *ctl = ctl_get();
+	/*@shared@*/control_t *ctl = ctl_get();
 	return (j_2buf(ctl->me));
 }
 
