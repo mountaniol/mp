@@ -728,9 +728,12 @@ int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 		case UPNPCOMMAND_INVALID_RESPONSE:
 			DE("Error on ports scanning: UPNPCOMMAND_INVALID_RESPONSE\n");
 			return (EBAD);
+/* TODO: Find exact version where this change became */
+#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 		case UPNPCOMMAND_MEM_ALLOC_ERROR:
 			DE("Error on ports scanning: UPNPCOMMAND_MEM_ALLOC_ERROR\n");
 			return (EBAD);
+#endif
 		default:
 			break;
 		}
