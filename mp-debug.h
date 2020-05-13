@@ -29,7 +29,8 @@
 #endif // DEBUG3
 #define DE _D_PRINT_ERR
 
-
+/* DDD0 always empty : use it to keep printings */
+#define DDD0(x,...) do{}while(0)
 
 #define D_TIME_START(x) clock_t x##_start = clock();
 #define D_TIME_END(x) {clock_t x##_end = clock(); D("Line %d: time used %f\n", __LINE__, (((double)(x##_end - x##_start))/ CLOCKS_PER_SEC));}

@@ -114,7 +114,7 @@ int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 		return NULL;
 	}
 
-	j_print(arr, "Sending to shell: ");
+	//j_print(arr, "Sending to shell: ");
 	return (arr);
 }
 

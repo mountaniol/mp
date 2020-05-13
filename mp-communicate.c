@@ -62,7 +62,7 @@ int mp_communicate_clean_missed_counters(void)
 
 	ctl = ctl_get_locked();
 	if (j_count(ctl->buf_missed) < 1) {
-		DD("No missed counters\n");
+		DDD0("No missed counters\n");
 		ctl_unlock();
 		return (EOK);
 	}
@@ -79,7 +79,7 @@ int mp_communicate_clean_missed_counters(void)
 
 		buf = (buf_t *)ret;
 		buf_free_force(buf);
-		DD("Found missed key, removing: %s\n", key);
+		DDD0("Found missed key, removing: %s\n", key);
 		j_rm_key(ctl->buf_missed, key);
 		j_rm_key(ctl->buffers, key);
 	}
@@ -108,7 +108,7 @@ int mp_communicate_clean_missed_counters(void)
 	/* Transform counter to key (string) */
 	snprintf(buf_counter_s, 32, "%d", counter);
 
-	DD("Counter string = %s\n", buf_counter_s);
+	DDD0("Counter string = %s\n", buf_counter_s);
 
 	ctl = ctl_get_locked();
 	ret = j_find_int(ctl->buffers, buf_counter_s);
@@ -124,9 +124,9 @@ int mp_communicate_clean_missed_counters(void)
 		j_add_int(ctl->buf_missed, buf_counter_s, counter);
 		ctl_unlock();
 		free(buf_counter_s);
-		DD("Added to missed counters: %d\n", counter);
-		j_print(ctl->buf_missed, "Now in missed  counters:");
-		j_print(ctl->buffers, "Now in buffers counters:");
+		DDD0("Added to missed counters: %d\n", counter);
+		//j_print(ctl->buf_missed, "Now in missed  counters:");
+		//j_print(ctl->buffers, "Now in buffers counters:");
 		return (NULL);
 	}
 
@@ -158,7 +158,7 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 		return (EBAD);
 	}
 
-	DD("Got counter = %d\n", counter);
+	DDD0("Got counter = %d\n", counter);
 
 	buf_counter_s = (char *)zmalloc(32);
 	TESTP(buf_counter_s, EBAD);
@@ -187,7 +187,7 @@ int mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_
 		DE("Can't save buf_t to ctl\n");
 	} else {
 		/*@shared@*/control_t *ctl = ctl_get();
-		j_print(ctl->buffers, "ctl->buffers: ");
+		//j_print(ctl->buffers, "ctl->buffers: ");
 	}
 
 	return (rc);
@@ -286,8 +286,8 @@ int mp_communicate_send_request(const json_t *root)
 	buf = j_2buf(root);
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
-	//DDD("Going to send request\n");
-	j_print(root, "Sending requiest:");
+	DDD0("Going to send request\n");
+	//j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
@@ -306,8 +306,8 @@ int send_request_to_open_port(/*@temp@*/const json_t *root)
 	buf = j_2buf(root);
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
-	//DDD("Going to send request\n");
-	j_print(root, "Sending requiest:");
+	DDD0("Going to send request\n");
+	//j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
 	free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);

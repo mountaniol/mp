@@ -44,15 +44,15 @@ int waiting_counter = 0;
 int mp_shell_parse_in_command(json_t *root)
 {
 	TESTP(root, EBAD);
-	printf(">> %s\n", j_find_ref(root, JK_REASON));
+	printf("+ %s\n", j_find_ref(root, JK_REASON));
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_FAIL)) {
-		printf(">> The operation failed\n");
+		printf("- The operation failed\n");
 		status = 2;
 	}
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_SUCCESS)) {
-		printf(">> The operation finished\n");
+		printf("+ The operation finished\n");
 		status = 1;
 	}
 
@@ -307,7 +307,7 @@ static int mp_shell_ask_openport(json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	j_print(args, "args");
+	//j_print(args, "args");
 
 	uid_dst = j_find_ref(args, JK_UID_DST);
 	TESTP_MES_GO(uid_dst, err, "Can't find uid");
@@ -384,7 +384,7 @@ static int mp_shell_ask_closeport(json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	j_print(args, "Closeport JSON");
+	//j_print(args, "Closeport JSON");
 
 	uid = j_find_ref(args, JK_UID_DST);
 	TESTP_MES_GO(uid, err, "Can't find uid");
@@ -488,7 +488,7 @@ static int mp_shell_ssh(json_t *args)
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_SSH");
 	rc = j_cp(args, root, JK_UID_DST);
 	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
-	j_print(root, "Sending SSH command\n");
+	//j_print(root, "Sending SSH command\n");
 	resp = mp_shell_do_requiest(root);
 	if (NULL == resp) {
 		printf("An error: can't bring information\n");

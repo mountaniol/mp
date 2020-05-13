@@ -44,7 +44,7 @@ int mp_main_ticket_responce(/*@temp@*/const json_t *req, /*@temp@*/const char *s
 	/*@only@*/char *forum = NULL;
 
 	TESTP(req, EBAD);
-	j_print(req, "Got req:");
+	//j_print(req, "Got req:");
 	TESTP(status, EBAD);
 
 	uid = j_find_ref(req, JK_UID_SRC);
@@ -225,14 +225,13 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
 			external_port = j_find_ref(val, JK_PORT_EXT);
 			index_save = index;
 			D("Found opened port: %s -> %sd %s\n", asked_port, external_port, protocol);
-			ctl_unlock();
 		}
 	}
 
 	ctl_unlock();
 
 	if (NULL == external_port) {
-		DE("No such a open port\n");
+		DE("No such an open port\n");
 		return (EBAD);
 	}
 
@@ -352,7 +351,7 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
 		}
 
-		j_print(ctl->tickets_out, "After opening port: tickets: ");
+		//j_print(ctl->tickets_out, "After opening port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -396,7 +395,7 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 		}
 
 
-		j_print(ctl->tickets_out, "After closing port: tickets: ");
+		//j_print(ctl->tickets_out, "After closing port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
