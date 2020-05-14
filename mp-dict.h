@@ -81,6 +81,9 @@
 /* Ticket: how we define session between mp-shell and remote machine */
 #define JK_TICKET "ticket"
 
+#define JK_TOPIC "topic"
+#define JK_TAYLOAD "payload"
+
 /*** Values ***/
 
 #define JV_YES "1"

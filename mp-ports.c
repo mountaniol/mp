@@ -550,7 +550,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
+/*@null@*//*@shared@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -559,7 +559,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 
 	char s_ext[PORT_STR_LEN];
 	int status;
-	json_t *mapping = NULL;
+	/*@shared@*/json_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
 	int rc;

@@ -10,12 +10,24 @@
  * 
  * @author se (14/04/2020)
  * 
- * @param str 
+ * @param str Input string, must be 0 terminated
  * 
- * @return json_t* 
+ * @return json_t* JSON objectm can return NULL if allocation failed
  */
 /*@null@*/ json_t *j_str2j(/*@temp@*/const char *str);
 
+/**
+ * @brief Convert string 'str' of length 'len' into json object
+ * @func json_t* j_strn2j(const char *str, size_t len)
+ * @author se (14/05/2020)
+ * 
+ * @param str Input string, not must be not 0 terminated
+ * @param len String length
+ * 
+ * @return json_t* JSON object, can return NULL  if allocation 
+ *  	   failed
+ */
+/*@null@*//*shared*/ json_t *j_strn2j(/*@temp@*/const char *str, size_t len);
 /**
  * @brief Get buf_t containing JSON in text form. Creates and 
  *  	  returns JSON object
@@ -59,7 +71,7 @@
  * 
  * @return int EOK on success 
  */
-int j_arr_add(/*@temp@*/json_t *arr, /*@temp@*/json_t *obj);
+int j_arr_add(/*@temp@*/json_t *arr, /*@shared@*/json_t *obj);
 
 /**
  * @brief Allocate new json object

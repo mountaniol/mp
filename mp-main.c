@@ -24,6 +24,7 @@
 #include "mp-os.h"
 #include "mp-dict.h"
 
+
 /* If we got request with a ticket, it means that the scond part (remote client)
    waits for a responce.
    We test the client's request, and if find a ticket - we create the
@@ -37,7 +38,7 @@
    comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
 int mp_main_ticket_responce(/*@temp@*/const json_t *req, /*@temp@*/const char *status, /*@temp@*/const char *comment)
 {
-	/*@only@*/json_t *root = NULL;
+	/*@only@*//*@notnull@*/json_t *root = NULL;
 	/*@shared@*/const char *ticket = NULL;
 	/*@shared@*/const char *uid = NULL;
 	int rc;
@@ -116,7 +117,7 @@ static int mp_main_remove_host_l(/*@temp@*/const json_t *root)
 static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 {
 	/*@shared@*/ const control_t *ctl = ctl_get();
-	json_t *mapping = NULL;
+	/*@shared@*/json_t *mapping = NULL;
 	/*@shared@*/const char *asked_port = NULL;
 	/*@shared@*/const char *protocol = NULL;
 	/*@shared@*/json_t *val = NULL;
@@ -170,7 +171,14 @@ static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 		ctl_lock();
 		rc = j_arr_add(ports, mapping);
 		ctl_unlock();
-		TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
+		if (EOK != rc) {
+			DE("Can't add mapping to responce array\n");
+			rc = j_rm(mapping);
+			if (EOK != rc) {
+				DE("Can't remove mappings\n");
+			}
+			return (EBAD);
+		}
 
 		/* Return here. The new port added to internal table in ctl->me.
 		   At the end of the process the updated ctl->me object will be sent to the client.
@@ -235,7 +243,10 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
 		return (EBAD);
 	}
 
-	mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
+	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
+	if (EOK != rc) {
+		DE("Can't send ticket");
+	}
 	/* this function probes the internal port. If it alreasy mapped, it returns the mapping */
 	rc = mp_ports_unmap_port(root, asked_port, external_port, protocol);
 
@@ -245,8 +256,11 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
 	}
 
 	ctl_lock();
-	json_array_remove(ports, index_save);
+	rc = json_array_remove(ports, index_save);
 	ctl_unlock();
+	if (EOK != rc) {
+		DE("Can't remove port from ports: asked index %d, size of ports arrays is %zu", index_save, json_array_size(ports));
+	}
 	return (EOK);
 }
 
@@ -255,7 +269,7 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
  * type: "keepalive" - a source sends its status 
  * type: "reveal" - a new host asks all clients to send information
  */
-static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *root)
+static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@temp@*/json_t *root)
 {
 	int rc = EBAD;
 	/*@shared@*/control_t *ctl = ctl_get();
@@ -267,7 +281,6 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 	if (EOK != j_test_key(root, JK_TYPE)) {
 		DE("No type in the message\n");
 		j_print(root, "root");
-		rc = j_rm(root);
 		TESTI_MES(rc, EBAD, "Can't remove json object");
 		return (EBAD);
 	}
@@ -298,7 +311,10 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_REVEAL)) {
-		send_keepalive_l();
+		rc = send_keepalive_l();
+		if (EOK != rc) {
+			DE("Failed to send keepalive message\n");
+		}
 		DD("Found reveal\n");
 		rc = EOK;
 		goto end;
@@ -345,10 +361,20 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
-			mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port opening finished OK");
-			send_keepalive_l();
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port opening finished OK");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
+
+			rrc = send_keepalive_l();
+			if (EOK != rrc) {
+				DE("Can't send keepalive\n");
+			}
 		} else {
-			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
 		}
 
 		//j_print(ctl->tickets_out, "After opening port: tickets: ");
@@ -369,10 +395,21 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
-			mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-			send_keepalive_l();
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
+
+			rrc = send_keepalive_l();
+			if (EOK != rrc) {
+				DE("Can't send keepalive\n");
+			}
+
 		} else {
-			mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
 		}
 
 		if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
@@ -387,15 +424,23 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 
 			/*** TODO: SEB: Send update to all */
 			if (EOK == rc) {
-				mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-				send_keepalive_l();
+				int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
+				if (EOK != rrc) {
+					DE("Can't send ticket\n");
+				}
+				rrc = send_keepalive_l();
+				if (EOK != rrc) {
+					DE("Can't send keepalive\n");
+				}
 			} else {
-				mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
+				int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
+				if (EOK != rrc) {
+					DE("Can't send ticket\n");
+				}
+
+
 			}
 		}
-
-
-		//j_print(ctl->tickets_out, "After closing port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -409,7 +454,7 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		DD("Got 'JV_TYPE_TICKET_REQ' request\n");
-		send_request_return_tickets(root);
+		rc = send_request_return_tickets(root);
 		goto end;
 	}
 
@@ -417,7 +462,7 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
 		DD("Got 'JV_TYPE_TICKET_RESP' request\n");
 		//mp_main_save_tickets(root);
-		mp_cli_send_to_cli(root);
+		rc = mp_cli_send_to_cli(root);
 		goto end;
 	}
 
@@ -441,82 +486,91 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@only@*/json_t *
 	if (rc) DE("Unknown type\n");
 
 end:
-	if (root) {
-		rc = j_rm(root);
-		TESTI_MES(rc, EBAD, "Can't remove json object");
-	}
 	return (rc);
 }
 
-//static int mp_main_on_message_processor(/*@temp@*/void *topic_v, /*@temp@*/void *data_v)
 /* Message processor, runs as a thread */
-void *mp_main_on_message_processor(void *v)
+/*@null@*/static void *mp_main_on_message_processor(/*@only@*/void *v)
 {
-	///*@shared@*/const struct mosquitto_message *msg = v; 
-	mes_params_t *mes_params = v;
 	/*@only@*/char **topics;
+	/*@shared@*/ const char *topic;
 	int topics_count = 0;
-	/*@shared@*/char *topic = mes_params->topic;
-	/*@shared@*/void *data_v = mes_params->payload;
 	int rc = EBAD;
 	/*@shared@*/ const char *uid = NULL;
-	/*@shared@*/json_t *root = NULL;
+	/*@only@*/json_t *root = v;
 
-	TESTP(topic, NULL);
+	TESTP(root, NULL);
 
 	pthread_detach(pthread_self());
+
+	topic = j_find_ref(root, JK_TOPIC);
+	TESTP_MES(topic, NULL, "No topic in input JSON object");
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't tokenize topic\n");
-		mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		rc = j_rm(root);
+		if (EOK != rc) {
+			DE("Can't remove JSON\n");
+		}
 		return (NULL);
 	}
 
 	/* TODO: SEB: Move numner of levels intopic to a define */
 	if (topics_count < 4) {
 		DE("Expected at least 4 levels of topic, got %d\n", topics_count);
+		mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		rc = j_rm(root);
+		if (EOK != rc) {
+			DE("Can't remove JSON\n");
+		}
 		return (NULL);
 	}
 
-	/* This define is a splint fix - splint parsing fails here */
-	uid = ctl_uid_get(); //mosquitto_userdata(mosq);
+	uid = ctl_uid_get();
 
 	if (0 == strcmp(uid, topics[3])) {
+		rc = j_rm(root);
+		if (EOK != rc) {
+			DE("Can't remove JSON\n");
+		}
 		mosquitto_sub_topic_tokens_free(&topics, topics_count);
 		return (NULL);
 	}
 
-	root = j_str2j((char *)data_v);
-	TESTP_GO(root, err);
-
-	/* The client uid always 4'th param */
 	mp_main_parse_message_l(topics[3], root);
 	mosquitto_sub_topic_tokens_free(&topics, topics_count);
-	return (NULL);
-err:
-	if (root) {
-		rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object");
+	rc = j_rm(root);
+	if (EOK != rc) {
+		DE("Can't remove JSON\n");
 	}
-
-	mosquitto_sub_topic_tokens_free(&topics, topics_count);
 	return (NULL);
 }
 
-static void mp_main_on_message_cl(struct mosquitto *mosq __attribute__((unused)), void *userdata __attribute__((unused)), const struct mosquitto_message *msg)
+static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
+								  /*@unused@*/void *userdata __attribute__((unused)),
+								  const struct mosquitto_message *msg)
 {
 	pthread_t message_thread;
-	mes_params_t *mes_params = zmalloc(sizeof(mes_params_t));
-	mes_params->topic = zmalloc(TOPIC_MAX_LEN);
-	mes_params->payload = zmalloc(msg->payloadlen + 1);
-	strncpy(mes_params->topic, msg->topic, TOPIC_MAX_LEN);
-	memcpy(mes_params->payload, msg->payload, msg->payloadlen);
-	pthread_create(&message_thread, NULL, mp_main_on_message_processor, mes_params);
-	//mp_main_on_message_processor(msg->topic, msg->payload);
+	/*@shared@*/ json_t *root;
+	if (NULL == msg) {
+		DE("msg is NULL!\n");
+		return;
+	}
+
+	root = j_strn2j(msg->payload, msg->payloadlen);
+	if (NULL == root) {
+		DE("Can't convert payload to JSON\n");
+		return;
+	}
+
+	j_add_str(root, JK_TOPIC, msg->topic);
+	pthread_create(&message_thread, NULL, mp_main_on_message_processor, root);
 }
 
-static void connect_callback_l(struct mosquitto *mosq __attribute__((unused)), void *obj __attribute__((unused)), int result __attribute__((unused)))
+static void connect_callback_l(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
+							   /*@unused@*/void *obj __attribute__((unused)),
+							   /*@unused@*/int result __attribute__((unused)))
 {
 	/*@shared@*/control_t *ctl = ctl_get();
 	printf("connected!\n");
@@ -526,10 +580,12 @@ static void connect_callback_l(struct mosquitto *mosq __attribute__((unused)), v
 	ctl_unlock();
 }
 
-static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unused)), void *data __attribute__((unused)), int reason)
+static void mp_main_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
+									   /*@unused@*/void *data __attribute__((unused)),
+									   int reason)
 {
 	/*@shared@*/control_t *ctl = NULL;
-	//int rc;
+	int rc;
 	if (0 != reason) {
 		switch (reason) {
 		case MOSQ_ERR_NOMEM:
@@ -539,7 +595,6 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 			DE("Protocol error\n");
 			/* SEB: TODO: May we switch protocol?*/
 			_exit(EBAD);
-			break;
 		case MOSQ_ERR_INVAL:
 			DE("Invalid message?\n");
 			break;
@@ -551,7 +606,6 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 			DE("Connection is refused\n");
 			/* Here we should terminate */
 			_exit(EBAD);
-			break;
 		case MOSQ_ERR_NOT_FOUND:
 			DE("MOSQ_ERR_NOT_FOUND: What not found? Guys. I love you, shhh\n");
 			break;
@@ -583,14 +637,18 @@ static void mp_main_on_disconnect_l_cl(struct mosquitto *mosq __attribute__((unu
 
 	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
-	j_rm(ctl->hosts);
+	rc = j_rm(ctl->hosts);
 	ctl->hosts = j_new();
 	ctl_unlock();
+	if (EOK != rc) {
+		DE("Can't remove JSON\n");
+	}
 	DDD("Exit from function\n");
 }
 
-void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
-						   void *data __attribute__((unused)), int buf_id)
+static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
+								  /*@unused@*/void *data __attribute__((unused)),
+								  int buf_id)
 {
 	/*@only@*/buf_t *buf = NULL;
 
@@ -611,7 +669,9 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	mp_communicate_clean_missed_counters();
 
 	//DD("Found buffer: \n%s\n", buf->data);
-	buf_free_force(buf);
+	if (EOK != buf_free_force(buf)) {
+		DE("Can't remove buf_t: probably passed NULL pointer?\n");
+	}
 }
 
 
@@ -625,7 +685,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	/*@shared@*/control_t *ctl = NULL;
 	int rc = EBAD;
 	int i;
-	/*@only@*/const char *cert = (char *)arg;
+	/*@shared@*/const char *cert = (char *)arg;
 	char *forum_topic_all;
 	/*@only@*/char *forum_topic_me;
 	/*@only@*/char *personal_topic;
@@ -673,7 +733,7 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't set certificate\n");
 		ctl->status = ST_STOP;
-		return (NULL);
+		goto end;
 	}
 	mosquitto_connect_callback_set((struct mosquitto *)ctl->mosq, connect_callback_l);
 	mosquitto_message_callback_set((struct mosquitto *)ctl->mosq, mp_main_on_message_cl);
@@ -684,7 +744,9 @@ void mp_main_on_publish_cb(struct mosquitto *mosq __attribute__((unused)),
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
 	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->size, buf->data, 1, false);
-	buf_free_force(buf);
+	if (EOK != buf_free_force(buf)) {
+		DE("Can't remove buf_t: probably passed NULL pointer?\n");
+	}
 
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't register last will\n");
@@ -808,7 +870,7 @@ end:
 	return (NULL);
 }
 
-static int mp_main_print_info_banner()
+void mp_main_print_info_banner()
 {
 	/*@shared@*/const control_t *ctl = ctl_get();
 	printf("=======================================\n");
@@ -818,7 +880,6 @@ static int mp_main_print_info_banner()
 	printf("Name of user:\t%s\n", ctl_user_get());
 	printf("UID of user:\t%s\n", ctl_uid_get());
 	printf("=======================================\n");
-	return (EOK);
 }
 
 static void mp_main_signal_handler(int sig)
@@ -843,7 +904,7 @@ static void mp_main_signal_handler(int sig)
    doesn't exist. In this case we create all fields we
    need for run, and later [see main() before threads started]
    we dump these values to config.*/
-int mp_main_complete_me_init(void)
+static int mp_main_complete_me_init(void)
 {
 	int rc = EBAD;
 	/*@shared@*/char *var = NULL;
@@ -873,6 +934,7 @@ int mp_main_complete_me_init(void)
 
 		ctl_uid_set(var);
 		free(var);
+		var = NULL;
 	}
 
 	if (EOK != j_test_key(ctl->me, JK_SOURCE)) {
@@ -894,9 +956,9 @@ int mp_main_complete_me_init(void)
 	return (EOK);
 }
 
-int main(int argc __attribute__((unused)), char *argv[])
+int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 {
-	/*@shared@*/char *cert = NULL;
+	/*@only@*/char *cert = NULL;
 	/*@shared@*/control_t *ctl = NULL;
 	pthread_t cli_thread_id;
 	pthread_t mosq_thread_id;
@@ -958,5 +1020,6 @@ int main(int argc __attribute__((unused)), char *argv[])
 		usleep(300);
 	}
 
+	free(cert);
 	return (rc);
 }

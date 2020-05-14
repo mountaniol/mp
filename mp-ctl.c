@@ -86,7 +86,7 @@ void ctl_unlock()
 
 
 /*** Interface function for most important control_t fields ***/
-/*@only@*//*@notnull@*/ const char *ctl_uid_get(void)
+/*@shared@*//*@notnull@*/ const char *ctl_uid_get(void)
 {
 	const char *uid;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -94,7 +94,7 @@ void ctl_unlock()
 	return (uid);
 }
 
-void ctl_uid_set(/*@only@*/const char *uid)
+void ctl_uid_set(/*@shared@*/const char *uid)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -106,7 +106,7 @@ void ctl_uid_set(/*@only@*/const char *uid)
 	}
 }
 
-/*@only@*//*@notnull@*/const char *ctl_user_get()
+/*@shared@*//*@notnull@*/const char *ctl_user_get()
 {
 	const char *user;
 	TESTP_ASSERT(g_ctl->me, "NULL!");

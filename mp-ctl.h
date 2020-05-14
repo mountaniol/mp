@@ -72,13 +72,13 @@ extern void ctl_lock(void);
 extern void ctl_unlock(void);
 
 /* Get JK_UID_ME. This function always returns not NULL; if it can't extract JK_UID_ME it aborts execution */
-extern /*@only@*//*@notnull@*/ const char *ctl_uid_get(void);
+extern /*@shared@*//*@notnull@*/ const char *ctl_uid_get(void);
 /* Set JK_UID_ME */
-extern void ctl_uid_set(/*@only@*/const char *uid);
+extern void ctl_uid_set(/*@shared@*/const char *uid);
 
 /* Get JK_USER. This function always returns not NULL; if it can't extract JK_USER it aborts execution */
-extern /*@only@*//*@notnull@*/ const char *ctl_user_get(void);
+extern /*@shared@*//*@notnull@*/ const char *ctl_user_get(void);
 /* Set JK_USER */
-extern void ctl_user_set(/*@only@*/const char *uid);
+extern void ctl_user_set(/*@shared@*/const char *uid);
 
 #endif /* _SEC_CTL_H_ */

@@ -17,7 +17,7 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
+int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -53,19 +53,21 @@ int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
 	rc = send(sd, buf->data, buf->size, 0);
-	buf_free_force(buf);
+	if (EOK != buf_free_force(buf)) {
+		DE("Can't remove buf_t: probably passed NULL pointer?\n");
+	}
 	if (rc < 0) {
 		DE("Failed\n");
 		perror("send() failed");
 		return (EBAD);
 	}
 
-	if(0 != close(sd)) {
+	if (0 != close(sd)) {
 		DE("Can't close socket\n");
-		return EBAD;
+		return (EBAD);
 	}
 
-	return EOK;
+	return (EOK);
 }
 
 
@@ -99,7 +101,7 @@ int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 
 	json_array_foreach(ctl->tickets_in, index, val) {
 		if (j_test(val, JK_TICKET, ticket)) {
-			json_t * copied = j_dup(val);
+			json_t *copied = j_dup(val);
 			TESTP(copied, NULL);
 			rc = j_arr_add(arr, copied);
 			TESTI(rc, NULL);
@@ -108,10 +110,14 @@ int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 		}
 	}
 	rc = mp_cli_send_to_cli(arr);
-	if(EOK != rc) {
+	if (EOK != rc) {
 		DE("Can't send\n");
-		j_rm(arr);
-		return NULL;
+		rc = j_rm(arr);
+		if (EOK != rc) {
+			DE("Can't remove tickets array\n");
+		}
+
+		return (NULL);
 	}
 
 	//j_print(arr, "Sending to shell: ");
@@ -423,12 +429,16 @@ int mp_cli_send_to_cli(/*@temp@*/ const json_t *root)
 		rc = send(fd2, buft->data, buft->size, 0);
 		if (rc != (ssize_t)buft->size) {
 			DE("send() failed");
-			buf_free_force(buft);
+			if (EOK != buf_free_force(buft)) {
+				DE("Can't remove buf_t: probably passed NULL pointer?\n");
+			}
 			break;
 		}
 
 		/* Free the buffer */
-		buf_free_force(buft);
+		if (EOK != buf_free_force(buft)) {
+			DE("Can't remove buf_t: probably passed NULL pointer?\n");
+		}
 	} while (1);
 
 	return (NULL);

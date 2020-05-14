@@ -56,9 +56,10 @@
 int mp_communicate_clean_missed_counters(void)
 {
 	/*@shared@*/control_t *ctl;
-	void *tmp;
-	const char *key;
-	json_t *val;
+	/*@shared@*/void *tmp;
+	/*@shared@*/const char *key;
+	/*@shared@*/json_t *val;
+	int rc;
 
 	ctl = ctl_get_locked();
 	if (j_count(ctl->buf_missed) < 1) {
@@ -78,10 +79,18 @@ int mp_communicate_clean_missed_counters(void)
 		}
 
 		buf = (buf_t *)ret;
-		buf_free_force(buf);
+		if (EOK != buf_free_force(buf)) {
+			DE("Can't remove buf_t: probably passed NULL pointer?\n");
+		}
 		DDD0("Found missed key, removing: %s\n", key);
-		j_rm_key(ctl->buf_missed, key);
-		j_rm_key(ctl->buffers, key);
+		rc = j_rm_key(ctl->buf_missed, key);
+		if (EOK != rc) {
+			DE("Can't remove counter from missed keys: %s\n", key);
+		}
+		rc = j_rm_key(ctl->buffers, key);
+		if (EOK != rc) {
+			DE("Can't remove counter from buffers: %s\n", key);
+		}
 	}
 	ctl_unlock();
 
@@ -91,9 +100,9 @@ int mp_communicate_clean_missed_counters(void)
 /* Find a buffer in ctl->buffers by vounter 'counter' */
 /*@null@*/ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
-	buf_t *buf_p;
+	/*@shared@*/buf_t *buf_p;
 	size_t ret;
-	char *buf_counter_s;
+	/*@only@*/char *buf_counter_s;
 	/*@shared@*/control_t *ctl;
 	int rc;
 
@@ -148,7 +157,7 @@ int mp_communicate_clean_missed_counters(void)
    to release the buf when mosq sent it */
 int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 {
-	char *buf_counter_s;
+	/*@only@*/char *buf_counter_s = NULL;
 	/*@shared@*/control_t *ctl;
 	int rc;
 
@@ -169,8 +178,8 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
 	ctl_unlock();
-	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf\n");
 	free(buf_counter_s);
+	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf\n");
 
 	return (EOK);
 }
@@ -186,7 +195,7 @@ int mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_
 	if (EOK != rc2) {
 		DE("Can't save buf_t to ctl\n");
 	} else {
-		/*@shared@*/control_t *ctl = ctl_get();
+		//control_t *ctl = ctl_get();
 		//j_print(ctl->buffers, "ctl->buffers: ");
 	}
 

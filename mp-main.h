@@ -4,10 +4,6 @@
 
 #define TOPIC_MAX_LEN 1024
 
-typedef struct message_params_struct{
-	char *topic;
-	char *payload;
-} mes_params_t;
 extern int mp_main_ticket_responce(/*@temp@*/ const json_t *req, /*@temp@*/const char *status, /*@temp@*/const char *comment);
 
 #endif /* _SEC_CLIENT_MOSQ_H_ */

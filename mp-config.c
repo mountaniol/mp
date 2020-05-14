@@ -193,7 +193,11 @@ int mp_config_save()
 	rc = EOK;
 
 err:
-	if (NULL != buf) buf_free_force(buf);
+	if (NULL != buf) {
+		if (EOK != buf_free_force(buf)) {
+			DE("Can't remove buf_t: probably passed NULL pointer?\n");
+		}
+	}
 	if (NULL != fd) fclose(fd);
 	return (rc);
 }
@@ -243,7 +247,7 @@ int mp_config_load()
 	json_object_foreach(ctl->config, key, val) {
 		DDD("Going to copy %s from ctl->config to ctl->me\n", key);
 		rc = j_cp(ctl->config, ctl->me, key);
-		TESTI_MES(rc, EBAD,  "Can't copy object from ctl->config to ctl->me");
+		TESTI_MES(rc, EBAD, "Can't copy object from ctl->config to ctl->me");
 	}
 
 	return (rc);

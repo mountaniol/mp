@@ -2,9 +2,9 @@
 #include <string.h>
 
 
-/*@null@*/ void *zmalloc(size_t sz)
+/*@null@*/ /*@shared@*/void *zmalloc(size_t sz)
 {
-	void *ret = malloc(sz);
+	/*@shared@*/void *ret = malloc(sz);
 	if (NULL == ret) return NULL;
 	memset(ret, 0, sz);
 	return ret;
