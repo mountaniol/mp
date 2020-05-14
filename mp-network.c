@@ -58,7 +58,12 @@
 			char *ret = strdup(interface);
 			//D("Found default WAN interface: %s\n", interface);
 			free(buf);
-			fclose(fd);
+			if (0 != fclose(fd)) {
+				DE("Can't close file!");
+				perror("Can't close file");
+				abort();
+			}
+			
 			return (ret);
 		}
 
@@ -68,7 +73,13 @@
 	/* If we here it means nothing is found. Probably we don't have any inteface connected to WAN */
 err:
 	TFREE(buf);
-	if (fd) fclose(fd);
+	if (fd) {
+		if (0 != fclose(fd)) {
+			DE("Can't close file!");
+			perror("Can't close file");
+			abort();
+		}
+	}
 	return (NULL);
 }
 

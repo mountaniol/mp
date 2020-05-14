@@ -501,8 +501,13 @@ end:
 
 	TESTP(root, NULL);
 
-	pthread_detach(pthread_self());
-
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+	
 	topic = j_find_ref(root, JK_TOPIC);
 	TESTP_MES(topic, NULL, "No topic in input JSON object");
 
@@ -519,7 +524,11 @@ end:
 	/* TODO: SEB: Move numner of levels intopic to a define */
 	if (topics_count < 4) {
 		DE("Expected at least 4 levels of topic, got %d\n", topics_count);
-		mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		if (EOK != rc) {
+			DE("Can't free tokenized topic\n");
+		}
+		
 		rc = j_rm(root);
 		if (EOK != rc) {
 			DE("Can't remove JSON\n");
@@ -534,12 +543,24 @@ end:
 		if (EOK != rc) {
 			DE("Can't remove JSON\n");
 		}
-		mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
+		if (EOK != rc) {
+			DE("Can't free tokenized topic\n");
+		}
 		return (NULL);
 	}
 
-	mp_main_parse_message_l(topics[3], root);
-	mosquitto_sub_topic_tokens_free(&topics, topics_count);
+	rc = mp_main_parse_message_l(topics[3], root);
+	if (EOK != rc) {
+		DE("Can't parse message\n");
+		j_print(root, "Message is");
+	}
+
+	rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
+	if (EOK != rc) {
+		DE("Can't free tokenized topic\n");
+	}
+
 	rc = j_rm(root);
 	if (EOK != rc) {
 		DE("Can't remove JSON\n");
@@ -551,6 +572,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 								  /*@unused@*/void *userdata __attribute__((unused)),
 								  const struct mosquitto_message *msg)
 {
+	int rc;
 	pthread_t message_thread;
 	/*@shared@*/ json_t *root;
 	if (NULL == msg) {
@@ -564,17 +586,33 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 		return;
 	}
 
-	j_add_str(root, JK_TOPIC, msg->topic);
-	pthread_create(&message_thread, NULL, mp_main_on_message_processor, root);
+	rc = j_add_str(root, JK_TOPIC, msg->topic);
+	if (EOK != rc) {
+		DE("Can't add topic to JSON\n");
+		perror("Can't add topic to JSON");
+		abort();
+	}
+
+	rc = pthread_create(&message_thread, NULL, mp_main_on_message_processor, root);
+	if (0 != rc) {
+		DE("Can't start mp_main_on_message_processor\n");
+		perror("Can't start mp_main_on_message_processor");
+		abort();
+	}
 }
 
 static void connect_callback_l(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
 							   /*@unused@*/void *obj __attribute__((unused)),
 							   /*@unused@*/int result __attribute__((unused)))
 {
+	int rc;
 	/*@shared@*/control_t *ctl = ctl_get();
 	printf("connected!\n");
-	send_reveal_l();
+	rc = send_reveal_l();
+	if (EOK != rc) {
+		DE("Can't send reveal request\n");
+	}
+
 	ctl_lock();
 	ctl->status = ST_CONNECTED;
 	ctl_unlock();
@@ -650,15 +688,22 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 								  /*@unused@*/void *data __attribute__((unused)),
 								  int buf_id)
 {
+	int rc;
 	/*@only@*/buf_t *buf = NULL;
 
 	/* Sleep a couple of time to let the sending thread to add buffer */
 	/* When we sleep, the Kernel scheduler switches to another task and,
 	   most probably, the sending thread will manage to add the buffer.
 	   I saw a lot of stuck buffers; this several short sleeps seems to fix it*/
-	usleep(5);
-	usleep(10);
-	usleep(20);
+	rc = usleep(5);
+	rc |= usleep(10);
+	rc |= usleep(20);
+
+	if (0 != rc) {
+		DE("usleep returned error\n");
+		perror("usleep returned error");
+		abort();
+	}
 
 	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
 	if (NULL == buf) {
@@ -666,9 +711,11 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		return;
 	}
 
-	mp_communicate_clean_missed_counters();
+	rc = mp_communicate_clean_missed_counters();
+	if (EOK != rc) {
+		DE("Something went wrong when tried to remove stucj counters\n");
+	}
 
-	//DD("Found buffer: \n%s\n", buf->data);
 	if (EOK != buf_free_force(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
@@ -698,7 +745,8 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 
 	TESTP(cert, NULL);
 
-	mosquitto_lib_init();
+	/* Return MOSQ_ERR_SUCCESS - always */
+	rc = mosquitto_lib_init();
 
 	ctl = ctl_get();
 
@@ -815,7 +863,13 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		}
 		//DDD("Finished disconnection check\n");
 
-		usleep((__useconds_t)mp_os_random_in_range(100, 300));
+		rc = usleep((__useconds_t)mp_os_random_in_range(100, 300));
+		if (0 != rc) {
+			DE("usleep returned error\n");
+			perror("usleep returned error");
+			abort();
+		}
+
 		if (0 == (counter % 7) && (ST_DISCONNECTED != ctl->status)) {
 			// DD("Client connected, sending keepalive message\n");
 			rc = send_keepalive_l();
@@ -829,7 +883,12 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 
 		for (i = 0; i < 200; i++) {
 			if (ST_STOP == ctl->status) break;
-			usleep((__useconds_t)mp_os_random_in_range(10000, 40000));
+			rc = usleep((__useconds_t)mp_os_random_in_range(10000, 40000));
+			if (0 != rc) {
+				DE("usleep returned error\n");
+				perror("usleep returned error");
+				abort();
+			}
 		}
 		counter++;
 	}
@@ -843,7 +902,8 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	ctl->hosts = j_new();
 	ctl_unlock();
 
-	mosquitto_lib_cleanup();
+	/* We don't check status, it always returns MOSQ_ERR_SUCCESS */
+	rc = mosquitto_lib_cleanup();
 
 end:
 	TFREE(forum_topic_all);
@@ -858,12 +918,31 @@ end:
 	/*@shared@*/control_t *ctl = NULL;
 	void *status = NULL;
 	pthread_t mosq_thread_id;
-	pthread_detach(pthread_self());
+	int rc;
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Can't detach thread\n");
+		perror("Can't detach thread");
+		abort();
+	}
 
 	ctl = ctl_get();
 	while (ST_STOP != ctl->status) {
-		pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread, arg);
-		pthread_join(mosq_thread_id, &status);
+
+		rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread, arg);
+		if (0 != rc) {
+			DE("Can't create thread\n");
+			perror("Can't create thread");
+			abort();
+		}
+
+		rc = pthread_join(mosq_thread_id, &status);
+		if (0 != rc) {
+			DE("Can't join thread \n");
+			perror("Can't join thread");
+			abort();
+		}
+
 	}
 	D("Exit\n");
 	ctl->status = ST_STOPPED;
@@ -893,7 +972,12 @@ static void mp_main_signal_handler(int sig)
 	ctl = ctl_get();
 	ctl->status = ST_STOP;
 	while (ST_STOPPED != ctl->status) {
-		usleep(200);
+		int rc = usleep(200);
+		if (0 != rc) {
+			DE("usleep returned error\n");
+			perror("usleep returned error");
+			abort();
+		}
 	}
 	_exit(0);
 }
@@ -1013,11 +1097,26 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	mp_main_print_info_banner();
-	pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread_manager, cert);
-	pthread_create(&cli_thread_id, NULL, mp_cli_thread, NULL);
+	rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread_manager, cert);
+	if (0 != rc) {
+		DE("Can't create thread mp_main_mosq_thread_manager\n");
+		perror("Can't create thread mp_main_mosq_thread_manager");
+		abort();
+	}
+	rc = pthread_create(&cli_thread_id, NULL, mp_cli_thread, NULL);
+	if (0 != rc) {
+		DE("Can't create thread mp_cli_thread\n");
+		perror("Can't create thread mp_cli_thread");
+		abort();
+	}
 
 	while (ctl->status != ST_STOP) {
-		usleep(300);
+		rc = usleep(300);
+		if (0 != rc) {
+			DE("usleep returned error\n");
+			perror("usleep returned error");
+			abort();
+		}
 	}
 
 	free(cert);

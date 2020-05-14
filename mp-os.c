@@ -16,9 +16,15 @@
 
 	char hostname[1024];
 	hostname[1023] = '\0';
-	gethostname(hostname, 1023);
 	char *ret = NULL;
-
+	
+	int rc = gethostname(hostname, 1023);
+	if (0 != rc) {
+		DE("Failed: gethostname\n");
+		perror("Failed: gethostname\n");
+		return NULL;
+	}
+	
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
 	hints.ai_socktype = SOCK_STREAM;
@@ -55,7 +61,11 @@ const char charset_num[] = "0123456789";
 	TESTP_MES(fd, NULL, "Can't open /dev/urandom");
 
 	rc = fread(str, 1, size, fd);
-	fclose(fd);
+	if(0 != fclose(fd)) {
+		DE("Can't close /dev/urandom\n");
+		perror("Can't close /dev/urandom");
+		abort();
+	}
 
 	if ((int)size != rc) {
 		DE("Can't read from /dev/urandom : asked %zu, read %d\n", size, rc);
@@ -95,6 +105,7 @@ int mp_os_random_in_range(int lower, int upper)
 	char *part1 = NULL;
 	char *part2 = NULL;
 	char *part3 = NULL;
+	int rc;
 
 	TESTP(name, NULL);
 	size_t len = 0;
@@ -114,7 +125,11 @@ int mp_os_random_in_range(int lower, int upper)
 	str = zmalloc(len);
 	//DD("name: %s, part1: %s, part2: %s", name, part1, part2);
 	/* SEB: TODO: Use snsprintf */
-	snprintf(str, len, "%s-%s-%s-%s", name, part1, part2, part3);
+	rc = snprintf(str, len, "%s-%s-%s-%s", name, part1, part2, part3);
+	if (rc < 0) {
+		DE("Can't generate uid\n");
+		abort();
+	}
 err:
 	TFREE(part1);
 	TFREE(part2);

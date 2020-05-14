@@ -76,7 +76,7 @@
 }
 
 
-/* Find a buffer in ctl->buffers by vounter 'counter' */
+/* Find a buffer in ctl->buffers by counter 'counter' */
 int mp_communicate_clean_missed_counters(void)
 {
 	/*@shared@*/control_t *ctl;
@@ -99,21 +99,29 @@ int mp_communicate_clean_missed_counters(void)
 		ret = j_find_int(ctl->buffers, key);
 		if (0XDEADBEEF == ret) {
 			DE("Something wrong: can't find value for key %s\n", key);
-			continue;
+			ctl_unlock();
+			return (EBAD);
 		}
 
 		buf = (buf_t *)ret;
 		if (EOK != buf_free_force(buf)) {
 			DE("Can't remove buf_t: probably passed NULL pointer?\n");
+			ctl_unlock();
+			return (EBAD);
 		}
+
 		DDD0("Found missed key, removing: %s\n", key);
 		rc = j_rm_key(ctl->buf_missed, key);
 		if (EOK != rc) {
 			DE("Can't remove counter from missed keys: %s\n", key);
+			ctl_unlock();
+			return (EBAD);
 		}
 		rc = j_rm_key(ctl->buffers, key);
 		if (EOK != rc) {
 			DE("Can't remove counter from buffers: %s\n", key);
+			ctl_unlock();
+			return (EBAD);
 		}
 	}
 	ctl_unlock();

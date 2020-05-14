@@ -35,10 +35,8 @@ typedef struct upnp_request_strings {
 	char *map_lease_duration;   /* 9 */
 } upnp_req_str_t;
 
-static int upnp_req_str_t_free(upnp_req_str_t *req)
+void upnp_req_str_t_free(/*@only@*/upnp_req_str_t *req)
 {
-	TESTP_MES(req, -1, "Got NULL");
-
 	TFREE(req->s_index);            /* 1 */
 	TFREE(req->map_wan_port);       /* 2 */
 	TFREE(req->map_lan_address);    /* 3 */
@@ -49,7 +47,6 @@ static int upnp_req_str_t_free(upnp_req_str_t *req)
 	TFREE(req->map_remote_host);    /* 8 */
 	TFREE(req->map_lease_duration); /* 9 */
 	TFREE(req);
-	return (0);
 }
 
 static upnp_req_str_t *upnp_req_str_t_alloc(void)
@@ -137,9 +134,21 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 
 	memset(s_ext, 0, PORT_STR_LEN);
 	memset(s_int, 0, PORT_STR_LEN);
-	snprintf(s_ext, PORT_STR_LEN, "%d", external_port);
-	snprintf(s_int, PORT_STR_LEN, "%d", internal_port);
-	UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	status = snprintf(s_ext, PORT_STR_LEN, "%d", external_port);
+	if (status < 0) {
+		DE("Can't transfortm external port from integer to string\n");
+		return (EBAD);
+	}
+	status = snprintf(s_int, PORT_STR_LEN, "%d", internal_port);
+	if (status < 0) {
+		DE("Can't transfortm internal port from integer to string\n");
+		return (EBAD);
+	}
+	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	if (0 != status) {
+		DE("UPNP_GetExternalIPAddress failed\n");
+		return (EBAD);
+	}
 
 	// add a new TCP port mapping from WAN port 12345 to local host port 24680
 	error = UPNP_AddPortMapping(
@@ -206,7 +215,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-/*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/ const json_t *req, /*@temp@*/ const char *internal_port, /*@temp@*/ const char *protocol /* "TCP", "UDP" */)
+/*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/const json_t *req, /*@temp@*/const char *internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
 	//size_t index = 0;
 	struct UPNPDev *upnp_dev = NULL;
@@ -265,7 +274,11 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 		error = mp_ports_remap_port(i_port, atoi(internal_port), protocol);
 
 		if (0 == error) {
-			snprintf(reservedPort, PORT_STR_LEN, "%d", i_port);
+			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", i_port);
+			if (rc < 0) {
+				DE("Can't transform port from integer to string\n");
+				return (NULL);
+			}
 			DD("Mapped port: %s -> %s\n", reservedPort, internal_port);
 			break;
 		}
@@ -684,8 +697,13 @@ int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 	wan_address = zmalloc(IP_STR_LEN);
 	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
 
-	UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
 	free(wan_address);
+
+	if (0 != rc) {
+		DE("UPNP_GetExternalIPAddress failed\n");
+		return (EBAD);
+	}
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
@@ -728,7 +746,7 @@ int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 		case UPNPCOMMAND_INVALID_RESPONSE:
 			DE("Error on ports scanning: UPNPCOMMAND_INVALID_RESPONSE\n");
 			return (EBAD);
-/* TODO: Find exact version where this change became */
+			/* TODO: Find exact version where this change became */
 #if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 		case UPNPCOMMAND_MEM_ALLOC_ERROR:
 			DE("Error on ports scanning: UPNPCOMMAND_MEM_ALLOC_ERROR\n");
