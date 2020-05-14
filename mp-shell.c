@@ -428,7 +428,7 @@ static int mp_shell_ask_closeport(json_t *args)
 	if (2 == status) {
 		return (EBAD);
 	}
-	
+
 err:
 	if (root) {
 		rc = j_rm(root);
@@ -677,6 +677,7 @@ int main(int argc, char *argv[])
 	int opt;
 	json_t *args;
 	pthread_t in_thread_id;
+	int rc;
 
 	/* 
 	 * i - info - print information about this machine 
@@ -695,8 +696,13 @@ int main(int argc, char *argv[])
 		return (-1);
 	}
 
-	pthread_create(&in_thread_id, NULL, mp_shell_in_thread, NULL);
-
+	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_thread, NULL);
+	if (0!=rc) {
+		DE("Can't create mp_shell_in_thread\n");
+		perror("Can't create mp_shell_in_thread");
+		abort();
+	}
+	
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
@@ -762,33 +768,54 @@ int main(int argc, char *argv[])
 	}
 
 	if (0 == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
-		mp_shell_get_hosts();
+		if (0 != mp_shell_get_hosts()) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_SHOW_PORTS, JV_YES)) {
-		mp_shell_get_ports();
+		if (0 != mp_shell_get_ports()) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_SHOW_INFO, JV_YES)) {
-		mp_shell_get_info();
+		if (0 != mp_shell_get_info()) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
 		DDD("Founf SSH command\n");
-		mp_shell_ssh(args);
+		if (0 != mp_shell_ssh(args)) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
-		mp_shell_ask_openport(args);
+		if (0 != mp_shell_ask_openport(args)) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
-		mp_shell_ask_closeport(args);
+		if (0 != mp_shell_ask_closeport(args)) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	if (0 == j_test(args, JK_SHOW_RPORTS, JV_YES)) {
-		D("Founf RPORTS command\n");
-		mp_shell_get_remote_ports();
+		D("Found RPORTS command\n");
+		if (EOK != mp_shell_get_remote_ports()) {
+			DE("Failed: mp_shell_get_remote_ports");
+			return (EBAD);
+		}
 	}
 
 	return (0);
