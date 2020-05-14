@@ -54,7 +54,12 @@ void ctl_lock()
 		abort();
 	}
 	
-	sem_wait(&g_ctl->lock);
+	rc = sem_wait(&g_ctl->lock);
+	if (0!= rc) {
+		DE("Can't wait on semaphore; abort\n");
+		perror("Can't wait on semaphore; abort");
+		abort();
+	}
 }
 
 void ctl_unlock()
@@ -67,6 +72,7 @@ void ctl_unlock()
 	rc = sem_post(&g_ctl->lock);
 	if (0 != rc) {
 		DE("Can't unlock ctl->lock");
+		perror("Can't unlock ctl->lock: abort");
 		abort();
 	}
 }
@@ -115,7 +121,7 @@ void ctl_uid_set(/*@shared@*/const char *uid)
 	return (user);
 }
 
-void ctl_user_set(/*@only@*/const char *user)
+void ctl_user_set(/*@shared@*/const char *user)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");

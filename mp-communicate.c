@@ -18,8 +18,14 @@
 	const char *user = ctl_user_get();
 	const char *uid = ctl_uid_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
+	int rc;
 	TESTP(topic, NULL);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/%s", user, uid);
+	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/%s", user, uid);
+	if (rc < 0) {
+		DE("Can't create topic\n");
+		free(topic);
+		return (NULL);
+	}
 	return (topic);
 }
 
@@ -27,8 +33,14 @@
 {
 	const char *user = ctl_user_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
+	int rc;
 	TESTP(topic, NULL);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", user);
+	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", user);
+	if (rc < 0) {
+		DE("Can't create topic\n");
+		free(topic);
+		return (NULL);
+	}
 	return (topic);
 }
 
@@ -36,9 +48,15 @@
 {
 	const char *user = ctl_user_get();
 	const char *uid = ctl_uid_get();
+	int rc;
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
+	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
+	if (rc < 0) {
+		DE("Can't create topic\n");
+		free(topic);
+		return (NULL);
+	}
 	return (topic);
 }
 
@@ -46,8 +64,14 @@
 {
 	const char *user = ctl_user_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
+	int rc;
 	TESTP(topic, NULL);
-	snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/#", user);
+	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/#", user);
+	if (rc < 0) {
+		DE("Can't create topic\n");
+		free(topic);
+		return (NULL);
+	}
 	return (topic);
 }
 
@@ -115,7 +139,12 @@ int mp_communicate_clean_missed_counters(void)
 	TESTP(buf_counter_s, NULL);
 
 	/* Transform counter to key (string) */
-	snprintf(buf_counter_s, 32, "%d", counter);
+	rc = snprintf(buf_counter_s, 32, "%d", counter);
+	if (rc < 0) {
+		DE("Can't transform buffer counter to string\n");
+		free(buf_counter_s);
+		return (NULL);
+	}
 
 	DDD0("Counter string = %s\n", buf_counter_s);
 
@@ -130,9 +159,12 @@ int mp_communicate_clean_missed_counters(void)
 		   We should save this counter and try it later. */
 
 		ctl_lock();
-		j_add_int(ctl->buf_missed, buf_counter_s, counter);
+		rc = j_add_int(ctl->buf_missed, buf_counter_s, counter);
 		ctl_unlock();
 		free(buf_counter_s);
+		if (EOK != rc) {
+			DE("Can't add counter into ctl->buf_missed\n");
+		}
 		DDD0("Added to missed counters: %d\n", counter);
 		//j_print(ctl->buf_missed, "Now in missed  counters:");
 		//j_print(ctl->buffers, "Now in buffers counters:");
@@ -173,7 +205,12 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	TESTP(buf_counter_s, EBAD);
 
 	/* Transfor counter to key (string) */
-	snprintf(buf_counter_s, 32, "%d", counter);
+	rc = snprintf(buf_counter_s, 32, "%d", counter);
+	if (rc < 0) {
+		DE("Can't convert counter to string\n");
+		free(buf_counter_s);
+		return (EBAD);
+	}
 
 	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
@@ -396,7 +433,7 @@ int send_request_return_tickets(/*@temp@*/json_t *root)
 		return (EOK);
 	}
 
-	snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", ctl_user_get(), ctl_uid_get());
+	//rc = snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", ctl_user_get(), ctl_uid_get());
 
 	resp = j_arr();
 	if (NULL == resp) {

@@ -127,7 +127,12 @@ static json_t *mp_config_read(void)
 err:
 	TFREE(filename);
 	TFREE(buf);
-	if (fd) fclose(fd);
+	if (fd) {
+		if(0 != fclose(fd)) {
+			DE("Can't close file\n");
+			perror("Can't close file");
+		}
+	}
 	return (root);
 
 }
@@ -154,12 +159,18 @@ int mp_config_save()
 
 	dir = opendir(dirname);
 	if (NULL != dir) {
-		closedir(dir);
+		rc = closedir(dir);
+		if (0 != rc) {
+			DE("Can't close dir\n");
+			perror("can't close dir");
+		}
 	} else if (ENOENT == errno) {
-		mkdir(dirname, 0700);
+		rc = mkdir(dirname, 0700);
+		DE("mkdir failed; probably it is a;ready exists?\n");
+		perror("can't mkdir");
 	} else {
 		DE("Some error\n");
-		perror("Config directory testing error: ");
+		perror("Config directory testing error");
 		free(dirname);
 		return (EBAD);
 	}
@@ -182,7 +193,11 @@ int mp_config_save()
 	}
 
 	written = fwrite(buf->data, 1, buf->size, fd);
-	fclose(fd);
+	rc = fclose(fd);
+	if (0 != rc) {
+		DE("Can't close file\n");
+		return EBAD;
+	}
 	fd = NULL;
 
 	if (written != buf->size) {
@@ -198,7 +213,13 @@ err:
 			DE("Can't remove buf_t: probably passed NULL pointer?\n");
 		}
 	}
-	if (NULL != fd) fclose(fd);
+	if (NULL != fd) {
+		if(0 != fclose(fd)) {
+			DE("Can't close file\n");
+			return EBAD;
+		}
+
+	}
 	return (rc);
 }
 

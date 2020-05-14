@@ -135,11 +135,18 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	resp = j_new();
 	TESTP(resp, NULL);
 	if (0 == rc) {
-		j_add_str(resp, JK_STATUS, JV_OK);
+		rc = j_add_str(resp, JK_STATUS, JV_OK);
 	} else {
-		j_add_str(resp, JK_STATUS, JV_BAD);
+		rc = j_add_str(resp, JK_STATUS, JV_BAD);
 	}
 
+	if (EOK != rc) {
+		DE("Can't add status into JSON\n");
+		rc = j_rm(root);
+		TESTI(rc, NULL);
+		return NULL;
+	}
+	
 	return (resp);
 }
 
@@ -231,9 +238,10 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	DDD("Going to start SSH thread\n");
 	j_print(root, "Params for ssh thread");
-	ssh_thread_start(j_dup(root));
-
+	rc = ssh_thread_start(j_dup(root));
+	
 	resp = j_new();
+	TESTP(resp, NULL);
 	if (EOK == rc) {
 		if (EOK != j_add_str(resp, JK_STATUS, JV_OK)) DE("Can't add JV_OK status\n");
 	} else {
@@ -250,9 +258,10 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	json_t *resp = NULL;
 
 	ctl = ctl_get_locked();
-	j_add_str(root, JK_UID_SRC, ctl_uid_get());
+	rc = j_add_str(root, JK_UID_SRC, ctl_uid_get());
 	ctl_unlock();
-
+	TESTI_MES(rc, NULL, "Can't add my UID into JSON");
+	
 	DDD("Calling send_request_to_open_port\n");
 	j_print(root, "Sending request to open a port:");
 	if (NULL != ctl->mosq) {
@@ -345,7 +354,10 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	memset(&cli_addr, 0, sizeof(cli_addr));
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_SRV);
-	unlink(CLI_SOCKET_PATH_SRV);
+	rc = unlink(CLI_SOCKET_PATH_SRV);
+	if ((0 != rc) && (-1 != rc)) {
+		DE("Can't remove the file %s\n", CLI_SOCKET_PATH_SRV);
+	}
 
 	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
