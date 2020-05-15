@@ -50,7 +50,7 @@ static char *mp_config_get_config_dir(void)
 
 /* Construct config file full path */
 static char *mp_config_get_config_name(void)
-{
+{ 
 	char *filename = NULL;
 	int rc = -1;
 	size_t len = 0;
@@ -87,7 +87,7 @@ static json_t *mp_config_read(void)
 	char *filename = NULL;
 	struct stat statbuf;
 	char *buf = NULL;
-	int rc = -1;
+	int rc = EBAD;
 
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, NULL, "Can't create config file name");
@@ -128,7 +128,7 @@ err:
 	TFREE(filename);
 	TFREE(buf);
 	if (fd) {
-		if(0 != fclose(fd)) {
+		if (0 != fclose(fd)) {
 			DE("Can't close file\n");
 			perror("Can't close file");
 		}
@@ -138,7 +138,7 @@ err:
 }
 
 /* Write config object to config file */
-int mp_config_save()
+err_t mp_config_save()
 {
 	FILE *fd = NULL;
 	char *filename = NULL;
@@ -196,7 +196,7 @@ int mp_config_save()
 	rc = fclose(fd);
 	if (0 != rc) {
 		DE("Can't close file\n");
-		return EBAD;
+		return (EBAD);
 	}
 	fd = NULL;
 
@@ -214,9 +214,9 @@ err:
 		}
 	}
 	if (NULL != fd) {
-		if(0 != fclose(fd)) {
+		if (0 != fclose(fd)) {
 			DE("Can't close file\n");
-			return EBAD;
+			return (EBAD);
 		}
 
 	}
@@ -224,9 +224,9 @@ err:
 }
 
 /* Create config from content of ctl->me */
-int mp_config_from_ctl()
+err_t mp_config_from_ctl()
 {
-	int rc = -1;
+	err_t rc = EBAD;
 	/*@shared@*/control_t *ctl = ctl_get();
 	if (NULL == ctl->config) {
 		ctl->config = j_new();
@@ -253,9 +253,9 @@ int mp_config_from_ctl()
 }
 
 /* Read config from file. If there is no config file - return error */
-int mp_config_load()
+err_t mp_config_load()
 {
-	int rc = EBAD;
+	err_t rc = EBAD;
 	const char *key = NULL;
 	json_t *val = NULL;
 	/*@shared@*/control_t *ctl = ctl_get();

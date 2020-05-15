@@ -14,7 +14,7 @@
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_save(void);
+extern err_t mp_config_save(void);
 
 /**
  * @brief Used in the first run, when no config file. Creates 
@@ -27,7 +27,7 @@ extern int mp_config_save(void);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_from_ctl(void);
+extern err_t mp_config_from_ctl(void);
 
 /**
  * @brief Load config from file, decode it into object and 
@@ -39,7 +39,7 @@ extern int mp_config_from_ctl(void);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_load(void);
+extern err_t mp_config_load(void);
 
 /**
  * @brief Adds new pair 'key' = 'val' into ctl->config and also 
@@ -54,5 +54,5 @@ extern int mp_config_load(void);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern int mp_config_set(void *_ctl, /*@only@*/const char *key, /*@only@*/const char *val);
+extern err_t mp_config_set(void *_ctl, /*@only@*/const char *key, /*@only@*/const char *val);
 #endif /* _SEC_CLIENT_MOSQ_CONFIG_H_ */

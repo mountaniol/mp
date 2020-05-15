@@ -35,7 +35,7 @@ typedef struct upnp_request_strings {
 	char *map_lease_duration;   /* 9 */
 } upnp_req_str_t;
 
-void upnp_req_str_t_free(/*@only@*/upnp_req_str_t *req)
+static void upnp_req_str_t_free(/*@only@*/upnp_req_str_t *req)
 {
 	TFREE(req->s_index);            /* 1 */
 	TFREE(req->map_wan_port);       /* 2 */
@@ -105,7 +105,7 @@ err:
 
 /* Send upnp request to router, ask to remap "external_port" of the router
    to "internal_port" on this machine */
-int mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
+static err_t mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
 	size_t index = 0;
 	int error = 0;
@@ -129,7 +129,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 
 	if (1 != status) {
 		DE("UPNP_GetValidIGD failed\n");
-		return (-1);
+		return (EBAD);
 	}
 
 	memset(s_ext, 0, PORT_STR_LEN);
@@ -195,7 +195,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 		if (UPNPCOMMAND_SUCCESS != error) {
 			upnp_req_str_t_free(req);
 			FreeUPNPUrls(&upnp_urls);
-			return (0);
+			return (EOK);
 		}
 
 		index++;
@@ -210,7 +210,7 @@ int mp_ports_remap_port(const int external_port, const int internal_port, /*@tem
 
 	upnp_req_str_t_free(req);
 	FreeUPNPUrls(&upnp_urls);
-	return (-1);
+	return (EBAD);
 }
 
 /* Send upnp request to router, ask to remap "internal_port"
@@ -322,7 +322,7 @@ printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
 
 #endif /* SEB 28/04/2020 16:46 */
 
-int mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
+err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
 	int error = 0;
 	struct UPNPDev *upnp_dev;
@@ -348,7 +348,7 @@ int mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *inte
 	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
 		DE("Can't get valid IGD\n");
-		return (-1);
+		return (EBAD);
 	}
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
@@ -378,7 +378,7 @@ int mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *inte
 	}
 
 	FreeUPNPUrls(&upnp_urls);
-	return (0);
+	return (EOK);
 }
 
 /* 
@@ -563,7 +563,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*//*@shared@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
+/*@null@*//*@only@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
 {
 	struct UPNPDev *upnp_dev;
 	char lan_address[IP_STR_LEN];
@@ -572,7 +572,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 
 	char s_ext[PORT_STR_LEN];
 	int status;
-	/*@shared@*/json_t *mapping = NULL;
+	/*@temp@*/json_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
 	int rc;
@@ -662,7 +662,7 @@ int mp_ports_if_mapped(/*@only@*/const int external_port, /*@only@*/const int in
 }
 
 /* Scan existing mappings to this machine and add them to the given array 'arr' */
-int mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
+err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 {
 	struct UPNPDev *upnp_dev = NULL;
 	char *lan_address = NULL;

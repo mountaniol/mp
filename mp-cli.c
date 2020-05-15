@@ -17,7 +17,7 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
+err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -144,9 +144,9 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		DE("Can't add status into JSON\n");
 		rc = j_rm(root);
 		TESTI(rc, NULL);
-		return NULL;
+		return (NULL);
 	}
-	
+
 	return (resp);
 }
 
@@ -239,7 +239,7 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	DDD("Going to start SSH thread\n");
 	j_print(root, "Params for ssh thread");
 	rc = ssh_thread_start(j_dup(root));
-	
+
 	resp = j_new();
 	TESTP(resp, NULL);
 	if (EOK == rc) {
@@ -261,7 +261,7 @@ int mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	rc = j_add_str(root, JK_UID_SRC, ctl_uid_get());
 	ctl_unlock();
 	TESTI_MES(rc, NULL, "Can't add my UID into JSON");
-	
+
 	DDD("Calling send_request_to_open_port\n");
 	j_print(root, "Sending request to open a port:");
 	if (NULL != ctl->mosq) {

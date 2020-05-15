@@ -60,8 +60,8 @@
 	return (topic);
 }
 
-/*@null@*/ char *mp_communicate_private_topic_all()
-{
+#if 0 /* SEB DEADCODE 14/05/2020 21:33  */
+/*@null@*/ char *mp_communicate_private_topic_all(){
 	const char *user = ctl_user_get();
 	char *topic = zmalloc(TOPIC_MAX_LEN);
 	int rc;
@@ -74,10 +74,11 @@
 	}
 	return (topic);
 }
+#endif /* SEB DEADCODE 14/05/2020 21:33 */
 
 
 /* Find a buffer in ctl->buffers by counter 'counter' */
-int mp_communicate_clean_missed_counters(void)
+err_t mp_communicate_clean_missed_counters(void)
 {
 	/*@shared@*/control_t *ctl;
 	/*@shared@*/void *tmp;
@@ -195,7 +196,7 @@ int mp_communicate_clean_missed_counters(void)
 /* Save 'buf' ponter by key 'counter' in ctl->buffers.
    Used later in callback function mp_main_on_publish_cb
    to release the buf when mosq sent it */
-int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
+static err_t mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 {
 	/*@only@*/char *buf_counter_s = NULL;
 	/*@shared@*/control_t *ctl;
@@ -229,7 +230,7 @@ int mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	return (EOK);
 }
 
-int mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_t *buf)
+static err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_t *buf)
 {
 	int rc;
 	int rc2;
@@ -247,7 +248,7 @@ int mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_
 	return (rc);
 }
 
-int mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t *root)
+err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t *root)
 {
 	buf_t *buf;
 
@@ -261,7 +262,7 @@ int mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t
 	return (mp_communicate_mosquitto_publish(forum_topic, buf));
 }
 
-extern int send_keepalive_l()
+extern err_t send_keepalive_l()
 {
 	char *forum_topic;
 	buf_t *buf = NULL;
@@ -305,7 +306,7 @@ end:
 	return (rc);
 }
 
-int send_reveal_l()
+err_t send_reveal_l()
 {
 	char *forum_topic;
 	buf_t *buf = NULL;
@@ -328,7 +329,7 @@ int send_reveal_l()
 	return (EOK);
 }
 
-int mp_communicate_send_request(const json_t *root)
+err_t mp_communicate_send_request(const json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -348,8 +349,8 @@ int mp_communicate_send_request(const json_t *root)
 	return (rc);
 }
 
-int send_request_to_open_port(/*@temp@*/const json_t *root)
-{
+#if 0 /* SEB DEADCODE 14/05/2020 21:32  */
+int send_request_to_open_port(/*@temp@*/const json_t *root){
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
@@ -367,8 +368,9 @@ int send_request_to_open_port(/*@temp@*/const json_t *root)
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
+#endif /* SEB DEADCODE 14/05/2020 21:32 */
 
-int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char *port, char *protocol)
+err_t send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char *port, char *protocol)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -392,8 +394,8 @@ int send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char
 	return (rc);
 }
 
-int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const char *port, /*@temp@*/const char *protocol)
-{
+#if 0 /* SEB DEADCODE 14/05/2020 21:33  */
+int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const char *port, /*@temp@*/const char *protocol){
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
@@ -414,8 +416,9 @@ int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
+#endif /* SEB DEADCODE 14/05/2020 21:33 */
 
-int send_request_return_tickets(/*@temp@*/json_t *root)
+err_t send_request_return_tickets(/*@temp@*/json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;

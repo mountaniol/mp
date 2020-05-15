@@ -6,7 +6,7 @@
 #include "mp-debug.h"
 #include "mp-memory.h"
 
-/*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size)
+/*@null@*/ buf_t *buf_new(/*@temp@*/char *data, size_t size)
 {
 	buf_t *buf = zmalloc(sizeof(buf_t));
 	if (NULL == buf) {
@@ -20,7 +20,7 @@
 	return (buf);
 }
 
-int buf_room(/*@temp@*/buf_t *buf, size_t size)
+err_t buf_room(/*@temp@*/buf_t *buf, size_t size)
 {
 	void *tmp;
 	if (NULL == buf || 0 == size) {
@@ -51,7 +51,7 @@ int buf_room(/*@temp@*/buf_t *buf, size_t size)
 	return (EOK);
 }
 
-int buf_test_room(/*@temp@*/buf_t *buf, size_t expect)
+err_t buf_test_room(/*@temp@*/buf_t *buf, size_t expect)
 {
 	if (NULL == buf) {
 		DE("Got NULL\n");
@@ -65,7 +65,7 @@ int buf_test_room(/*@temp@*/buf_t *buf, size_t expect)
 	return (buf_room(buf, expect));
 }
 
-int buf_free(buf_t *buf)
+err_t buf_free(buf_t *buf)
 {
 	if (NULL != buf->data) {
 		return (EBAD);
@@ -75,7 +75,7 @@ int buf_free(buf_t *buf)
 	return (EOK);
 }
 
-int buf_free_force(/*@only@*/buf_t *buf)
+err_t buf_free_force(/*@only@*/buf_t *buf)
 {
 	if (NULL != buf->data) {
 		free(buf->data);
@@ -85,7 +85,7 @@ int buf_free_force(/*@only@*/buf_t *buf)
 	return (buf_free(buf));
 }
 
-int buf_add(buf_t *b, const char *buf, const size_t size)
+err_t buf_add(buf_t *b, const char *buf, const size_t size)
 {
 	if (NULL == b || NULL == buf || size < 1) {
 		DE("Wrong params: b = %p, buf = %p, size = %zu\n", b, buf, size);

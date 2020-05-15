@@ -17,7 +17,7 @@
 #include "mp-jansson.h"
 #include "mp-memory.h"
 
-/*@null@*/ json_t *j_str2j(/*@temp@*/const char *str)
+/*@null@*//*@only@*/ json_t *j_str2j(const char *str)
 {
 	json_error_t error;
 	json_t *root;
@@ -39,7 +39,7 @@
 
 	return (root);
 }
-/*@null@*//*shared*/ json_t *j_strn2j(/*@temp@*/const char *str, size_t len)
+/*@null@*//*@only@*/ json_t *j_strn2j(const char *str, size_t len)
 {
 	/*only*/char *buf = NULL;
 	/*shared*/ json_t *root = NULL;
@@ -55,7 +55,7 @@
 	return (root);
 }
 
-/*@null@*/ json_t *j_buf2j(/*@temp@*/const buf_t *buf)
+/*@null@*//*@only@*/ json_t *j_buf2j(const buf_t *buf)
 {
 	json_t *root = NULL;
 
@@ -67,7 +67,7 @@
 	return (root);
 }
 
-/*@null@*/ buf_t *j_2buf(/*@temp@*/const json_t *j_obj)
+/*@null@*//*@only@*/ buf_t *j_2buf(const json_t *j_obj)
 {
 	buf_t *buf = NULL;
 	char *jd = NULL;
@@ -94,34 +94,34 @@ err:
 	return (NULL);
 }
 
-int j_arr_add(/*@temp@*/json_t *arr, /*@shared@*/json_t *obj)
+err_t j_arr_add(json_t *arr, json_t *obj)
 {
 	return (json_array_append_new(arr, obj));
 }
 
-/*@null@*/ void *j_arr()
+/*@null@*//*@only@*/ void *j_arr()
 {
 	return (json_array());
 }
 
-/*@null@*/ void *j_new()
+/*@null@*//*@only@*/ void *j_new()
 {
 	return (json_object());
 }
 
-int j_add_j2arr(/*@temp@*/json_t *root, /*@temp@*/const char *arr_name, /*@temp@*/json_t *obj)
+err_t j_add_j2arr(json_t *root, const char *arr_name, json_t *obj)
 {
 	json_t *arr = j_find_j(root, arr_name);
 	TESTP(arr, EBAD);
 	return (j_arr_add(arr, obj));
 }
 
-int j_add_j(/*@temp@*/json_t *root, /*@temp@*/const char *key, /*@temp@*/json_t *obj)
+err_t j_add_j(json_t *root, const char *key, json_t *obj)
 {
 	return (json_object_set_new(root, key, obj));
 }
 
-int j_add_str(/*@temp@*/json_t *root, /*@temp@*/const char *key, /*@temp@*/const char *val)
+err_t j_add_str(json_t *root, const char *key, const char *val)
 {
 	int rc;
 	json_t *j_str = NULL;
@@ -138,10 +138,10 @@ int j_add_str(/*@temp@*/json_t *root, /*@temp@*/const char *key, /*@temp@*/const
 
 	rc = json_object_set_new(root, key, j_str);
 	TESTI_MES(rc, EBAD, "Can't set new string to json object");
-	return (0);
+	return (EOK);
 }
 
-int j_add_int(/*@temp@*/json_t *root, /*@temp@*/const char *key, json_int_t val)
+err_t j_add_int(json_t *root, const char *key, json_int_t val)
 {
 	int rc;
 	json_t *j_int;
@@ -153,11 +153,11 @@ int j_add_int(/*@temp@*/json_t *root, /*@temp@*/const char *key, json_int_t val)
 
 	rc = json_object_set_new(root, key, j_int);
 	TESTI_MES(rc, EBAD, "Can't set new string to json object");
-	return (0);
+	return (EOK);
 }
 
 
-int j_cp(/*@temp@*/const json_t *from, /*@temp@*/json_t *to, /*@temp@*/const char *key)
+err_t j_cp(const json_t *from, json_t *to, const char *key)
 {
 	json_t *j_obj = NULL;
 	json_t *j_obj_copy = NULL;
@@ -179,7 +179,7 @@ int j_cp(/*@temp@*/const json_t *from, /*@temp@*/json_t *to, /*@temp@*/const cha
 	return (EOK);
 }
 
-int j_cp_val(/*@temp@*/const json_t *from, /*@temp@*/json_t *to, /*@temp@*/const char *key_from, /*@temp@*/const char *key_to)
+err_t j_cp_val(const json_t *from, json_t *to, const char *key_from, const char *key_to)
 {
 	json_t *j_obj;
 	json_t *j_obj_copy;
@@ -234,7 +234,7 @@ int json_add_string_int(json_t *root, char *key, int val){
 
 /* Get JSON object, get  field name and expected value of this field.
    Return EOK if this is true, return EBAD is no match */
-int j_test(/*@temp@*/const json_t *root, /*@temp@*/const char *type_name, /*@temp@*/const char *expected_val)
+err_t j_test(const json_t *root, const char *type_name, const char *expected_val)
 {
 	const char *val = NULL;
 	size_t val_len = 0;
@@ -264,7 +264,7 @@ int j_test(/*@temp@*/const json_t *root, /*@temp@*/const char *type_name, /*@tem
 }
 
 
-/*@null@*/ int j_test_key(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
+err_t j_test_key(const json_t *root, const char *key)
 {
 	json_t *j_string = NULL;
 
@@ -279,36 +279,44 @@ int j_test(/*@temp@*/const json_t *root, /*@temp@*/const char *type_name, /*@tem
 	return (EOK);
 }
 
-/*@shared@*//*@null@*/ json_t *j_find_j(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
+/*@temp@*//*@null@*/ json_t *j_find_j(const json_t *root, const char *key)
 {
 	TESTP(root, NULL);
 	TESTP(key, NULL);
 	return (json_object_get(root, key));
 }
 
-/*@shared@*//*@null@*/ const char *j_find_ref(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
+/*@temp@*//*@null@*/ const char *j_find_ref(const json_t *root, const char *key)
 {
 	json_t *j_obj;
 	TESTP(root, NULL);
 	TESTP(key, NULL);
+
+	if (EOK != j_test_key(root, key)) {
+		return (NULL);
+	}
 
 	j_obj = json_object_get(root, key);
 	TESTP(j_obj, NULL);
 	return (json_string_value(j_obj));
 }
 
-json_int_t j_find_int(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
+json_int_t j_find_int(const json_t *root, const char *key)
 {
-	json_t *j_obj;
+	/*@temp@*/json_t *j_obj;
 	TESTP(root, 0XDEADBEEF);
 	TESTP(key, 0XDEADBEEF);
+
+	if (EOK != j_test_key(root, key)) {
+		return (0XDEADBEEF);
+	}
 
 	j_obj = json_object_get(root, key);
 	TESTP(j_obj, 0XDEADBEEF);
 	return (json_integer_value(j_obj));
 }
 
-/*@null@*/char *j_find_dup(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
+/*@null@*//*@only@*/char *j_find_dup(const json_t *root, const char *key)
 {
 	json_t *j_string = NULL;
 	size_t len = 0;
@@ -338,13 +346,13 @@ json_int_t j_find_int(/*@temp@*/const json_t *root, /*@temp@*/const char *key)
 	return (strndup(s_string, len));
 }
 
-int j_count(/*@temp@*/const json_t *root)
+err_t j_count(const json_t *root)
 {
 	TESTP(root, EBAD);
 	return (json_object_size(root));
 }
 
-int j_replace(/*@temp@*/json_t *root, /*@temp@*/const char *key, /*@temp@*/json_t *j_new)
+err_t j_replace(json_t *root, const char *key, json_t *j_new)
 {
 	TESTP(root, EBAD);
 	TESTP(key, EBAD);
@@ -352,17 +360,17 @@ int j_replace(/*@temp@*/json_t *root, /*@temp@*/const char *key, /*@temp@*/json_
 	return (json_object_set_new(root, key, j_new));
 }
 
-/*@null@*/ json_t *j_dup(/*@temp@*/const json_t *root)
+/*@null@*//*@only@*/ json_t *j_dup(const json_t *root)
 {
 	return (json_deep_copy(root));
 }
 
-int j_rm_key(/*@temp@*/json_t *root, /*@temp@*/const char *key)
+err_t j_rm_key(json_t *root, const char *key)
 {
 	return (json_object_del(root, key));
 }
 
-int j_rm(/*@only@*/json_t *root)
+err_t j_rm(/*@only@*/json_t *root)
 {
 	const char *key = NULL;
 	void *tmp = NULL;
@@ -388,10 +396,10 @@ int j_rm(/*@only@*/json_t *root)
 	}
 
 	json_decref(root);
-	return (0);
+	return (EOK);
 }
 
-void j_print(/*@temp@*/const json_t *root, /*@temp@*/const char *prefix)
+void j_print(const json_t *root, const char *prefix)
 {
 
 	buf_t *buf = j_2buf(root);
@@ -407,62 +415,3 @@ void j_print(/*@temp@*/const json_t *root, /*@temp@*/const char *prefix)
 	}
 }
 
-#if 0 /* SEB 26/04/2020 18:33  */
-static int release_dnode(void *v){
-	if (NULL == v) {
-		return (-1);
-	}
-
-	free(v);
-	return (0);
-}
-
-
-/*@null@*/ json_t *json_array_from_dholder(dholder_t *dh){
-	json_t *arr = NULL;
-	json_t *val = NULL;
-	dnode_t *dn = NULL;
-
-	TESTP(dh, NULL, "Got NULL\n");
-
-	arr = json_array();
-	if (NULL == arr) {
-		DE("Can't create new json array\n");
-		goto err;
-	}
-
-	while (dh->members > 0) {
-		DD("Building names array\n");
-		dn = dnode_extract_first(dh);
-		if (dn) {
-
-			DD("Extracted name: %s\n", dn->var);
-			val = json_string(dn->var);
-
-			if (NULL == val) {
-				DE("Can't create json string from the string %s\n", dn->var);
-				dnode_free(dn, release_dnode);
-				goto err;
-			}
-
-			DD("Adding json string %s into array \n", dn->var);
-
-			if (0 != json_array_append_new(arr, val)) {
-				DE("Failed to add json string to array\n");
-				dnode_free(dn, release_dnode);
-				goto err;
-			}
-
-			dnode_free(dn, release_dnode);
-		} /* if (dn) */
-	} /* while */
-
-	return (arr);
-
-	err:
-	if (NULL != dh) dholder_destroy(dh, release_dnode);
-	if (NULL != dn) dnode_free(dn, release_dnode);
-	return (NULL);
-}
-
-#endif /* SEB 26/04/2020 18:33 */

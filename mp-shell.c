@@ -41,7 +41,7 @@ int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
    These messages are responces requests done from here */
-int mp_shell_parse_in_command(json_t *root)
+static err_t mp_shell_parse_in_command(json_t *root)
 {
 	TESTP(root, EBAD);
 	printf("+ %s\n", j_find_ref(root, JK_REASON));
@@ -63,7 +63,7 @@ int mp_shell_parse_in_command(json_t *root)
 
 /* This thread accepts connection from CLI or from GUI client
    Only one client a time */
-/*@null@*/ void *mp_shell_in_thread(void *arg __attribute__((unused)))
+/*@null@*/ static void *mp_shell_in_thread(void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
 	int fd = -1;
@@ -82,7 +82,7 @@ int mp_shell_parse_in_command(json_t *root)
 	memset(&cli_addr, 0, sizeof(cli_addr));
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_CLI);
-	unlink(CLI_SOCKET_PATH_CLI);
+	rc = unlink(CLI_SOCKET_PATH_CLI);
 
 	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
@@ -92,8 +92,8 @@ int mp_shell_parse_in_command(json_t *root)
 
 	do {
 		int fd2 = -1;
-		char *buf = NULL;
-		json_t *root = NULL;
+		/*@only@*/char *buf = NULL;
+		/*@only@*/json_t *root = NULL;
 		ssize_t received = 0;
 		size_t allocated = 0;
 
@@ -116,20 +116,10 @@ int mp_shell_parse_in_command(json_t *root)
 		TESTP_MES(buf, NULL, "Can't allocate buf");
 		allocated = CLI_BUF_LEN;
 
-		//rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
-#if 0
-		rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
-		if (rc < 0) {
-			DE("setsockopt(SO_RCVLOWAT) failed\n");
-			free(buf);
-			break;
-		}
-#endif
-
 		do {
 			/* If we almost filled the buffer, we add memory */
 			if ((size_t)received == allocated - 1) {
-				char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
+				/*@only@*/char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
 
 				/* realloc can return new buffer. In this case the old one should be freed */
 				if (tmp != buf) {
@@ -156,7 +146,10 @@ int mp_shell_parse_in_command(json_t *root)
 			break;
 		}
 
-		mp_shell_parse_in_command(root);
+		rc = mp_shell_parse_in_command(root);
+		if (EOK != rc) {
+			DE("Failed to process accepted JSON\n");
+		}
 		rc = j_rm(root);
 		TESTI_MES(rc, NULL, "Can't remove json object");
 	} while (1);
@@ -164,14 +157,14 @@ int mp_shell_parse_in_command(json_t *root)
 	return (NULL);
 }
 
-/*@null@*/ json_t *mp_shell_do_requiest(json_t *root)
+/*@null@*/ static json_t *mp_shell_do_requiest(json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
 	char buffer[CLI_BUF_LEN];
 	struct sockaddr_un serveraddr;
 
-	buf_t *buf = j_2buf(root);
+	/*@only@*/buf_t *buf = j_2buf(root);
 
 	TESTP_MES(buf, NULL, "Can't encode JSON object\n");
 
@@ -229,7 +222,12 @@ int mp_shell_parse_in_command(json_t *root)
 
 	buffer[rc] = '\0';
 	if (sd != -1) {
-		close(sd);
+		if (0 != close(sd)) {
+			DE("can't close socket\n");
+			perror("can't close socket");
+			abort();
+		}
+
 	}
 	return (j_str2j(buffer));
 }
@@ -292,15 +290,15 @@ static int mp_shell_watch_ticket(const char *ticket){
 }
 #endif
 
-static int mp_shell_ask_openport(json_t *args)
+static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
 {
-	int rc = EBAD;
-	const char *uid_dst = NULL;
-	const char *port = NULL;
-	const char *protocol = NULL;
-	json_t *resp = NULL;
-	json_t *root = NULL;
-	char *ticket = NULL;
+	err_t rc = EBAD;
+	/*@only@*/const char *uid_dst = NULL;
+	/*@only@*/const char *port = NULL;
+	/*@only@*/const char *protocol = NULL;
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/json_t *root = NULL;
+	/*@only@*/char *ticket = NULL;
 
 	TESTP(args, EBAD);
 
@@ -347,8 +345,12 @@ static int mp_shell_ask_openport(json_t *args)
 	TESTP(root, EBAD);
 
 	while (0 == status && waiting_counter < 10) {
+		int slept;
 		waiting_counter++;
-		sleep(1);
+		slept = sleep(1);
+		if (0 != slept) {
+			slept = sleep(1);
+		}
 	}
 
 	if (2 == status) {
@@ -369,15 +371,15 @@ err:
 	return (rc);
 }
 
-static int mp_shell_ask_closeport(json_t *args)
+static err_t mp_shell_ask_closeport(/*@keep@*/json_t *args)
 {
 	int rc = EBAD;
-	const char *uid = NULL;
-	const char *port = NULL;
-	const char *protocol = NULL;
-	json_t *resp = NULL;
-	json_t *root = NULL;
-	char *ticket = NULL;
+	/*@only@*/const char *uid = NULL;
+	/*@only@*/const char *port = NULL;
+	/*@only@*/const char *protocol = NULL;
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/json_t *root = NULL;
+	/*@only@*/char *ticket = NULL;
 
 	TESTP(args, EBAD);
 
@@ -421,8 +423,13 @@ static int mp_shell_ask_closeport(json_t *args)
 	}
 
 	while (0 == status && waiting_counter < 10) {
+		int slept;
 		waiting_counter++;
-		sleep(1);
+		slept = sleep(1);
+		/* If sleep was interrupted - try again */
+		if (0 != slept) {
+			slept = sleep(1);
+		}
 	}
 
 	if (2 == status) {
@@ -441,11 +448,11 @@ err:
 	return (rc);
 }
 
-static int mp_shell_get_info()
+static err_t mp_shell_get_info()
 {
-	json_t *root = j_new();
-	json_t *resp = NULL;
-	ft_table_t *table = NULL;
+	/*@only@*/json_t *root = j_new();
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
 	TESTP(root, EBAD);
@@ -458,14 +465,48 @@ static int mp_shell_get_info()
 		return (EBAD);
 	}
 
-	ft_set_default_border_style(FT_PLAIN_STYLE);
-	table = ft_create_table();
+	rc = ft_set_default_border_style(FT_PLAIN_STYLE);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
 
-	ft_write_ln(table, "My Machine", j_find_ref(resp, JK_NAME));
-	ft_write_ln(table, "My Username", j_find_ref(resp, JK_USER));
-	ft_write_ln(table, "My UID", j_find_ref(resp, JK_UID_ME));
-	ft_write_ln(table, "My External IP", j_find_ref(resp, JK_IP_EXT));
-	ft_write_ln(table, "My Internal IP", j_find_ref(resp, JK_IP_INT));
+	table = ft_create_table();
+	if (NULL == table) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "My Machine", j_find_ref(resp, JK_NAME));
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "My Username", j_find_ref(resp, JK_USER));
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "My UID", j_find_ref(resp, JK_UID_ME));
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "My External IP", j_find_ref(resp, JK_IP_EXT));
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "My Internal IP", j_find_ref(resp, JK_IP_INT));
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
@@ -475,12 +516,11 @@ static int mp_shell_get_info()
 	return (EOK);
 }
 
-static int mp_shell_ssh(json_t *args)
+static err_t mp_shell_ssh(/*@keep@*/json_t *args)
 {
-	json_t *root = j_new();
-	json_t *resp = NULL;
-	int rc;
-	//ft_table_t *table = NULL;
+	/*@only@*/json_t *root = j_new();
+	/*@only@*/json_t *resp = NULL;
+	err_t rc;
 
 	TESTP(root, EBAD);
 
@@ -500,13 +540,13 @@ static int mp_shell_ssh(json_t *args)
 	return (EOK);
 }
 
-static int mp_shell_get_hosts()
+static err_t mp_shell_get_hosts()
 {
-	json_t *resp = NULL;
-	json_t *root = j_new();
-	const char *key;
-	json_t *val = NULL;
-	ft_table_t *table = NULL;
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/json_t *root = j_new();
+	/*@only@*/const char *key;
+	/*@only@*/json_t *val = NULL;
+	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
 	TESTP_MES(root, -1, "Can't allocate JSON object\n");
@@ -523,33 +563,56 @@ static int mp_shell_get_hosts()
 		printf("No host in the list\n");
 		rc = j_rm(resp);
 		TESTI_MES(rc, EBAD, "Can't remove json object 'rest'\n");
-		return (0);
+		return (EOK);
 	}
 
 	printf("List of connected clients\n");
-	ft_set_default_border_style(FT_PLAIN_STYLE);
+	rc = ft_set_default_border_style(FT_PLAIN_STYLE);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	table = ft_create_table();
-	ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
-	ft_write_ln(table, "UID", "External IP", "Internal IP", "Name");
+	if (NULL == table) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "UID", "External IP", "Internal IP", "Name");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
 
 	json_object_foreach(resp, key, val) {
-		ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(val, JK_IP_EXT),
-					j_find_ref(val, JK_IP_INT), j_find_ref(val, JK_NAME));
+		rc = ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(val, JK_IP_EXT),
+						 j_find_ref(val, JK_IP_INT), j_find_ref(val, JK_NAME));
+		if (0 != rc) {
+			DE("Error on table creation");
+			abort();
+		}
+
 	}
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
-
-	return (0);
+	return (EOK);
 }
 
-static int mp_shell_get_ports()
+static err_t mp_shell_get_ports()
 {
-	json_t *resp = NULL;
-	json_t *root = j_new();
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/json_t *root = j_new();
 	size_t index = 0;
-	json_t *val = NULL;
-	ft_table_t *table = NULL;
+	/*@only@*/json_t *val = NULL;
+	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
 	TESTP_MES(root, -1, "Can't allocate JSON object\n");
@@ -566,36 +629,60 @@ static int mp_shell_get_ports()
 		printf("No mapped ports\n");
 		rc = j_rm(resp);
 		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
-		return (0);
+		return (EOK);
 	}
 
 	printf("Ports mapped from router to this machine:\n");
 
-	ft_set_default_border_style(FT_PLAIN_STYLE);
+	rc = ft_set_default_border_style(FT_PLAIN_STYLE);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	table = ft_create_table();
-	ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
-	ft_write_ln(table, "External", "Internal", "Protocol");
+	if (NULL == table) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "External", "Internal", "Protocol");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
 
 	json_array_foreach(resp, index, val) {
-		ft_write_ln(table, j_find_ref(val, JK_PORT_EXT),
-					j_find_ref(val, JK_PORT_INT),
-					j_find_ref(val, JK_PROTOCOL));
+		rc = ft_write_ln(table, j_find_ref(val, JK_PORT_EXT),
+						 j_find_ref(val, JK_PORT_INT),
+						 j_find_ref(val, JK_PROTOCOL));
+		if (0 != rc) {
+			DE("Error on table creation");
+			abort();
+		}
+
 	}
 
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
-	return (0);
+	return (EOK);
 }
 
 /* show opened remote ports */
-static int mp_shell_get_remote_ports()
+static err_t mp_shell_get_remote_ports()
 {
-	json_t *resp = NULL;
-	json_t *root = j_new();
+	/*@only@*/json_t *resp = NULL;
+	/*@only@*/json_t *root = j_new();
 	size_t index;
-	const char *key;
-	json_t *val = NULL;
-	ft_table_t *table = NULL;
+	/*@only@*/const char *key;
+	/*@only@*/json_t *val = NULL;
+	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
 	D("Start\n");
@@ -614,16 +701,35 @@ static int mp_shell_get_remote_ports()
 		printf("No host in the list\n");
 		rc = j_rm(resp);
 		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
-		return (0);
+		return (EOK);
 	}
 
 	j_print(resp, "resp");
 
 	printf("List of connected clients\n");
-	ft_set_default_border_style(FT_PLAIN_STYLE);
+	rc = ft_set_default_border_style(FT_PLAIN_STYLE);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	table = ft_create_table();
-	ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
-	ft_write_ln(table, "UID", "External Port", "Internal Port", "Protocol");
+	if (NULL == table) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "UID", "External Port", "Internal Port", "Protocol");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
 
 	json_object_foreach(resp, key, val) {
 		/* Here we are inside of a host */
@@ -631,36 +737,106 @@ static int mp_shell_get_remote_ports()
 		json_t *port;
 		host_ports = j_find_j(val, "ports");
 		json_array_foreach(host_ports, index, port) {
-			ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(port, JK_PORT_EXT),
-						j_find_ref(port, JK_PORT_INT), j_find_ref(port, JK_PROTOCOL));
+			rc = ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(port, JK_PORT_EXT),
+							 j_find_ref(port, JK_PORT_INT), j_find_ref(port, JK_PROTOCOL));
+			if (0 != rc) {
+				DE("Error on table creation");
+				abort();
+			}
 		}
 	}
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
 
-	return (0);
+	return (EOK);
 }
 static void mp_shell_usage(char *name)
 {
+	int rc;
 
-	ft_table_t *table = NULL;
-	ft_set_default_border_style(FT_PLAIN_STYLE);
+	/*@only@*/ft_table_t *table = NULL;
+	rc = ft_set_default_border_style(FT_PLAIN_STYLE);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	table = ft_create_table();
+	if (NULL == table) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	/* Set "header" type for the first row */
-	ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
-	ft_write_ln(table, "Option", "Explanation");
+	rc = ft_set_cell_prop(table, 0, FT_ANY_COLUMN, FT_CPROP_ROW_TYPE, FT_ROW_HEADER);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "Option", "Explanation");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	printf("Usage: %s -l -o -p -u -s\n", name);
 
-	ft_write_ln(table, "-i", "information about this machine");
-	ft_write_ln(table, "-l", "list connected machines");
-	ft_write_ln(table, "-m", "print ports mapped from router to this machine");
-	ft_write_ln(table, "-r", "print ports mapped on another hosts");
-	ft_write_ln(table, "-o X", "open port X on the remote machine");
-	ft_write_ln(table, "-c X", "close port X on the remote machine");
-	ft_write_ln(table, "-u uid", "uid of the remote machine");
-	ft_write_ln(table, "-p", "TCP or UDP - protocol");
-	ft_write_ln(table, "-s", "open ssh connection to remote machine");
+	rc = ft_write_ln(table, "-i", "information about this machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-l", "list connected machines");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-m", "print ports mapped from router to this machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-r", "print ports mapped on another hosts");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-o X", "open port X on the remote machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-c X", "close port X on the remote machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-u uid", "uid of the remote machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-p", "TCP or UDP - protocol");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
+	rc = ft_write_ln(table, "-s", "open ssh connection to remote machine");
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
@@ -675,7 +851,7 @@ static void mp_shell_usage(char *name)
 int main(int argc, char *argv[])
 {
 	int opt;
-	json_t *args;
+	/*@only@*/json_t *args = NULL;
 	pthread_t in_thread_id;
 	int rc;
 
@@ -697,12 +873,12 @@ int main(int argc, char *argv[])
 	}
 
 	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_thread, NULL);
-	if (0!=rc) {
+	if (0 != rc) {
 		DE("Can't create mp_shell_in_thread\n");
 		perror("Can't create mp_shell_in_thread");
 		abort();
 	}
-	
+
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
@@ -767,28 +943,28 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (0 == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
+	if (EOK == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
 		if (0 != mp_shell_get_hosts()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			return (EBAD);
 		}
 	}
 
-	if (0 == j_test(args, JK_SHOW_PORTS, JV_YES)) {
+	if (EOK == j_test(args, JK_SHOW_PORTS, JV_YES)) {
 		if (0 != mp_shell_get_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			return (EBAD);
 		}
 	}
 
-	if (0 == j_test(args, JK_SHOW_INFO, JV_YES)) {
+	if (EOK == j_test(args, JK_SHOW_INFO, JV_YES)) {
 		if (0 != mp_shell_get_info()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			return (EBAD);
 		}
 	}
 
-	if (0 == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
+	if (EOK == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
 		DDD("Founf SSH command\n");
 		if (0 != mp_shell_ssh(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -796,21 +972,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (0 == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
 		if (0 != mp_shell_ask_openport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
 			return (EBAD);
 		}
 	}
 
-	if (0 == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		if (0 != mp_shell_ask_closeport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
 			return (EBAD);
 		}
 	}
 
-	if (0 == j_test(args, JK_SHOW_RPORTS, JV_YES)) {
+	if (EOK == j_test(args, JK_SHOW_RPORTS, JV_YES)) {
 		D("Found RPORTS command\n");
 		if (EOK != mp_shell_get_remote_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");

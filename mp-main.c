@@ -36,12 +36,12 @@
    req - request which must contain JK_TICKET with ticket id
    status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
    comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
-int mp_main_ticket_responce(/*@temp@*/const json_t *req, /*@temp@*/const char *status, /*@temp@*/const char *comment)
+err_t mp_main_ticket_responce(const json_t *req, const char *status, const char *comment)
 {
-	/*@only@*//*@notnull@*/json_t *root = NULL;
-	/*@shared@*/const char *ticket = NULL;
-	/*@shared@*/const char *uid = NULL;
-	int rc;
+	/*@only@*/json_t *root = NULL;
+	/*@temp@*/const char *ticket = NULL;
+	/*@temp@*/const char *uid = NULL;
+	err_t rc;
 	/*@only@*/char *forum = NULL;
 
 	TESTP(req, EBAD);
@@ -92,11 +92,11 @@ end:
 	return (rc);
 }
 
-static int mp_main_remove_host_l(/*@temp@*/const json_t *root)
+static err_t mp_main_remove_host_l(const json_t *root)
 {
-	/*@shared@*/const control_t *ctl = NULL;
-	/*@shared@*/const char *uid_src = NULL;
-	int rc;
+	/*@temp@*/const control_t *ctl = NULL;
+	/*@temp@*/const char *uid_src = NULL;
+	err_t rc;
 
 	TESTP(root, EBAD);
 	uid_src = j_find_ref(root, JK_UID_SRC);
@@ -114,17 +114,17 @@ static int mp_main_remove_host_l(/*@temp@*/const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
+static err_t mp_main_do_open_port_l(const json_t *root)
 {
-	/*@shared@*/ const control_t *ctl = ctl_get();
-	/*@shared@*/json_t *mapping = NULL;
-	/*@shared@*/const char *asked_port = NULL;
-	/*@shared@*/const char *protocol = NULL;
-	/*@shared@*/json_t *val = NULL;
-	/*@shared@*/json_t *ports = NULL;
+	/*@temp@*/ const control_t *ctl = ctl_get();
+	/*@temp@*/json_t *mapping = NULL;
+	/*@temp@*/const char *asked_port = NULL;
+	/*@temp@*/const char *protocol = NULL;
+	/*@temp@*/json_t *val = NULL;
+	/*@temp@*/json_t *ports = NULL;
 	size_t index = 0;
-	/*@shared@*/const char *ip_internal = NULL;
-	int rc;
+	/*@temp@*/const char *ip_internal = NULL;
+	err_t rc;
 
 	TESTP(root, EBAD);
 
@@ -142,6 +142,7 @@ static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 	/*** Check if the asked port + protocol is already mapped; if yes, return OK ***/
 
 	ctl_lock();
+	/*@ignore@*/
 	json_array_foreach(ports, index, val) {
 		if (EOK == j_test(val, JK_IP_INT, asked_port) &&
 			EOK == j_test(val, JK_PROTOCOL, protocol)) {
@@ -150,6 +151,7 @@ static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 			return (EOK);
 		}
 	}
+	/*@end@*/
 	ctl_unlock();
 
 	/*** If we here, this means that we don't have a record about this port.
@@ -203,17 +205,17 @@ static int mp_main_do_open_port_l(/*@temp@*/const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
+static err_t mp_main_do_close_port_l(const json_t *root)
 {
-	/*@shared@*/const control_t *ctl = ctl_get();
-	/*@shared@*/const char *asked_port = NULL;
-	/*@shared@*/const char *protocol = NULL;
-	/*@shared@*/json_t *val = NULL;
-	/*@shared@*/json_t *ports = NULL;
+	/*@temp@*/const control_t *ctl = ctl_get();
+	/*@temp@*/const char *asked_port = NULL;
+	/*@temp@*/const char *protocol = NULL;
+	/*@temp@*/json_t *val = NULL;
+	/*@temp@*/json_t *ports = NULL;
 	size_t index = 0;
 	int index_save = 0;
-	/*@shared@*/const char *external_port = NULL;
-	int rc = EBAD;
+	/*@temp@*/const char *external_port = NULL;
+	err_t rc = EBAD;
 
 	TESTP(root, EBAD);
 
@@ -259,7 +261,9 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
 	rc = json_array_remove(ports, index_save);
 	ctl_unlock();
 	if (EOK != rc) {
+		/*@ignore@*/
 		DE("Can't remove port from ports: asked index %d, size of ports arrays is %zu", index_save, json_array_size(ports));
+		/*@end@*/
 	}
 	return (EOK);
 }
@@ -269,10 +273,10 @@ static int mp_main_do_close_port_l(/*@temp@*/const json_t *root)
  * type: "keepalive" - a source sends its status 
  * type: "reveal" - a new host asks all clients to send information
  */
-static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@temp@*/json_t *root)
+static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 {
-	int rc = EBAD;
-	/*@shared@*/control_t *ctl = ctl_get();
+	err_t rc = EBAD;
+	/*@temp@*/control_t *ctl = ctl_get();
 
 	TESTP(root, EBAD);
 	TESTP_GO(uid, end);
@@ -483,7 +487,7 @@ static int mp_main_parse_message_l(/*@temp@*/const char *uid, /*@temp@*/json_t *
 	 * Responce to "sshr" message, see above
 	 */
 
-	if (rc) DE("Unknown type\n");
+	if (0 != rc) DE("Unknown type\n");
 
 end:
 	return (rc);
@@ -493,10 +497,10 @@ end:
 /*@null@*/static void *mp_main_on_message_processor(/*@only@*/void *v)
 {
 	/*@only@*/char **topics;
-	/*@shared@*/ const char *topic;
+	/*@temp@*/ const char *topic;
 	int topics_count = 0;
 	int rc = EBAD;
-	/*@shared@*/ const char *uid = NULL;
+	/*@temp@*/ const char *uid = NULL;
 	/*@only@*/json_t *root = v;
 
 	TESTP(root, NULL);
@@ -507,9 +511,12 @@ end:
 		perror("Thread: can't detach myself");
 		abort();
 	}
-	
+
 	topic = j_find_ref(root, JK_TOPIC);
-	TESTP_MES(topic, NULL, "No topic in input JSON object");
+	if (NULL == topic) {
+		DE("No topic in input JSON object\n");
+		j_rm(root);
+	}
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
 	if (MOSQ_ERR_SUCCESS != rc) {
@@ -528,7 +535,7 @@ end:
 		if (EOK != rc) {
 			DE("Can't free tokenized topic\n");
 		}
-		
+
 		rc = j_rm(root);
 		if (EOK != rc) {
 			DE("Can't remove JSON\n");
@@ -574,7 +581,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 {
 	int rc;
 	pthread_t message_thread;
-	/*@shared@*/ json_t *root;
+	/*@temp@*/ json_t *root;
 	if (NULL == msg) {
 		DE("msg is NULL!\n");
 		return;
@@ -606,7 +613,7 @@ static void connect_callback_l(/*@unused@*/struct mosquitto *mosq __attribute__(
 							   /*@unused@*/int result __attribute__((unused)))
 {
 	int rc;
-	/*@shared@*/control_t *ctl = ctl_get();
+	/*@temp@*/control_t *ctl = ctl_get();
 	printf("connected!\n");
 	rc = send_reveal_l();
 	if (EOK != rc) {
@@ -622,7 +629,7 @@ static void mp_main_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attr
 									   /*@unused@*/void *data __attribute__((unused)),
 									   int reason)
 {
-	/*@shared@*/control_t *ctl = NULL;
+	/*@temp@*/control_t *ctl = NULL;
 	int rc;
 	if (0 != reason) {
 		switch (reason) {
@@ -729,10 +736,10 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 /* This thread is responsible for connection to the broker */
 /*@null@*/ static void *mp_main_mosq_thread(void *arg)
 {
-	/*@shared@*/control_t *ctl = NULL;
+	/*@temp@*/control_t *ctl = NULL;
 	int rc = EBAD;
 	int i;
-	/*@shared@*/const char *cert = (char *)arg;
+	/*@temp@*/const char *cert = (char *)arg;
 	char *forum_topic_all;
 	/*@only@*/char *forum_topic_me;
 	/*@only@*/char *personal_topic;
@@ -915,7 +922,7 @@ end:
 
 /*@null@*/ static void *mp_main_mosq_thread_manager(void *arg)
 {
-	/*@shared@*/control_t *ctl = NULL;
+	/*@temp@*/control_t *ctl = NULL;
 	void *status = NULL;
 	pthread_t mosq_thread_id;
 	int rc;
@@ -949,9 +956,9 @@ end:
 	return (NULL);
 }
 
-void mp_main_print_info_banner()
+static void mp_main_print_info_banner()
 {
-	/*@shared@*/const control_t *ctl = ctl_get();
+	/*@temp@*/const control_t *ctl = ctl_get();
 	printf("=======================================\n");
 	printf("Router IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_EXT), j_find_ref(ctl->me, JK_PORT_EXT));
 	printf("Local IP:\t%s:%s\n", j_find_ref(ctl->me, JK_IP_INT), j_find_ref(ctl->me, JK_PORT_INT));
@@ -963,7 +970,7 @@ void mp_main_print_info_banner()
 
 static void mp_main_signal_handler(int sig)
 {
-	/*@shared@*/control_t *ctl;
+	/*@temp@*/control_t *ctl;
 	if (SIGINT != sig) {
 		DD("Got signal: %d, ignore\n", sig);
 		return;
@@ -988,11 +995,11 @@ static void mp_main_signal_handler(int sig)
    doesn't exist. In this case we create all fields we
    need for run, and later [see main() before threads started]
    we dump these values to config.*/
-static int mp_main_complete_me_init(void)
+static err_t mp_main_complete_me_init(void)
 {
-	int rc = EBAD;
-	/*@shared@*/char *var = NULL;
-	/*@shared@*/const control_t *ctl = ctl_get();
+	err_t rc = EBAD;
+	/*@temp@*/char *var = NULL;
+	/*@temp@*/const control_t *ctl = ctl_get();
 
 	/* SEB: TODO: This should be defined by user from first time config */
 	if (EOK != j_test_key(ctl->me, JK_USER)) {
@@ -1043,10 +1050,10 @@ static int mp_main_complete_me_init(void)
 int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 {
 	/*@only@*/char *cert = NULL;
-	/*@shared@*/control_t *ctl = NULL;
+	/*@temp@*/control_t *ctl = NULL;
 	pthread_t cli_thread_id;
 	pthread_t mosq_thread_id;
-	/*@shared@*/json_t *ports;
+	/*@temp@*/json_t *ports;
 
 	int rc = EOK;
 

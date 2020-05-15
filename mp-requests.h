@@ -10,7 +10,7 @@ extern /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip,
 extern /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status);
 extern /*@null@*/ buf_t *mp_requests_build_keepalive(void);
 extern /*@null@*/ buf_t *mp_requests_open_port(const char *uid, const char *port, const char *protocol);
-extern /*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol);
+//extern /*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol);
 
 
 #endif /* _SEC_BUILD_REQUESTS_H_ */

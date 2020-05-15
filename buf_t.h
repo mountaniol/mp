@@ -1,6 +1,9 @@
 #ifndef _BUF_T_H_
 #define _BUF_T_H_
 
+/* For err_t */
+#include "mp-common.h"
+
 /* Simple struct to hold a buffer / string and its size / lenght */
 struct buf_t_struct {
 	char *data;		/* Pointer to data */
@@ -36,7 +39,7 @@ extern /*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size);
  * 
  * @return int 
  */
-extern int buf_free(buf_t *buf);
+extern err_t buf_free(buf_t *buf);
 
 /**
  * 
@@ -52,7 +55,7 @@ extern int buf_free(buf_t *buf);
  * 
  * @return int 
  */
-extern int buf_room(/*@temp@*/buf_t *buf, size_t size);
+extern err_t buf_room(/*@temp@*/buf_t *buf, size_t size);
 
 /**
  * 
@@ -67,7 +70,7 @@ extern int buf_room(/*@temp@*/buf_t *buf, size_t size);
  * 
  * @return int 
  */
-extern int buf_test_room(buf_t *buf, size_t expect);
+extern err_t buf_test_room(buf_t *buf, size_t expect);
 
 /**
  * 
@@ -80,7 +83,7 @@ extern int buf_test_room(buf_t *buf, size_t expect);
  * 
  * @return int 
  */
-int buf_free_force(/*@only@*/buf_t *buf);
+extern err_t buf_free_force(/*@only@*/buf_t *buf);
 
 /**
  * 
@@ -96,6 +99,6 @@ int buf_free_force(/*@only@*/buf_t *buf);
  * 
  * @return int 
  */
-extern int buf_add(buf_t *b, const char *buf, const size_t size);
+extern err_t buf_add(buf_t *b, const char *buf, const size_t size);
 
 #endif /* _BUF_T_H_ */

@@ -246,8 +246,8 @@ err:
 	return (buf);
 }
 
-/*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol)
-{
+#if 0 /* SEB DEADCODE 14/05/2020 21:36  */
+/*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol){
 	buf_t *buf = NULL;
 	json_t *root = NULL;
 
@@ -265,13 +265,14 @@ err:
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	if (NULL != root) {
 		int rc = j_rm(root);
 		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
 	}
 	return (buf);
 }
+#endif /* SEB DEADCODE 14/05/2020 21:36 */
 
 
 

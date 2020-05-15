@@ -4,9 +4,18 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#define EBAD (-1)	/* Error status */
-#define EOK (0)		/* Success status */
-#define EAGN (1)	/* "Try again" status */
+typedef enum {
+	EBAD = -1,  /* Error status */
+	EOK = 0,       /* Success status */
+	EAGN = 1, /* "Try again" status */
+	ENOPOINTER = 0XDEADBEEF,
+} err_t;
+
+#if 0
+	#define EBAD (-1)	/* Error status */
+	#define EOK (0)		/* Success status */
+	#define EAGN (1)	/* "Try again" status */
+#endif
 
 /* Testing macros. Part 1: Test and Return */
 /* Test pointer for NULL. If NULL, print "mes" and return "ret" */
@@ -41,4 +50,3 @@
 #define TFREE(x) do { if(NULL != x) {free(x); x = NULL;} }while(0)
 
 #endif /* _SEC_COMMON_H_ */
-					 

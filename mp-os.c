@@ -17,14 +17,14 @@
 	char hostname[1024];
 	hostname[1023] = '\0';
 	char *ret = NULL;
-	
+
 	int rc = gethostname(hostname, 1023);
 	if (0 != rc) {
 		DE("Failed: gethostname\n");
 		perror("Failed: gethostname\n");
-		return NULL;
+		return (NULL);
 	}
-	
+
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
 	hints.ai_socktype = SOCK_STREAM;
@@ -61,7 +61,7 @@ const char charset_num[] = "0123456789";
 	TESTP_MES(fd, NULL, "Can't open /dev/urandom");
 
 	rc = fread(str, 1, size, fd);
-	if(0 != fclose(fd)) {
+	if (0 != fclose(fd)) {
 		DE("Can't close /dev/urandom\n");
 		perror("Can't close /dev/urandom");
 		abort();

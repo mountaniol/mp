@@ -6,13 +6,13 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
-/*@shared@*/control_t *g_ctl = NULL;
-int ctl_allocate_init(void)
+/*@only@*/control_t *g_ctl = NULL;
+err_t ctl_allocate_init(void)
 {
 	json_t *ports = NULL;
-	int rc;
+	err_t rc;
 
-	if (NULL != g_ctl) return (-1);
+	if (NULL != g_ctl) return (EBAD);
 	g_ctl = zmalloc(sizeof(control_t));
 	TESTP_MES(g_ctl, -1, "Can't allocate control_t struct");
 	g_ctl->me = j_new();
@@ -53,9 +53,9 @@ void ctl_lock()
 		DE("Semaphor count is too high: %d > 1\n", rc);
 		abort();
 	}
-	
+
 	rc = sem_wait(&g_ctl->lock);
-	if (0!= rc) {
+	if (0 != rc) {
 		DE("Can't wait on semaphore; abort\n");
 		perror("Can't wait on semaphore; abort");
 		abort();
@@ -77,13 +77,13 @@ void ctl_unlock()
 	}
 }
 
-/*@shared@*//*@notnull@*/control_t *ctl_get(void)
+/*@temp@*//*@notnull@*/control_t *ctl_get(void)
 {
 	TESTP_ASSERT(g_ctl, "NULL!");
 	return (g_ctl);
 }
 
-/*@shared@*//*@notnull@*/control_t *ctl_get_locked(void)
+/*@temp@*//*@notnull@*/control_t *ctl_get_locked(void)
 {
 	ctl_lock();
 	TESTP_ASSERT(g_ctl, "NULL!");
@@ -92,7 +92,7 @@ void ctl_unlock()
 
 
 /*** Interface function for most important control_t fields ***/
-/*@shared@*//*@notnull@*/ const char *ctl_uid_get(void)
+/*@temp@*//*@notnull@*/ const char *ctl_uid_get(void)
 {
 	const char *uid;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -100,7 +100,7 @@ void ctl_unlock()
 	return (uid);
 }
 
-void ctl_uid_set(/*@shared@*/const char *uid)
+void ctl_uid_set(const char *uid)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -112,7 +112,7 @@ void ctl_uid_set(/*@shared@*/const char *uid)
 	}
 }
 
-/*@shared@*//*@notnull@*/const char *ctl_user_get()
+/*@temp@*//*@notnull@*/const char *ctl_user_get()
 {
 	const char *user;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
@@ -121,7 +121,7 @@ void ctl_uid_set(/*@shared@*/const char *uid)
 	return (user);
 }
 
-void ctl_user_set(/*@shared@*/const char *user)
+void ctl_user_set(const char *user)
 {
 	int rc;
 	TESTP_ASSERT(g_ctl->me, "NULL!");

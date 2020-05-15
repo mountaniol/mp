@@ -63,7 +63,7 @@
 				perror("Can't close file");
 				abort();
 			}
-			
+
 			return (ret);
 		}
 
@@ -130,7 +130,7 @@ err:
 }
 
 /* Probe network and write all values to global ctl structure */
-int mp_network_init_network_l()
+err_t mp_network_init_network_l()
 {
 	/*@shared@*/control_t *ctl = ctl_get();
 	char *var;
@@ -159,7 +159,7 @@ int mp_network_init_network_l()
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock();
 	TFREE(var);
-	return (0);
+	return (EOK);
 }
 
 #ifdef STANDALONE
