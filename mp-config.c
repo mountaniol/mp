@@ -148,7 +148,7 @@ err_t mp_config_save()
 	char *filename = NULL;
 	char *dirname = NULL;
 	buf_t *buf = NULL;
-	int rc = EBAD;
+	int rc;
 	size_t written = 0;
 	/*@shared@*/control_t *ctl = ctl_get();
 	DIR *dir;

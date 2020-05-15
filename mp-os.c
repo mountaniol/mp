@@ -1,5 +1,6 @@
 /*@-skipposixheaders@*/
 #include <unistd.h>
+#include <time.h>
 #include <string.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -137,3 +138,15 @@ err:
 	return (str);
 }
 
+err_t mp_os_usleep(int milliseconds) // cross-platform sleep function
+{
+	struct timespec ts;
+	ts.tv_sec = milliseconds / 1000;
+	ts.tv_nsec = (milliseconds % 1000) * 1000000;
+	if (0 != nanosleep(&ts, NULL)) {
+		DE("nanosleep returned an error\n");
+		return (EBAD);
+	}
+
+	return (EOK);
+}

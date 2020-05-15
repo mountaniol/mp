@@ -42,14 +42,15 @@
 /*@null@*//*@only@*/ json_t *j_strn2j(const char *str, size_t len)
 {
 	/*only*/char *buf = NULL;
-	/*shared*/ json_t *root = NULL;
+	/*temp*/ json_t *root = NULL;
 	TESTP(str, NULL);
 	if (len < 1) return (NULL);
 	buf = zmalloc(len + 1);
 	if (NULL == buf) {
 		return (NULL);
 	}
-	strncpy(buf, str, len);
+
+	memcpy(buf, str, len);
 	root = j_str2j(buf);
 	free(buf);
 	return (root);

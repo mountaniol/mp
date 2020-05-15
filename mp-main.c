@@ -515,7 +515,7 @@ end:
 	topic = j_find_ref(root, JK_TOPIC);
 	if (NULL == topic) {
 		DE("No topic in input JSON object\n");
-		if(EOK != j_rm(root)) {
+		if (EOK != j_rm(root)) {
 			DE("Can't remove JSON object\n");
 		}
 	}
@@ -704,14 +704,13 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	/* When we sleep, the Kernel scheduler switches to another task and,
 	   most probably, the sending thread will manage to add the buffer.
 	   I saw a lot of stuck buffers; this several short sleeps seems to fix it*/
-	rc = usleep(5);
-	rc |= usleep(10);
-	rc |= usleep(20);
+	rc = mp_os_usleep(5);
+	rc |= mp_os_usleep(10);
+	rc |= mp_os_usleep(20);
 
 	if (0 != rc) {
 		DE("usleep returned error\n");
 		perror("usleep returned error");
-		abort();
 	}
 
 	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
@@ -872,11 +871,15 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		}
 		//DDD("Finished disconnection check\n");
 
-		rc = usleep((__useconds_t)mp_os_random_in_range(100, 300));
+		//DD("Before sleep random millisec\n");
+		rc = mp_os_usleep((__useconds_t)mp_os_random_in_range(100, 300));
+		//DD("After sleep random millisec\n");
 		if (0 != rc) {
 			DE("usleep returned error\n");
 			perror("usleep returned error");
-			abort();
+		}
+		if (ST_STOP == ctl->status) {
+			break;
 		}
 
 		if (0 == (counter % 7) && (ST_DISCONNECTED != ctl->status)) {
@@ -891,12 +894,15 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		}
 
 		for (i = 0; i < 200; i++) {
-			if (ST_STOP == ctl->status) break;
-			rc = usleep((__useconds_t)mp_os_random_in_range(10000, 40000));
+			if (ST_STOP == ctl->status) {
+				DD("I am in stopping mode\n");
+				break;
+			}
+			/* Random time sleep to spread server loading */
+			rc = mp_os_usleep((__useconds_t)mp_os_random_in_range(100, 500));
 			if (0 != rc) {
 				DE("usleep returned error\n");
 				perror("usleep returned error");
-				abort();
 			}
 		}
 		counter++;
@@ -911,7 +917,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	mosquitto_destroy(ctl->mosq);
 	ctl->mosq = NULL;
 
-	if(EOK != j_rm(ctl->hosts)) {
+	if (EOK != j_rm(ctl->hosts)) {
 		DE("Can't remove JSON object\n");
 	}
 	ctl->hosts = j_new();
@@ -957,7 +963,6 @@ end:
 			perror("Can't join thread");
 			abort();
 		}
-
 	}
 	D("Exit\n");
 	ctl->status = ST_STOPPED;
@@ -985,13 +990,14 @@ static void mp_main_signal_handler(int sig)
 	}
 
 	ctl = ctl_get();
+	DD("Found signal: %d, setting stop\n", sig);
 	ctl->status = ST_STOP;
 	while (ST_STOPPED != ctl->status) {
-		int rc = usleep(200);
+		DD("Waiting all threads to finish\n");
+		int rc = mp_os_usleep(200);
 		if (0 != rc) {
 			DE("usleep returned error\n");
 			perror("usleep returned error");
-			abort();
 		}
 	}
 	_exit(0);
@@ -1125,12 +1131,13 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 		abort();
 	}
 
-	while (ctl->status != ST_STOP) {
-		rc = usleep(300);
+	while (ctl->status != ST_STOPPED) {
+		//DD("Before sleep 300 millisec\n");
+		rc = mp_os_usleep(300);
+		//DD("After sleep 300 millisec\n");
 		if (0 != rc) {
 			DE("usleep returned error\n");
 			perror("usleep returned error");
-			abort();
 		}
 	}
 
