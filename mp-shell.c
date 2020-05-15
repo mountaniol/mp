@@ -36,7 +36,10 @@ int ft_set_default_border_style(const struct ft_border_style *style);
 #define BUFFER_LENGTH    250
 #define FALSE              0
 
-int status = 0;
+#define IN_STATUS_WORKING (0)
+#define IN_STATUS_FINISHED (1)
+#define IN_STATUS_FAILED (2)
+int status = IN_STATUS_WORKING;
 int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
@@ -48,14 +51,18 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_FAIL)) {
 		printf("- The operation failed\n");
-		status = 2;
+		status = IN_STATUS_FAILED;
 	}
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_SUCCESS)) {
 		printf("+ The operation finished\n");
-		status = 1;
+		status = IN_STATUS_FINISHED;
 	}
 
+	/* On every received message waiting_counter reset to 0*/
+	/* We use it in mp_shell_wait_and_print_tickets(): */
+	/* Max time of ticket respomce waiting is 10 seconds. */
+	/* If no a new ticked during 10 seconds, it will terminate, see the function */
 	waiting_counter = 0;
 
 	return (EOK);
@@ -290,6 +297,26 @@ static int mp_shell_watch_ticket(const char *ticket){
 }
 #endif
 
+static err_t mp_shell_wait_and_print_tickets(void)
+{
+	waiting_counter = 0;
+	status = IN_STATUS_WORKING;
+
+	while (IN_STATUS_WORKING == status && waiting_counter < 10) {
+		int slept;
+		waiting_counter++;
+		slept = sleep(1);
+		if (0 != slept) {
+			slept = sleep(1);
+		}
+	}
+
+	if (IN_STATUS_FAILED == status) {
+		return (EBAD);
+	}
+	return (EOK);
+}
+
 static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
 {
 	err_t rc = EBAD;
@@ -344,19 +371,7 @@ static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
 	root = j_new();
 	TESTP(root, EBAD);
 
-	while (0 == status && waiting_counter < 10) {
-		int slept;
-		waiting_counter++;
-		slept = sleep(1);
-		if (0 != slept) {
-			slept = sleep(1);
-		}
-	}
-
-	if (2 == status) {
-		return (EBAD);
-	}
-	rc = EOK;
+	rc = mp_shell_wait_and_print_tickets();
 
 	/* Now receive tickets until requiest not done */
 err:
@@ -422,20 +437,7 @@ static err_t mp_shell_ask_closeport(/*@keep@*/json_t *args)
 		rc = EOK;
 	}
 
-	while (0 == status && waiting_counter < 10) {
-		int slept;
-		waiting_counter++;
-		slept = sleep(1);
-		/* If sleep was interrupted - try again */
-		if (0 != slept) {
-			slept = sleep(1);
-		}
-	}
-
-	if (2 == status) {
-		return (EBAD);
-	}
-
+	rc = mp_shell_wait_and_print_tickets();
 err:
 	if (root) {
 		rc = j_rm(root);
