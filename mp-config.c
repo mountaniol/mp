@@ -74,7 +74,9 @@ static char *mp_config_get_config_name(void)
 
 	/* It must print len + slash */
 	if (-1 == rc || (size_t)rc != (len + 2)) {
+		/*@ignore@*/
 		DE("Wrong file name len : rc = %d, expected %zu\n", rc, len + 2);
+		/*@end@*/
 	}
 	return (filename);
 }
@@ -118,7 +120,9 @@ static json_t *mp_config_read(void)
 
 	rc = (int)fread(buf, 1, (size_t)statbuf.st_size, fd);
 	if (rc != statbuf.st_size) {
+		/*@ignore@*/
 		DE("can't read config file: expected %zu, read %d\n", statbuf.st_size, rc);
+		/*@end@*/
 		goto err;
 	}
 

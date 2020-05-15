@@ -88,7 +88,9 @@ err_t buf_free_force(/*@only@*/buf_t *buf)
 err_t buf_add(buf_t *b, const char *buf, const size_t size)
 {
 	if (NULL == b || NULL == buf || size < 1) {
+		/*@ignore@*/
 		DE("Wrong params: b = %p, buf = %p, size = %zu\n", b, buf, size);
+		/*@end@*/
 		return (EBAD);
 	}
 

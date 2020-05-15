@@ -515,7 +515,9 @@ end:
 	topic = j_find_ref(root, JK_TOPIC);
 	if (NULL == topic) {
 		DE("No topic in input JSON object\n");
-		j_rm(root);
+		if(EOK != j_rm(root)) {
+			DE("Can't remove JSON object\n");
+		}
 	}
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
@@ -901,11 +903,17 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	}
 
 	rc = mosquitto_loop_stop(ctl->mosq, true);
+	if (MOSQ_ERR_SUCCESS != rc) {
+		DE("Can't stop mosquitto loop\n");
+		abort();
+	}
 	ctl_lock();
 	mosquitto_destroy(ctl->mosq);
 	ctl->mosq = NULL;
 
-	rc = j_rm(ctl->hosts);
+	if(EOK != j_rm(ctl->hosts)) {
+		DE("Can't remove JSON object\n");
+	}
 	ctl->hosts = j_new();
 	ctl_unlock();
 
@@ -997,7 +1005,7 @@ static void mp_main_signal_handler(int sig)
    we dump these values to config.*/
 static err_t mp_main_complete_me_init(void)
 {
-	err_t rc = EBAD;
+	err_t rc;
 	/*@temp@*/char *var = NULL;
 	/*@temp@*/const control_t *ctl = ctl_get();
 

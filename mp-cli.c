@@ -3,6 +3,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 /*@=skipposixheaders@*/
+
 #include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-memory.h"
@@ -83,13 +84,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 /*@null@*/ static json_t *mp_cli_get_received_tickets_l(/*@temp@*/json_t *root)
 {
 	int rc = -1;
-	/*@shared@*/control_t *ctl;
+	/*@temp@*/control_t *ctl;
 	json_t *arr = NULL;
 	json_t *val = NULL;
 	size_t index = 0;
 	/*@only@*/ const char *ticket = NULL;
 	DDD("Starting\n");
-	//int rc;
 
 	ticket = j_find_ref(root, JK_TICKET);
 	TESTP(ticket, NULL);
@@ -326,6 +326,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		return (mp_cli_send_ticket_req(root));
 	}
+
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
 		return (mp_cli_get_received_tickets_l(root));

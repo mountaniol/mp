@@ -84,7 +84,6 @@ err_t mp_communicate_clean_missed_counters(void)
 	/*@shared@*/void *tmp;
 	/*@shared@*/const char *key;
 	/*@shared@*/json_t *val;
-	int rc;
 
 	ctl = ctl_get_locked();
 	if (j_count(ctl->buf_missed) < 1) {
@@ -96,6 +95,7 @@ err_t mp_communicate_clean_missed_counters(void)
 	json_object_foreach_safe(ctl->buf_missed, tmp, key, val) {
 		buf_t *buf;
 		size_t ret;
+		err_t rc;
 
 		ret = j_find_int(ctl->buffers, key);
 		if (0XDEADBEEF == ret) {
@@ -466,7 +466,9 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 	DDD("Going to send request\n");
 	rc = mp_communicate_send_json(forum_topic, resp);
 	free(forum_topic);
-	rc = j_rm(resp);
+	if(EOK != j_rm(resp)){
+		DE("Can't remove JSON object\n");
+	}
 	TESTI_MES(rc, EBAD, "Can't remove json object");
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);

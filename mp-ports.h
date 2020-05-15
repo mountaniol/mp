@@ -11,7 +11,6 @@ typedef struct port_map_struct {
 	char *protocol;
 } port_map_t;
 
-//extern int mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */);
 extern err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol);
 extern err_t test_if_port_mapped(int internal_port);
 extern /*@null@*/ char *mp_ports_get_external_ip(void);

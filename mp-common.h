@@ -11,18 +11,12 @@ typedef enum {
 	ENOPOINTER = 0XDEADBEEF,
 } err_t;
 
-#if 0
-	#define EBAD (-1)	/* Error status */
-	#define EOK (0)		/* Success status */
-	#define EAGN (1)	/* "Try again" status */
-#endif
-
 /* Testing macros. Part 1: Test and Return */
 /* Test pointer for NULL. If NULL, print "mes" and return "ret" */
 #define TESTP_MES(x, ret, mes) do {if(NULL == x) { DE("%s\n", mes); return ret; } } while(0)
 
 /* Shorter form of the tester: print message "Pointer x is NULL", x replaced with argument x name */
-#define /*@*/ TESTP(x, ret) do {if(NULL == x) { DDE("Pointer %s is NULL\n", #x); return ret; }} while(0)
+#define TESTP(x, ret) do {if(NULL == x) { DDE("Pointer %s is NULL\n", #x); return ret; }} while(0)
 
 /* Test if x == 0 . If x != 0, print "mes" and return "ret" */
 #define TESTI_MES(x, ret, mes) do {if(0 != x) { DE("%s\n", mes); return ret; } } while(0)
