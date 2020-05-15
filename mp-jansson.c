@@ -264,7 +264,6 @@ err_t j_test(const json_t *root, const char *type_name, const char *expected_val
 	return (EOK);
 }
 
-
 err_t j_test_key(const json_t *root, const char *key)
 {
 	json_t *j_string = NULL;

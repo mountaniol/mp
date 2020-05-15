@@ -370,6 +370,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		int fd2 = -1;
 		char *buf = NULL;
 		buf_t *buft = NULL;
+		//buf_t *buf = NULL;
+		ssize_t received = 0;
+		size_t allocated = 0;
+		
 		//size_t len = CLI_BUF_LEN;
 		json_t *root = NULL;
 		json_t *root_resp = NULL;
@@ -400,15 +404,38 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		/* Receive buffer from cli */
+#if 0
 		rc = recv(fd2, buf, CLI_BUF_LEN, 0);
 		if (rc < 0) {
 			DE("recv failed\n");
 			free(buf);
 			break;
 		}
+#else
+		do {
+			/* If we almost filled the buffer, we add memory */
+			if ((size_t)received == allocated - 1) {
+				/*@only@*/char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
+
+				/* realloc can return new buffer. In this case the old one should be freed */
+				if (tmp != buf) {
+					free(buf);
+					buf = tmp;
+				}
+				/* If realloc succeeded we increase 'allocated' counter */
+				if (NULL != tmp) {
+					allocated += CLI_BUF_LEN;
+				}
+			}
+
+			/* Receive buffer from cli */
+			rc = recv(fd2, buf + rc, allocated - received, 0);
+			received += rc;
+		} while (rc > 0);
+#endif
 
 		/* Add 0 terminator, else json decoding will fail */
-		*(buf + rc) = '\0';
+		*(buf + received) = '\0';
 		root = j_str2j(buf);
 		free(buf);
 		if (NULL == root) {

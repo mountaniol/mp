@@ -898,7 +898,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 				DD("I am in stopping mode\n");
 				break;
 			}
-			/* Random time sleep to spread server loading */
+			/* Random time sleep to randomize message sending and spread the server loading */
 			rc = mp_os_usleep((__useconds_t)mp_os_random_in_range(100, 500));
 			if (0 != rc) {
 				DE("usleep returned error\n");
