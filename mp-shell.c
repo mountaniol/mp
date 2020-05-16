@@ -199,7 +199,7 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	DDD("Connected\n");
 
 	// memset(buf, '0', CLI_BUF_LEN);
-	rc = send(sd, buf->data, buf->size, 0);
+	rc = send(sd, buf->data, buf->len, 0);
 	if (rc < 0) {
 		DE("Failed\n");
 		perror("send() failed");

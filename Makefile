@@ -14,7 +14,7 @@ DEBUG += -DDERROR3
 #DEBUG=-DDEBUG3
 
 # client daemon
-MOSQ_T=mclient
+MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o buf_t.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
 		mp-requests.o mp-communicate.o mp-os.o mp-ssh.o
@@ -24,7 +24,7 @@ MOSQ_C=mp-main.c mp-jansson.c buf_t.c mp-config.c\
 		mp-requests.c
 # client cli
 CLI_O=mp-shell.o mp-jansson.o mp-memory.o buf_t.o mp-ctl.o mp-os.o libfort.a
-CLI_T=mcl
+CLI_T=mp
 
 # Port mapper, standalone compilation
 U_T=portmapper

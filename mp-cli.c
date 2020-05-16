@@ -53,7 +53,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	buf = j_2buf(root);
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
-	rc = send(sd, buf->data, buf->size, 0);
+	rc = send(sd, buf->data, buf->len, 0);
 	if (EOK != buf_free_force(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
@@ -299,7 +299,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		return (NULL);
 	}
 
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_DISCONNECT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_DISCONNECTED)) {
 		return (NULL);
 	}
 
@@ -335,19 +335,18 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (NULL);
 }
 
-/* This thread accepts connection from CLI or from GUI client
+/* This thread accepts connection from shell or from GUI client
    Only one client a time */
 /*@null@*/ void *mp_cli_thread(/*@temp@*/void *arg __attribute__((unused)))
 {
-	/* TODO: move it to common header */
-	int fd = -1;
+	int fd_socket = -1;
 	struct sockaddr_un cli_addr;
 	ssize_t rc = -1;
 
 	DDD("CLI thread started\n");
 
-	fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (fd < 0) {
+	fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd_socket < 0) {
 		DE("Can't open CLI socket\n");
 		return (NULL);
 	}
@@ -356,88 +355,77 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_SRV);
 	rc = unlink(CLI_SOCKET_PATH_SRV);
+
+	/* Ignore -1 status of unlink: it happens if no such file which is valid situation */
 	if ((0 != rc) && (-1 != rc)) {
 		DE("Can't remove the file %s\n", CLI_SOCKET_PATH_SRV);
 	}
 
-	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
+	rc = (ssize_t)bind(fd_socket, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
 		DE("bind failed\n");
 		return (NULL);
 	}
 
+	/* Now listen (blocking) -> accept -> receive a buffer -> process -> return responce -> repeat */
 	do {
-		int fd2 = -1;
-		char *buf = NULL;
-		buf_t *buft = NULL;
-		//buf_t *buf = NULL;
-		ssize_t received = 0;
-		size_t allocated = 0;
-		
-		//size_t len = CLI_BUF_LEN;
-		json_t *root = NULL;
-		json_t *root_resp = NULL;
+		fd_set sready;
+		struct timeval nowait;
 
-		/* Listen for incoming connection */
-		rc = (ssize_t)listen(fd, 2);
+		int fd_connection = -1;
+		/*@only@*/buf_t *buft = NULL;
+
+		/*@only@*/json_t *root = NULL;
+		/*@only@*/json_t *root_resp = NULL;
+
+		/* Listen for incoming connection (blocking) */
+		rc = (ssize_t)listen(fd_socket, 2);
 		if (rc < 0) {
 			DE("listen failed\n");
 			break;
 		}
 
+		/* TODO: Move it to a thread? */
+
 		/* Connection is here, accept */
-		fd2 = accept(fd, NULL, NULL);
-		if (fd2 < 0) {
+		fd_connection = accept(fd_socket, NULL, NULL);
+		if (fd_connection < 0) {
 			DE("accept() failed\n");
 			break;
 		}
 
-		/* Allocate buffer for reading */
-		buf = zmalloc(CLI_BUF_LEN);
-		TESTP_MES(buf, NULL, "Can't allocate buf");
-
-		rc = (ssize_t)setsockopt(fd2, SOL_SOCKET, SO_RCVLOWAT, buf, CLI_BUF_LEN);
-		if (rc < 0) {
-			DE("setsockopt(SO_RCVLOWAT) failed\n");
-			free(buf);
-			break;
+		/* Allocate new buffer */
+		buft = buf_new(NULL, CLI_BUF_LEN);
+		if (NULL == buft) {
+			DE("Can't allocate buf_t\n");
+			abort();
 		}
 
-		/* Receive buffer from cli */
-#if 0
-		rc = recv(fd2, buf, CLI_BUF_LEN, 0);
-		if (rc < 0) {
-			DE("recv failed\n");
-			free(buf);
-			break;
-		}
-#else
-		do {
+		/* Create select set */
+		FD_ZERO(&sready);
+		FD_SET(fd_connection, &sready);
+		memset((char *)&nowait, 0, sizeof(nowait));
+
+		/* Receive the first buffer */
+		rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
+		buft->len += rc;
+
+		/* if there is more to receive, do it: select() returns > 0 until there is data to read  */
+		while (select(fd_connection + 1, &sready, NULL, NULL, &nowait) > 0) {
 			/* If we almost filled the buffer, we add memory */
-			if ((size_t)received == allocated - 1) {
-				/*@only@*/char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
-
-				/* realloc can return new buffer. In this case the old one should be freed */
-				if (tmp != buf) {
-					free(buf);
-					buf = tmp;
-				}
-				/* If realloc succeeded we increase 'allocated' counter */
-				if (NULL != tmp) {
-					allocated += CLI_BUF_LEN;
-				}
+			if (buf_get_room(buft) < 1) {
+				buf_add_room(buft, CLI_BUF_LEN);
 			}
-
 			/* Receive buffer from cli */
-			rc = recv(fd2, buf + rc, allocated - received, 0);
-			received += rc;
-		} while (rc > 0);
-#endif
+			rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
+			buft->len += rc;
+		}
 
-		/* Add 0 terminator, else json decoding will fail */
-		*(buf + received) = '\0';
-		root = j_str2j(buf);
-		free(buf);
+		/* Convert the buffer to JSON object */
+		root = j_buf2j(buft);
+		buf_free_force(buft);
+		buft = NULL;
+
 		if (NULL == root) {
 			DE("Can't decode buf to JSON object\n");
 			break;
@@ -446,7 +434,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		/* Now let's parse the command and receive from the parser an answer */
 		root_resp = mp_cli_parse_command(root);
 
-		/* That's it, we don't need request objext any more */
+		/* That's it, we don't need request object anymore */
 		rc = j_rm(root);
 		TESTI_MES(rc, NULL, "Can't remove json object");
 
@@ -466,19 +454,14 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		/* Send the encoded JSON to cli */
-		rc = send(fd2, buft->data, buft->size, 0);
-		if (rc != (ssize_t)buft->size) {
+		rc = send(fd_connection, buft->data, buft->len, 0);
+		if (rc != (ssize_t)buft->len) {
 			DE("send() failed");
-			if (EOK != buf_free_force(buft)) {
-				DE("Can't remove buf_t: probably passed NULL pointer?\n");
-			}
-			break;
 		}
 
-		/* Free the buffer */
-		if (EOK != buf_free_force(buft)) {
-			DE("Can't remove buf_t: probably passed NULL pointer?\n");
-		}
+		/* Release the buffer */
+		buf_free_force(buft);
+
 	} while (1);
 
 	return (NULL);

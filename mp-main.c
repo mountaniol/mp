@@ -280,7 +280,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 	TESTP(root, EBAD);
 	TESTP_GO(uid, end);
-	//TESTP(mosq, EBAD);
 
 	if (EOK != j_test_key(root, JK_TYPE)) {
 		DE("No type in the message\n");
@@ -290,6 +289,12 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 	}
 
 	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
+
+	/** 
+	 *   1. Remote host sent 'keepalive'.
+	 *    'keepalive' it is client's ctl->me structure.
+	 *  
+	 ***/
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
@@ -306,13 +311,11 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		return (rc);
 	}
 
-	/*** Message "reveal" ***/
-	/*
-	 * "reveal" is a message that every client sends after connect. 
-	 * All other clients respond with "keepalive" 
-	 * This way the new client build a list of all other clients 
-	 * This if a broadcast message, everyone receive it  
-	 */
+	/** 
+	 *  2. Remote host sent 'reveal' request.
+	 *     We reply with our ctl->me structure.
+	 *  
+	 ***/
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_REVEAL)) {
 		rc = send_keepalive_l();
@@ -324,21 +327,27 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		goto end;
 	}
 
-	/*** Message "disconnect" ***/
-	/*
-	 * Message "disconect" sent by broker. 
-	 * This is the "last will" message. 
-	 * By this message we remove the client with an uid from our lists. 
-	 */
+	/** 
+	 *	3. Remote host sent 'disconnect' request.
+	 *      It means the remote client disconnected.
+	 *  	We should remove its record from ctl->hosts
+	 *  
+	 ***/
 
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_DISCONNECT)) {
+	if (EOK == j_test(root, JK_TYPE, JV_TYPE_DISCONNECTED)) {
 		DD("Found disconnected client\n");
 		rc = mp_main_remove_host_l(root);
 		goto end;
 	}
 
 
-	/** All mesages except above should be dedicated to us ***/
+	/** 
+	 *  All requests except above must be be dedicated to us.
+	 *  From this point we accept only messages for us.
+	 *  
+	 ***/
+
+
 	if (EOK != j_test(root, JK_UID_DST, ctl_uid_get())) {
 		rc = 0;
 		DDD("This request not for us: JK_UID_DST = %s, us = %s\n",
@@ -346,11 +355,11 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		goto end;
 	}
 
-	/*
-	 * Message "openport" sent remote client. 
-	 * The remote client wants to connect to this machine.
-	 * We open a port and notify the remote machine about it
-	 */
+	/** 
+	 * 4. Request "openport" from remote client. The remote client 
+	 *    wants us to close UPNP port.
+	 *  
+	 **/
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
 
@@ -386,6 +395,12 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
 	}
+
+	/** 
+     * 5. Request "closeport" from remote client. The remote client 
+	 *    wants us to close UPNP port
+     *  
+     **/
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		DD("Got 'closeport' request\n");
@@ -441,8 +456,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 				if (EOK != rrc) {
 					DE("Can't send ticket\n");
 				}
-
-
 			}
 		}
 
@@ -465,7 +478,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 	/* We received a ticket responce. We should keep it localy until shell client grab it */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
 		DD("Got 'JV_TYPE_TICKET_RESP' request\n");
-		//mp_main_save_tickets(root);
 		rc = mp_cli_send_to_cli(root);
 		goto end;
 	}
@@ -799,7 +811,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
-	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->size, buf->data, 1, false);
+	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->len, buf->data, 1, false);
 	if (EOK != buf_free_force(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}

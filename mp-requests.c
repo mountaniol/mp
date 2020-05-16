@@ -47,7 +47,7 @@ err:
 	json_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
 
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECT)) goto err;
+	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECTED)) goto err;
 	/* SEB: TODO: Whay exactly do I send the machine name to remote? */
 	if (EOK != j_add_str(root, JK_NAME, name)) goto err;
 	if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;

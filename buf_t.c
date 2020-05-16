@@ -13,21 +13,26 @@
 		return (NULL);
 	}
 
-	buf->data = data;
-	buf->size = size;
+	if (NULL != data) {
+		buf->data = data;
+	} else {
+		buf->data = zmalloc(size);
+		TESTP_ASSERT(buf->data, "Can't allocate buf->data");
+	}
+	buf->room = size;
 	buf->len = 0;
 
 	return (buf);
 }
 
-err_t buf_room(/*@temp@*/buf_t *buf, size_t size)
+err_t buf_add_room(/*@temp@*/buf_t *buf, size_t size)
 {
 	void *tmp;
 	if (NULL == buf || 0 == size) {
 		return (EBAD);
 	}
 
-	tmp = realloc(buf->data, buf->size + size);
+	tmp = realloc(buf->data, buf->room + size);
 
 	/* Case 1: realloc can't reallocate */
 	if (NULL == tmp) {
@@ -42,28 +47,39 @@ err_t buf_room(/*@temp@*/buf_t *buf, size_t size)
 	}
 
 	/* Clean newely allocated memory */
-	memset(buf->data + buf->size, 0, size);
+	memset(buf->data + buf->room, 0, size);
 
 	/* Case 3: realloc succidded, the same pointer - we do nothing */
 	/* <Beeep> */
 
-	buf->size += size;
+	buf->room += size;
 	return (EOK);
 }
 
-err_t buf_test_room(/*@temp@*/buf_t *buf, size_t expect)
+err_t buf_test_room(buf_t *buf, size_t expect)
 {
 	if (NULL == buf) {
 		DE("Got NULL\n");
 		return (EBAD);
 	}
 
-	if (buf->len + expect <= buf->size) {
+	if (buf->len + expect <= buf->room) {
 		return (EOK);
 	}
 
-	return (buf_room(buf, expect));
+	return (buf_add_room(buf, expect));
 }
+
+int buf_get_room(buf_t *buf)
+{
+	if (NULL == buf) {
+		DE("Got NULL\n");
+		return (EBAD);
+	}
+
+	return ((buf->room) - buf->len);
+}
+
 
 err_t buf_free(buf_t *buf)
 {
@@ -72,6 +88,18 @@ err_t buf_free(buf_t *buf)
 	}
 
 	free(buf);
+	return (EOK);
+}
+
+err_t buf_free_room(buf_t *buf)
+{
+	if (NULL != buf->data) {
+		return (EBAD);
+	}
+
+	free(buf->data);
+	buf->data = NULL;
+	buf->len = buf->room = 0;
 	return (EOK);
 }
 

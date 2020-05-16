@@ -115,7 +115,7 @@
 #define JV_TYPE_ME "me"
 #define JV_TYPE_MY_PORTS "myports"
 #define JV_TYPE_CONNECT "connect"
-#define JV_TYPE_DISCONNECT "disconnect"
+#define JV_TYPE_DISCONNECTED "disconnected"
 #define JV_TYPE_REVEAL "reveal"
 #define JV_TYPE_SSH "ssh"
 #define JV_TYPE_SSH_DONE "ssh-done"

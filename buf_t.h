@@ -6,9 +6,10 @@
 
 /* Simple struct to hold a buffer / string and its size / lenght */
 struct buf_t_struct {
-	char *data;		/* Pointer to data */
-	size_t size;	/* Allocated size */
-	size_t len;		/* Used size */
+	size_t room;    /* Allocated size */
+	size_t len;     /* Used size */
+	int tp; /* Buffer type. Optional.*/
+	char *data;     /* Pointer to data */
 };
 
 typedef struct buf_t_struct buf_t;
@@ -25,7 +26,7 @@ typedef struct buf_t_struct buf_t;
  * 
  * @return buf_t* 
  */
-extern /*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size);
+extern /*@null@*/ buf_t *buf_new(/*@temp@*/char *data, size_t size);
 
 /**
  * 
@@ -42,6 +43,16 @@ extern /*@null@*/ buf_t *buf_new(/*@temp@*/ char *data, size_t size);
 extern err_t buf_free(buf_t *buf);
 
 /**
+ * @brief Remove data from buffer
+ * @func err_t buf_free_room(buf_t *buf)
+ * @author se (16/05/2020)
+ * 
+ * @param buf buf to remove data in
+ * 
+ * @return err_t EOK if all right, EBAD on error
+ */
+extern err_t buf_free_room(buf_t *buf);
+/**
  * 
  * @func int buf_room(buf_t *buf, size_t size)
  * @brief Allocate additional 'size' in the tail of buf_t; 
@@ -55,7 +66,7 @@ extern err_t buf_free(buf_t *buf);
  * 
  * @return int 
  */
-extern err_t buf_room(/*@temp@*/buf_t *buf, size_t size);
+extern err_t buf_add_room(/*@temp@*/buf_t *buf, size_t size);
 
 /**
  * 
@@ -72,6 +83,16 @@ extern err_t buf_room(/*@temp@*/buf_t *buf, size_t size);
  */
 extern err_t buf_test_room(buf_t *buf, size_t expect);
 
+/**
+ * @brief Return available room in the buffer
+ * @func int buf_get_room(buf_t *buf)
+ * @author se (16/05/2020)
+ * 
+ * @param buf Buffer to test
+ * 
+ * @return int Available room in the buffer
+ */
+int buf_get_room(buf_t *buf);
 /**
  * 
  * @func int buf_t_free_force(buf_t *buf)

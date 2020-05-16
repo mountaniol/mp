@@ -190,13 +190,13 @@ err_t mp_config_save()
 	}
 
 	buf = j_2buf(ctl->config);
-	if (NULL == buf || 0 == buf->size) {
+	if (NULL == buf || 0 == buf->len) {
 		DE("Can't encode config file\n");
 		rc = -1;
 		goto err;
 	}
 
-	written = fwrite(buf->data, 1, buf->size, fd);
+	written = fwrite(buf->data, 1, buf->len, fd);
 	rc = fclose(fd);
 	if (0 != rc) {
 		DE("Can't close file\n");
@@ -204,7 +204,7 @@ err_t mp_config_save()
 	}
 	fd = NULL;
 
-	if (written != buf->size) {
+	if (written != buf->len) {
 		rc = EBAD;
 		goto err;
 	}

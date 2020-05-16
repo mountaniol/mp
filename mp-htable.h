@@ -21,11 +21,11 @@ typedef struct htable_struct {
 } htable_t;
 
 /* accepts: trable_t, hash */
-#define HTABLE_SLOT(htbl, hsh) (hsh % (htbl->size))
+#define HTABLE_SLOT(htbl, hsh) (hsh % (htbl->len))
 
 // #define htab_each(htable_t *htab, int index, hnode_t *node)
 #define htable_each(htab, index, hnode) \
-	for (i = 0, hnode = htab->nodes[i] ; i < htab->size; i++) \
+	for (i = 0, hnode = htab->nodes[i] ; i < htab->room; i++) \
 		for (hnode = htab->nodes[i]; hnode != NULL ; hnode = hnode->next)
 
 #define htable_each_sorted(htab, index, hnode) \
