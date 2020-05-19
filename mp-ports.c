@@ -13,6 +13,7 @@
 #include "mp-dict.h"
 #include "mp-main.h"
 #include "mp-ctl.h"
+#include "mp-os.h"
 
 /* The miniupnpc library API changed in version 14.
    After API version 14 it accepts additional param "ttl" */
@@ -103,7 +104,7 @@ err:
 			&error)); // error condition
 }
 
-int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
+static int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
 										struct IGDdatas *upnp_data,
 										upnp_req_str_t *req)
 {
@@ -153,7 +154,6 @@ int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
 err_t mp_ports_router_root_discover(void)
 {
 	struct UPNPDev *upnp_dev = NULL;
-	char *lan_address = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 	int status = -1;
@@ -166,19 +166,14 @@ err_t mp_ports_router_root_discover(void)
 	upnp_dev = mp_ports_upnp_discover();
 	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
 
-	lan_address = zmalloc(IP_STR_LEN);
-	if (NULL == lan_address) {
-		freeUPNPDevlist(upnp_dev);
-		return (EBAD);
-	}
-
-	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, IP_STR_LEN);
+	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, NULL, 0);
 	freeUPNPDevlist(upnp_dev);
 	if (1 != status) {
 		return (EBAD);
 	}
 
 	ctl->rootdescurl = strdup(upnp_urls.rootdescURL);
+	FreeUPNPUrls(&upnp_urls);
 	return (EOK);
 }
 
@@ -186,34 +181,29 @@ err_t mp_ports_router_root_discover(void)
    to "internal_port" on this machine */
 static err_t mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
-	size_t index = 0;
 	int error = 0;
-	struct UPNPDev *upnp_dev = NULL;
 	char *lan_address = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 	char s_ext[PORT_STR_LEN];
 	char s_int[PORT_STR_LEN];
 	int status = -1;
-	upnp_req_str_t *req = NULL;
+
+	control_t *ctl = ctl_get();
 
 	TESTP(protocol, EBAD);
 
-	upnp_dev = mp_ports_upnp_discover();
-	TESTP_MES(upnp_dev, -1, "UPNP discover failed\n");
-
 	lan_address = zmalloc(IP_STR_LEN);
-	if (NULL == lan_address) {
-		freeUPNPDevlist(upnp_dev);
-		return (EBAD);
-	}
+	TESTP(lan_address, EBAD);
 
-	status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, IP_STR_LEN);
-	freeUPNPDevlist(upnp_dev);
+	status = UPNP_GetIGDFromUrl(ctl->rootdescurl, &upnp_urls, &upnp_data, lan_address, IP_STR_LEN);
 
 	if (1 != status) {
 		DE("UPNP_GetValidIGD failed\n");
 		return (EBAD);
+	} else {
+		DD("UPNP_GetIGDFromUrl returned %d\n", status);
+		DD("ctl->rootdescurl is %s\n", ctl->rootdescurl);
 	}
 
 	memset(s_ext, 0, PORT_STR_LEN);
@@ -223,18 +213,13 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 		DE("Can't transfortm external port from integer to string\n");
 		return (EBAD);
 	}
+
 	status = snprintf(s_int, PORT_STR_LEN, "%d", internal_port);
 	if (status < 0) {
 		DE("Can't transfortm internal port from integer to string\n");
 		return (EBAD);
 	}
-	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, NULL);
-	if (0 != status) {
-		DE("UPNP_GetExternalIPAddress failed\n");
-		return (EBAD);
-	}
 
-	// add a new TCP port mapping from WAN port 12345 to local host port 24680
 	error = UPNP_AddPortMapping(
 			upnp_urls.controlURL,
 			upnp_data.first.servicetype,
@@ -246,114 +231,49 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 			NULL, // remote (peer) host address or nullptr for no restriction
 			"0"); // port map lease duration (in seconds) or zero for "as long as possible"
 
-	if (0 != error) {
-		DE("Can't map port %d -> %d\n", external_port, internal_port);
-		TFREE(lan_address);
-		FreeUPNPUrls(&upnp_urls);
-		return (EBAD);
-	}
-	// list all port mappings
-	index = 0;
-	req = upnp_req_str_t_alloc();
-	TESTP_MES(req, -1, "Can't alloc upnp_req_str_t");
-
-	while (1) {
-		int l_ext_port;
-		int l_int_port;
-
-		/*@unused@*/
-		snprintf(req->s_index, PORT_STR_LEN, "%zu", index);
-		/*@end@*/
-
-		error = upnp_get_generic_port_mapping_entry(&upnp_urls, &upnp_data, req);
-
-		if (EOK != error) {
-			upnp_req_str_t_free(req);
-			FreeUPNPUrls(&upnp_urls);
-			TFREE(lan_address);
-			return (EOK);
-		}
-
-		index++;
-
-		l_ext_port = atoi(req->map_wan_port);
-		l_int_port = atoi(req->map_lan_port);
-
-		if (l_ext_port == external_port && l_int_port == internal_port) {
-			DDD("Asked mapping done\n");
-		}
-	}
-
-	upnp_req_str_t_free(req);
-	FreeUPNPUrls(&upnp_urls);
 	TFREE(lan_address);
-	return (EBAD);
+	FreeUPNPUrls(&upnp_urls);
+
+	if (0 != error) return (EBAD);
+
+	return (EOK);
 }
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
 /*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/const json_t *req, /*@temp@*/const char *internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
-	struct UPNPUrls upnp_urls;
-	struct IGDdatas upnp_data;
-	char wan_address[IP_STR_LEN];
-	char s_ext[PORT_STR_LEN];
-	char reservedPort[PORT_STR_LEN];
-	int status = -1;
-	int i_port = 0;
+	char *reservedPort = NULL;
+	//char reservedPort[PORT_STR_LEN];
 	int i = 0;
 	json_t *resp = NULL;
 	int rc;
-	control_t *ctl = ctl_get();
-
-	TESTP_MES(internal_port, NULL, "Got NULL\n");
-	TESTP_MES(protocol, NULL, "Got NULL\n");
-
-	if (EOK != mp_ports_router_root_discover()) {
-		DE("Can't discover router\n");
-		abort();
-	}
-
-	status = UPNP_GetIGDFromUrl(ctl->rootdescurl, &upnp_urls, &upnp_data, NULL, 0);
-	rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Contacted UPNP device");
-
-	if (1 != status) {
-		DE("UPNP_GetValidIGD failed\n");
-		return (NULL);
-	}
-
-	memset(s_ext, 0, PORT_STR_LEN);
-	memset(reservedPort, 0, PORT_STR_LEN);
-	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
-	if (0 != status) {
-		DE("UPNP_GetExternalIPAddress returned error\n");
-		FreeUPNPUrls(&upnp_urls);
-		return (NULL);
-	}
-
-	rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Got IP of UPNP device");
 
 	for (i = 0; i < 3; i++) {
-		int error;
-
-		while (i_port <= 1024 || i_port >= 65535) {
-			i_port = rand();
-		}
+		int i_port = mp_os_random_in_range(1024, 65535);
 
 		rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
-		error = mp_ports_remap_port(i_port, atoi(internal_port), protocol);
+		rc = mp_ports_remap_port(i_port, atoi(internal_port), protocol);
 
-		if (0 == error) {
+		if (EOK == rc) {
+			reservedPort = zmalloc(PORT_STR_LEN);
+			TESTP(reservedPort, NULL);
 			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", i_port);
 			if (rc < 0) {
 				DE("Can't transform port from integer to string\n");
+				TFREE(reservedPort);
 				return (NULL);
 			}
 			DD("Mapped port: %s -> %s\n", reservedPort, internal_port);
+			rc = EOK;
 			break;
 		}
 	}
 
+	if (EOK != rc) {
+		DE("Failed to map port\n");
+		return (NULL);
+	}
 	/* If there was an error we try to generate some random port and map it */
 	resp = j_new();
 	TESTP(resp, NULL);
@@ -363,21 +283,9 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, internal_port");
 	rc = j_add_str(resp, JK_PROTOCOL, protocol);
 	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
-	FreeUPNPUrls(&upnp_urls);
+	TFREE(reservedPort);
 	return (resp);
 }
-
-#if 0 /* SEB 28/04/2020 16:46  */
-r = UPNP_AddAnyPortMapping(urls->controlURL, data->first.servicetype,
-						   eport, iport, iaddr, description,
-						   proto, remoteHost, leaseDuration, reservedPort);
-if(r==UPNPCOMMAND_SUCCESS)
-eport = reservedPort;
-else
-printf("AddAnyPortMapping(%s, %s, %s) failed with code %d (%s)\n",
-	   eport, iport, iaddr, r, strupnperror(r));
-
-#endif /* SEB 28/04/2020 16:46 */
 
 err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
@@ -693,21 +601,21 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 					if (NULL == root) {
 						DE("Can't get root\n");
 						ctl_unlock();
-						return NULL;
+						return (NULL);
 					}
 					/* We need external port */
 					rc = j_cp(port, root, JK_PORT_EXT);
 					if (EOK != rc) {
 						DE("Can't add root, JK_PORT_EXT\n");
 						ctl_unlock();
-						return NULL;
+						return (NULL);
 					}
 					/* And IP */
 					rc = j_cp(host, root, JK_IP_EXT);
 					if (EOK != rc) {
 						DE("Can't add root, JK_IP_EXT\n");
 						ctl_unlock();
-						return NULL;
+						return (NULL);
 					}
 				} /* if */
 			} /* End of json_array_foreach */

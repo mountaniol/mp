@@ -734,11 +734,9 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		DE("Something went wrong when tried to remove stucj counters\n");
 	}
 
-	DD("Going to remove buffer\n");
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
-	DD("Removed buffer\n");
 }
 
 
