@@ -292,6 +292,11 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		ctl_lock();
 		rc = j_replace(ctl->hosts, uid_src, root);
 		ctl_unlock();
+		if (EOK != rc) {
+			DE("Can't replace 'me' message for remote host");
+		} else {
+			j_print(ctl->me, "Added 'me' message");
+		}
 		return (rc);
 	}
 
