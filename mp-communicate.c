@@ -418,7 +418,7 @@ int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const
 }
 #endif /* SEB DEADCODE 14/05/2020 21:33 */
 
-err_t send_request_return_tickets(/*@temp@*/json_t *root)
+err_t send_request_return_tickets_l(/*@temp@*/json_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -439,10 +439,13 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 
 	forum_topic = mp_communicate_forum_topic();
 
+	ctl_lock();
 	if (j_count(ctl->tickets_out) == 1) {
+		ctl_unlock();
 		DD("No tickets to send\n");
 		return (EOK);
 	}
+	ctl_unlock();
 
 	//rc = snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", ctl_user_get(), ctl_uid_get());
 
@@ -452,13 +455,19 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 		return (EBAD);
 	}
 
+	ctl_lock();
 	json_array_foreach(ctl->tickets_out, index, val) {
 		if (EOK == j_test(val, JK_TICKET, ticket)) {
 			rc = j_arr_add(resp, val);
 			/* TODO: Memory leak forum_topic */
-			TESTI_MES(rc, EBAD, "Can't add ticket to responce");
+			if (EBAD == rc) {
+				DE("Can't add ticket to responce\n");
+				ctl_unlock();
+				return (EBAD);
+			}
 		}
 	}
+	ctl_unlock();
 
 	/* Build responce */
 	/* TODO: Memory leak forum_topic */

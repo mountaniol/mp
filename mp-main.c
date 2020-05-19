@@ -90,15 +90,20 @@ end:
 	return (rc);
 }
 
-static err_t mp_main_remove_host_l(const json_t *root)
+//static err_t mp_main_remove_host_l(const json_t *root)
+err_t mp_main_remove_host_l(const json_t *root)
 {
 	/*@temp@*/const control_t *ctl = NULL;
 	/*@temp@*/const char *uid_src = NULL;
 	err_t rc;
 
 	TESTP(root, EBAD);
+
+	DD("Starting\n");
+
 	uid_src = j_find_ref(root, JK_UID_SRC);
 	TESTP_MES(uid_src, EBAD, "Can't extract uid from json\n");
+	DD("uid_src = %s\n", uid_src);
 
 	ctl = ctl_get_locked();
 
@@ -108,13 +113,17 @@ static err_t mp_main_remove_host_l(const json_t *root)
 		return (EBAD);
 	}
 
+	DD("Found UID in hosts\n");
+
 	rc = j_rm_key(ctl->hosts, uid_src);
 	ctl_unlock();
+
 	if (EOK != rc) {
 		DE("Cant remove key from ctl->hosts:\n");
 		DE("UID_SRC = |%s|\n", uid_src);
 		j_print(ctl->hosts, "Hosts in ctl->hosts:");
 	}
+	DD("Removed UID\n");
 	return (EOK);
 }
 
@@ -177,6 +186,7 @@ static err_t mp_main_do_open_port_l(const json_t *root)
 		if (EOK != rc) {
 			DE("Can't add mapping to responce array\n");
 			j_rm(mapping);
+			mapping = NULL;
 			return (EBAD);
 		}
 
@@ -294,16 +304,20 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
+		json_t *root_dup;
 
 		/* Find uid of this remote host */
 		const char *uid_src = j_find_ref(root, JK_UID_ME);
-		TESTP_GO(uid_src, end);
+		TESTP_MES_GO(uid_src, end, "Can't find 'JK_UID_ME'");
 
+		/* We do not own this object, it will be cleaned in caller */
+		root_dup = j_dup(root);
+		TESTP(root_dup, EBAD); 
 		ctl_lock();
-		rc = j_replace(ctl->hosts, uid_src, root);
+		rc = j_replace(ctl->hosts, uid_src, root_dup);
 		ctl_unlock();
 		if (EOK != rc) {
-			DE("Can't replace 'me' message for remote host");
+			DE("Can't replace 'me' message for remote host\n");
 		} else {
 			j_print(ctl->hosts, "Added 'me' message");
 		}
@@ -456,7 +470,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		DD("Got 'JV_TYPE_TICKET_REQ' request\n");
-		rc = send_request_return_tickets(root);
+		rc = send_request_return_tickets_l(root);
 		goto end;
 	}
 
@@ -487,6 +501,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 	if (0 != rc) DE("Unknown type\n");
 
 end:
+	DD("Finished, returning\n");
 	return (rc);
 }
 
@@ -510,7 +525,7 @@ end:
 		errno = rc;
 		perror("pthread error");
 	}
-	
+
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
 		DE("Thread: can't detach myself\n");
@@ -522,12 +537,15 @@ end:
 	if (NULL == topic) {
 		DE("No topic in input JSON object\n");
 		j_rm(root);
+		root = NULL;
+		return (NULL);
 	}
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't tokenize topic\n");
 		j_rm(root);
+		root = NULL;
 		return (NULL);
 	}
 
@@ -540,6 +558,7 @@ end:
 		}
 
 		j_rm(root);
+		root = NULL;
 		return (NULL);
 	}
 
@@ -547,12 +566,14 @@ end:
 
 	if (0 == strcmp(uid, topics[3])) {
 		j_rm(root);
+		root = NULL;
 		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
 		if (EOK != rc) {
 			DE("Can't free tokenized topic\n");
 		}
 		return (NULL);
 	}
+
 
 	rc = mp_main_parse_message_l(topics[3], root);
 	if (EOK != rc) {
@@ -566,6 +587,7 @@ end:
 	}
 
 	j_rm(root);
+	root = NULL;
 	return (NULL);
 }
 
@@ -712,9 +734,11 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		DE("Something went wrong when tried to remove stucj counters\n");
 	}
 
+	DD("Going to remove buffer\n");
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
+	DD("Removed buffer\n");
 }
 
 

@@ -53,7 +53,6 @@ typedef struct control_struct {
 	   to describe themselves. */
 	void *hosts;
 
-	/*@null@*/ htable_t *htab_ports; /* Here we keep mapped ports (port_t, see above), sorted by internal port */
 	/*@null@*/ void *config; /* The config file in form of JSON object */
 	void *tickets_out;
 	void *tickets_in;

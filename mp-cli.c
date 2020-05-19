@@ -148,7 +148,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	DDD("Starting\n");
 
-	rc = send_request_return_tickets(root);
+	rc = send_request_return_tickets_l(root);
 	resp = j_new();
 	TESTP(resp, NULL);
 	if (0 == rc) {

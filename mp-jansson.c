@@ -365,21 +365,19 @@ err_t j_count(/*@null@*/const json_t *root)
 
 err_t j_replace(/*@null@*/json_t *root, /*@null@*/const char *key, /*@null@*/json_t *j_new)
 {
-	TESTP(root, EBAD);
-	TESTP(key, EBAD);
-	TESTP(j_new, EBAD);
-	if (EOK == j_test_key(root,key)) {
-		if(EOK != j_rm_key(root,key)) {
-			DE("Can't remove key '%s'\n", key);
-			j_print(root,"Object where I can't remove the key");
-		}
+	TESTP_MES(root, EBAD, "Error: root is NULL");
+	TESTP_MES(key, EBAD, "Error: key is NULL");
+	TESTP_MES(j_new, EBAD, "Error: j_new is NULL");
+	if (EOK == j_test_key(root, key) && EOK != j_rm_key(root, key)) {
+		DE("Can't remove key '%s'\n", key);
+		j_print(root, "Object where I can't remove the key");
 	}
 	return (json_object_set_new(root, key, j_new));
 }
 
 /*@null@*//*@only@*/ json_t *j_dup(/*@null@*/const json_t *root)
 {
-	TESTP(root, NULL); 
+	TESTP(root, NULL);
 	return (json_deep_copy(root));
 }
 

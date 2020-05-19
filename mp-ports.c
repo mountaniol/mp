@@ -673,8 +673,8 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 {
 	json_t *root = NULL;
 	json_t *host = NULL;
-	/*@shared@*/control_t *ctl = ctl_get();
 	const char *key;
+	/*@shared@*/control_t *ctl = ctl_get_locked();
 
 	json_object_foreach(ctl->hosts, key, host) {
 		if (EOK == strcmp(key, uid)) {
@@ -690,17 +690,30 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 				/* For now we search for intenal port 22 and protocol TCP */
 				if (EOK == j_test(port, JK_PORT_INT, "22") && EOK == j_test(port, JK_PROTOCOL, "TCP")) {
 					root = j_new();
-					TESTP(root, NULL);
+					if (NULL == root) {
+						DE("Can't get root\n");
+						ctl_unlock();
+						return NULL;
+					}
 					/* We need external port */
 					rc = j_cp(port, root, JK_PORT_EXT);
-					TESTI_MES(rc, NULL, "Can't add root, JK_PORT_EXT");
+					if (EOK != rc) {
+						DE("Can't add root, JK_PORT_EXT\n");
+						ctl_unlock();
+						return NULL;
+					}
 					/* And IP */
 					rc = j_cp(host, root, JK_IP_EXT);
-					TESTI_MES(rc, NULL, "Can't add root, JK_IP_EXT");
+					if (EOK != rc) {
+						DE("Can't add root, JK_IP_EXT\n");
+						ctl_unlock();
+						return NULL;
+					}
 				} /* if */
 			} /* End of json_array_foreach */
 		}
 	}
+	ctl_unlock();
 	DDD("returning root = %p\n", root);
 	return (root);
 }
