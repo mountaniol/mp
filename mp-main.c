@@ -1062,7 +1062,8 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	ports = j_find_j(ctl->me, "ports");
-	if (EOK != mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
+	if (NULL != ctl->rootdescurl &&
+		EOK != mp_ports_scan_mappings(ports, j_find_ref(ctl->me, JK_IP_INT))) {
 		DE("Port scanning failed\n");
 	}
 
