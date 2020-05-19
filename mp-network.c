@@ -145,6 +145,11 @@ err_t mp_network_init_network_l()
 	if (NULL == var) {
 		DE("Can't get my IP\n");
 		var = strdup("0.0.0.0");
+		/* If we can't find out external address,
+		   it means we ca't communicate with the router
+		   and open ports. So, we neither target nor bridge */
+		j_add_str(ctl->me, JK_TARGET, JV_NO);
+		j_add_str(ctl->me, JK_BRIDGE, JV_NO);
 	}
 
 	ctl_lock();
