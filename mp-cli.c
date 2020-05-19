@@ -73,12 +73,16 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 
 /* Get this machine info */
-/*@null@*/ static json_t *mp_cli_get_self_info_l()
+/*@null@*/ static json_t *mp_cli_dup_self_info_l()
 {
-	/*@shared@*/control_t *ctl = NULL;
+	/*@temp@*/control_t *ctl = NULL;
+	/*@temp@*/json_t *ret = NULL;
+
 	DDD("Starting\n");
-	ctl = ctl_get();
-	return (j_dup(ctl->me));
+	ctl = ctl_get_locked();
+	ret = j_dup(ctl->me);
+	ctl_unlock();
+	return ret;
 }
 
 /*@null@*/ static json_t *mp_cli_get_received_tickets_l(/*@temp@*/json_t *root)
@@ -296,7 +300,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	DD("Found '%s' command\n", j_find_ref(root, JK_COMMAND));
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_ME)) {
-		return (mp_cli_get_self_info_l());
+		return (mp_cli_dup_self_info_l());
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_LIST)) {
@@ -472,6 +476,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			break;
 		}
 
+		j_print(root_resp, "Got responce, goung to send");
+
 		/* Encode response object into text buffer */
 		buft = j_2buf(root_resp);
 		if (NULL == buft) {
@@ -480,6 +486,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		j_rm(root_resp);
+
+		DD("Converted root_resp to buf_t:\n%s\n", buft->data);
 
 		if (NULL == buft) {
 			DE("Can't convert json to buf_t\n");

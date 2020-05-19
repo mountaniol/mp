@@ -98,6 +98,13 @@ static err_t mp_main_remove_host_l(const json_t *root)
 	TESTP_MES(uid_src, EBAD, "Can't extract uid from json\n");
 
 	ctl = ctl_get_locked();
+
+	if (EOK != j_test_key(ctl->hosts, uid_src)) {
+		DE("Not found client %s\n", uid_src);
+		ctl_unlock();
+		return EBAD;
+	}
+
 	rc = j_rm_key(ctl->hosts, uid_src);
 	ctl_unlock();
 	if (EOK != rc) {
@@ -295,7 +302,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		if (EOK != rc) {
 			DE("Can't replace 'me' message for remote host");
 		} else {
-			j_print(ctl->me, "Added 'me' message");
+			j_print(ctl->hosts, "Added 'me' message");
 		}
 		return (rc);
 	}
@@ -1079,7 +1086,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 
 	/* Here test the config. If it not loaded - we create it and save it */
 	if (NULL == ctl->config) {
-		rc = mp_config_from_ctl();
+		rc = mp_config_from_ctl_l();
 		if (EOK == rc) {
 			rc = mp_config_save();
 			if (EOK != rc) {

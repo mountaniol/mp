@@ -27,7 +27,7 @@ extern err_t mp_config_save(void);
  * 
  * @return int EOK on success, EBAD on error
  */
-extern err_t mp_config_from_ctl(void);
+extern err_t mp_config_from_ctl_l(void);
 
 /**
  * @brief Load config from file, decode it into object and 

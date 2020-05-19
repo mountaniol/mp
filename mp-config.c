@@ -50,7 +50,7 @@ static char *mp_config_get_config_dir(void)
 
 /* Construct config file full path */
 static char *mp_config_get_config_name(void)
-{ 
+{
 	char *filename = NULL;
 	int rc = -1;
 	size_t len = 0;
@@ -228,7 +228,7 @@ err:
 }
 
 /* Create config from content of ctl->me */
-err_t mp_config_from_ctl()
+err_t mp_config_from_ctl_l()
 {
 	err_t rc = EBAD;
 	/*@shared@*/control_t *ctl = ctl_get();
@@ -238,22 +238,28 @@ err_t mp_config_from_ctl()
 
 	TESTP(ctl->config, EBAD);
 
+	ctl_lock();
+
 	rc = j_cp(ctl->me, ctl->config, JK_UID_ME);
-	TESTI_MES(rc, EBAD, "Can't copy JK_UID_ME");
+	TESTI_MES_GO(rc, err, "Can't copy JK_UID_ME");
 
 	rc = j_cp(ctl->me, ctl->config, JK_NAME);
-	TESTI_MES(rc, EBAD, "Can't copy JK_NAME");
+	TESTI_MES_GO(rc, err, "Can't copy JK_NAME");
 
 	rc = j_add_str(ctl->config, JK_SOURCE, JV_YES);
-	TESTI_MES(rc, EBAD, "Can't add JK_SOURCE");
+	TESTI_MES_GO(rc, err, "Can't add JK_SOURCE");
 
 	rc = j_add_str(ctl->config, JK_TARGET, JV_YES);
-	TESTI_MES(rc, EBAD, "Can't add JK_TARGET");
+	TESTI_MES_GO(rc, err, "Can't add JK_TARGET");
 
 	rc = j_add_str(ctl->config, JK_BRIDGE, JV_YES);
-	TESTI_MES(rc, EBAD, "Can't add JK_BRIDGE");
+	TESTI_MES_GO(rc, err, "Can't add JK_BRIDGE");
+	ctl_unlock();
 
 	return (mp_config_save());
+err:
+	ctl_unlock();
+	return (EBAD);
 }
 
 /* Read config from file. If there is no config file - return error */
