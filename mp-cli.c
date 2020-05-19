@@ -418,7 +418,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
 		buft->len += rc;
 
-		DD("Got first part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
+		D("Got first part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
 
 		/* if there is more to receive, do it: select() returns > 0 until there is data to read  */
 		while (select(fd_connection + 1, &sready, NULL, NULL, &nowait) > 0) {
@@ -433,7 +433,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
 			buft->len += rc;
 
-			DD("Got second part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
+			D("Got second part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
 		}
 
 		/* Convert the buffer to JSON object */
