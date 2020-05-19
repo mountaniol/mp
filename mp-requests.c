@@ -27,9 +27,7 @@
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		if (EOK != j_rm(root)) DE("Couldn't remove json object\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -55,10 +53,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object");
-	}
+	j_rm(root);
 	if (NULL == buf) DE("Returning NULL lastwill\n");
 	return (buf);
 }
@@ -83,10 +78,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -108,10 +100,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -136,10 +125,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -173,10 +159,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -204,10 +187,7 @@ err:
 	buf = j_2buf(root);
 
 err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
+	j_rm(root);
 	return (buf);
 }
 
@@ -240,8 +220,7 @@ err:
 
 err:
 	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
+		j_rm(root);
 	}
 	return (buf);
 }

@@ -83,12 +83,7 @@ err_t mp_main_ticket_responce(const json_t *req, const char *status, const char 
 	free(forum);
 
 end:
-
-	if (0 != j_rm(root)) {
-		DE("Can't remove json object 'root'");
-		return (EBAD);
-	}
-
+	j_rm(root);
 	return (rc);
 }
 
@@ -164,10 +159,6 @@ static err_t mp_main_do_open_port_l(const json_t *root)
 
 	/*** UPNP request found an existing mapping of asked port + protocol ***/
 	if (NULL != mapping) {
-		//DD("Found existing mapping: %s -> %s | %s\n",
-		//   j_find_ref(mapping, JK_PORT_EXT),
-		//   j_find_ref(mapping, JK_PORT_INT),
-		//   j_find_ref(mapping, JK_PROTOCOL));
 
 		/* Add this mapping to our internal table table */
 		ctl_lock();
@@ -175,10 +166,7 @@ static err_t mp_main_do_open_port_l(const json_t *root)
 		ctl_unlock();
 		if (EOK != rc) {
 			DE("Can't add mapping to responce array\n");
-			rc = j_rm(mapping);
-			if (EOK != rc) {
-				DE("Can't remove mappings\n");
-			}
+			j_rm(mapping);
 			return (EBAD);
 		}
 
@@ -191,8 +179,6 @@ static err_t mp_main_do_open_port_l(const json_t *root)
 
 	/*** If we here it means no such mapping exists. Let's map it ***/
 	mapping = mp_ports_remap_any(root, asked_port, protocol);
-
-
 	TESTP_MES(mapping, EBAD, "Can't map port");
 
 	/*** Ok, port mapped. Now we should update ctl->me->ports hash table ***/
@@ -302,8 +288,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		/* Find uid of this remote host */
 		const char *uid_src = j_find_ref(root, JK_UID_ME);
 		TESTP_GO(uid_src, end);
-		/* Is this host already in the list? Just for information */
-		//j_print(root, "Received ME from remote host:");
 
 		ctl_lock();
 		rc = j_replace(ctl->hosts, uid_src, root);
@@ -389,8 +373,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 				DE("Can't send ticket\n");
 			}
 		}
-
-		//j_print(ctl->tickets_out, "After opening port: tickets: ");
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
@@ -508,8 +490,8 @@ end:
 /* Message processor, runs as a thread */
 /*@null@*/static void *mp_main_on_message_processor(/*@only@*/void *v)
 {
-	/*@only@*/char **topics;
-	/*@temp@*/ const char *topic;
+	/*@only@*/char **topics = NULL;
+	/*@temp@*/ const char *topic = NULL;
 	int topics_count = 0;
 	int rc = EBAD;
 	/*@temp@*/ const char *uid = NULL;
@@ -527,18 +509,13 @@ end:
 	topic = j_find_ref(root, JK_TOPIC);
 	if (NULL == topic) {
 		DE("No topic in input JSON object\n");
-		if (EOK != j_rm(root)) {
-			DE("Can't remove JSON object\n");
-		}
+		j_rm(root);
 	}
 
 	rc = mosquitto_sub_topic_tokenise(topic, &topics, &topics_count);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't tokenize topic\n");
-		rc = j_rm(root);
-		if (EOK != rc) {
-			DE("Can't remove JSON\n");
-		}
+		j_rm(root);
 		return (NULL);
 	}
 
@@ -550,20 +527,14 @@ end:
 			DE("Can't free tokenized topic\n");
 		}
 
-		rc = j_rm(root);
-		if (EOK != rc) {
-			DE("Can't remove JSON\n");
-		}
+		j_rm(root);
 		return (NULL);
 	}
 
 	uid = ctl_uid_get();
 
 	if (0 == strcmp(uid, topics[3])) {
-		rc = j_rm(root);
-		if (EOK != rc) {
-			DE("Can't remove JSON\n");
-		}
+		j_rm(root);
 		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
 		if (EOK != rc) {
 			DE("Can't free tokenized topic\n");
@@ -582,10 +553,7 @@ end:
 		DE("Can't free tokenized topic\n");
 	}
 
-	rc = j_rm(root);
-	if (EOK != rc) {
-		DE("Can't remove JSON\n");
-	}
+	j_rm(root);
 	return (NULL);
 }
 
@@ -595,7 +563,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 {
 	int rc;
 	pthread_t message_thread;
-	/*@temp@*/ json_t *root;
+	/*@temp@*/ json_t *root = NULL;
 	if (NULL == msg) {
 		DE("msg is NULL!\n");
 		return;
@@ -644,7 +612,6 @@ static void mp_main_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attr
 									   int reason)
 {
 	/*@temp@*/control_t *ctl = NULL;
-	int rc;
 	if (0 != reason) {
 		switch (reason) {
 		case MOSQ_ERR_NOMEM:
@@ -696,12 +663,9 @@ static void mp_main_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attr
 
 	ctl = ctl_get_locked();
 	ctl->status = ST_DISCONNECTED;
-	rc = j_rm(ctl->hosts);
+	j_rm(ctl->hosts);
 	ctl->hosts = j_new();
 	ctl_unlock();
-	if (EOK != rc) {
-		DE("Can't remove JSON\n");
-	}
 	DDD("Exit from function\n");
 }
 
@@ -736,7 +700,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		DE("Something went wrong when tried to remove stucj counters\n");
 	}
 
-	if (EOK != buf_free_force(buf)) {
+	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 }
@@ -754,8 +718,8 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	int i;
 	/*@temp@*/const char *cert = (char *)arg;
 	char *forum_topic_all;
-	/*@only@*/char *forum_topic_me;
-	/*@only@*/char *personal_topic;
+	/*@only@*/char *forum_topic_me = NULL;
+	/*@only@*/char *personal_topic = NULL;
 	/*@only@*/buf_t *buf = NULL;
 
 	/* TODO: Client ID, should be assigned on registartion and gotten from config file */
@@ -812,7 +776,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
 	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->len, buf->data, 1, false);
-	if (EOK != buf_free_force(buf)) {
+	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 
@@ -884,7 +848,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		//DDD("Finished disconnection check\n");
 
 		//DD("Before sleep random millisec\n");
-		rc = mp_os_usleep((__useconds_t)mp_os_random_in_range(100, 300));
+		rc = mp_os_usleep(mp_os_random_in_range(100, 300));
 		//DD("After sleep random millisec\n");
 		if (0 != rc) {
 			DE("usleep returned error\n");
@@ -911,7 +875,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 				break;
 			}
 			/* Random time sleep to randomize message sending and spread the server loading */
-			rc = mp_os_usleep((__useconds_t)mp_os_random_in_range(100, 500));
+			rc = mp_os_usleep(mp_os_random_in_range(100, 500));
 			if (0 != rc) {
 				DE("usleep returned error\n");
 				perror("usleep returned error");
@@ -929,9 +893,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	mosquitto_destroy(ctl->mosq);
 	ctl->mosq = NULL;
 
-	if (EOK != j_rm(ctl->hosts)) {
-		DE("Can't remove JSON object\n");
-	}
+	j_rm(ctl->hosts);
 	ctl->hosts = j_new();
 	ctl_unlock();
 

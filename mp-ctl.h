@@ -59,6 +59,7 @@ typedef struct control_struct {
 	void *tickets_in;
 	void *buffers; /* Here we keep allocate buffers until they sent */
 	void *buf_missed; /* Here we keep buffer counters that we couldn't find on the first run */
+	const char *rootdescurl; /* The router UPNP description, use it to speed up UPNP requests */
 } control_t;
 
 

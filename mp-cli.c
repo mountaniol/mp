@@ -54,7 +54,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
 	rc = send(sd, buf->data, buf->len, 0);
-	if (EOK != buf_free_force(buf)) {
+	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 	if (rc < 0) {
@@ -85,10 +85,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 {
 	int rc = -1;
 	/*@temp@*/control_t *ctl;
-	json_t *arr = NULL;
-	json_t *val = NULL;
+	/*@temp@*/json_t *arr = NULL;
+	/*@temp@*/json_t *val = NULL;
 	size_t index = 0;
-	/*@only@*/ const char *ticket = NULL;
+	/*@temp@*/ const char *ticket = NULL;
 	DDD("Starting\n");
 
 	ticket = j_find_ref(root, JK_TICKET);
@@ -101,22 +101,31 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	json_array_foreach(ctl->tickets_in, index, val) {
 		if (j_test(val, JK_TICKET, ticket)) {
-			json_t *copied = j_dup(val);
-			TESTP(copied, NULL);
-			rc = j_arr_add(arr, copied);
-			TESTI(rc, NULL);
+			/*@temp@*/json_t *copied = j_dup(val);
+			if (NULL == copied) {
+				j_rm(arr);
+				return (NULL);
+			}
+
+			if (EOK != rc) {
+				j_rm(copied);
+				j_rm(arr); 
+				return (NULL);
+			}
+
 			rc = json_array_remove(ctl->tickets_in, index);
-			TESTI(rc, NULL);
+			if (EOK != rc) {
+				j_rm(copied);
+				j_rm(arr);
+				return (NULL);
+			}
 		}
 	}
+
 	rc = mp_cli_send_to_cli(arr);
 	if (EOK != rc) {
 		DE("Can't send\n");
-		rc = j_rm(arr);
-		if (EOK != rc) {
-			DE("Can't remove tickets array\n");
-		}
-
+		j_rm(arr);
 		return (NULL);
 	}
 
@@ -126,7 +135,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 /*@null@*/ static json_t *mp_cli_send_ticket_req(/*@temp@*/json_t *root)
 {
-	json_t *resp;
+	/*@temp@*/json_t *resp;
 	int rc;
 
 	DDD("Starting\n");
@@ -142,8 +151,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	if (EOK != rc) {
 		DE("Can't add status into JSON\n");
-		rc = j_rm(root);
-		TESTI(rc, NULL);
+		j_rm(root);
 		return (NULL);
 	}
 
@@ -153,8 +161,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 /*@null@*/ static json_t *mp_cli_get_ports_l()
 {
 	/*@shared@*/control_t *ctl = NULL;
-	json_t *resp;
-	json_t *ports;
+	/*@temp@*/json_t *resp;
+	/*@temp@*/json_t *ports;
 	DDD("Starting\n");
 
 	ctl = ctl_get_locked();
@@ -173,7 +181,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 /*@null@*/ static json_t *mp_cli_get_list_l()
 {
 	/*@shared@*/control_t *ctl = NULL;
-	json_t *resp;
+	/*@temp@*/json_t *resp;
 	DDD("Starting\n");
 	ctl = ctl_get_locked();
 	resp = j_dup(ctl->hosts);
@@ -185,8 +193,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 {
 	//control_t *ctl = NULL;
 	int rc = EBAD;
-	json_t *resp = NULL;
-	json_t *remote_host = NULL;
+	/*@temp@*/json_t *resp = NULL;
+	/*@temp@*/json_t *remote_host = NULL;
 
 	DDD("Start\n");
 
@@ -255,7 +263,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 {
 	/*@shared@*/control_t *ctl = NULL;
 	int rc = EBAD;
-	json_t *resp = NULL;
+	/*@temp@*/json_t *resp = NULL;
 
 	ctl = ctl_get_locked();
 	rc = j_add_str(root, JK_UID_SRC, ctl_uid_get());
@@ -337,7 +345,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 /* This thread accepts connection from shell or from GUI client
    Only one client a time */
-/*@null@*/ void *mp_cli_thread(/*@temp@*/void *arg __attribute__((unused)))
+/*@null@*/ void *mp_cli_thread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	int fd_socket = -1;
 	struct sockaddr_un cli_addr;
@@ -414,7 +422,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		while (select(fd_connection + 1, &sready, NULL, NULL, &nowait) > 0) {
 			/* If we almost filled the buffer, we add memory */
 			if (buf_get_room(buft) < 1) {
-				buf_add_room(buft, CLI_BUF_LEN);
+				if (EOK != buf_add_room(buft, CLI_BUF_LEN)) {
+					DE("Failed to frow room in buf_t\n");
+					abort();
+				}
 			}
 			/* Receive buffer from cli */
 			rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
@@ -423,20 +434,28 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 		/* Convert the buffer to JSON object */
 		root = j_buf2j(buft);
-		buf_free_force(buft);
-		buft = NULL;
 
 		if (NULL == root) {
 			DE("Can't decode buf to JSON object\n");
+			if (EOK != buf_free(buft)) {
+				DE("Failed to release buf_t\n");
+				abort();
+			}
 			break;
 		}
+
+		if (EOK != buf_free(buft)) {
+			DE("Failed to release buf_t\n");
+			abort();
+		}
+		buft = NULL;
 
 		/* Now let's parse the command and receive from the parser an answer */
 		root_resp = mp_cli_parse_command(root);
 
 		/* That's it, we don't need request object anymore */
-		rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object");
+		j_rm(root);
+		TESTP(root_resp, NULL);
 
 		if (NULL == root_resp) {
 			DE("Can't create JSON object for respond (parse_cli_command failed)\n");
@@ -445,8 +464,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 		/* Encode response object into text buffer */
 		buft = j_2buf(root_resp);
-		rc = j_rm(root_resp);
-		TESTI_MES(rc, NULL, "Can't remove json object");
+		if (NULL == buft) {
+			j_rm(root_resp);
+			return (NULL);
+		}
+
+		j_rm(root_resp);
 
 		if (NULL == buft) {
 			DE("Can't convert json to buf_t\n");
@@ -460,9 +483,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		/* Release the buffer */
-		buf_free_force(buft);
+		if (EOK != buf_free(buft)) {
+			DE("failed to free buf_t\n");
+			abort();
+		}
 
-	} while (1);
+	} while (1 == 1);
 
 	return (NULL);
 }

@@ -13,7 +13,7 @@ typedef enum {
 
 /* Testing macros. Part 1: Test and Return */
 /* Test pointer for NULL. If NULL, print "mes" and return "ret" */
-#define TESTP_MES(x, ret, mes) do {if(NULL == x) { DE("%s\n", mes); return ret; } } while(0)
+#define TESTP_MES(x, ret, mes) do {if(NULL == x) { DE("%s\n", mes); return ret; } } while(0) 
 
 /* Shorter form of the tester: print message "Pointer x is NULL", x replaced with argument x name */
 #define TESTP(x, ret) do {if(NULL == x) { DDE("Pointer %s is NULL\n", #x); return ret; }} while(0)

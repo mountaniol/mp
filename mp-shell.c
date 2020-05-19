@@ -39,8 +39,8 @@ int ft_set_default_border_style(const struct ft_border_style *style);
 #define IN_STATUS_WORKING (0)
 #define IN_STATUS_FINISHED (1)
 #define IN_STATUS_FAILED (2)
-int status = IN_STATUS_WORKING;
-int waiting_counter = 0;
+static int status = IN_STATUS_WORKING;
+static int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
    These messages are responces requests done from here */
@@ -70,7 +70,7 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 /* This thread accepts connection from CLI or from GUI client
    Only one client a time */
-/*@null@*/ static void *mp_shell_in_thread(void *arg __attribute__((unused)))
+/*@null@*/ static void *mp_shell_in_thread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
 	int fd = -1;
@@ -131,7 +131,9 @@ static err_t mp_shell_parse_in_command(json_t *root)
 				/* realloc can return new buffer. In this case the old one should be freed */
 				if (tmp != buf) {
 					free(buf);
+					/*@ignore@*/
 					buf = tmp;
+					/*@end@*/
 				}
 				/* If realloc succeeded we increase 'allocated' counter */
 				if (NULL != tmp) {
@@ -157,8 +159,7 @@ static err_t mp_shell_parse_in_command(json_t *root)
 		if (EOK != rc) {
 			DE("Failed to process accepted JSON\n");
 		}
-		rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object");
+		j_rm(root);
 	} while (1);
 
 	return (NULL);
@@ -221,7 +222,9 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	}
 
 	if (rc > CLI_BUF_LEN) {
+		/*@ignore@*/
 		printf("The received buffer is too big. Expected max %d, received %zu\n", CLI_BUF_LEN, rc);
+		/*@end@*/
 		return (NULL);
 	}
 
@@ -239,71 +242,13 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	return (j_str2j(buffer));
 }
 
-#if 0
-static int mp_shell_watch_ticket(const char *ticket){
-	json_t *ticket_req = NULL;
-	json_t *ticket_resp = NULL;
-	json_t *resp = NULL;
-	int rc = EBAD;
-
-	TESTP(ticket, EBAD);
-
-	ticket_req = j_new();
-	TESTP(ticket_req, EBAD);
-
-	ticket_resp = j_new();
-	TESTP(ticket_resp, EBAD);
-
-	/* Now construct "give me my tickets" request and send it until received final ticket,
-	   which is JV_STATUS_FAIL or JV_STATUS_SUCCESS */
-	rc = j_add_str(ticket_req, JK_COMMAND, JV_TYPE_TICKET_REQ);
-	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_TICKET");
-	rc = j_add_str(ticket_req, JK_TYPE, JV_TYPE_TICKET_REQ);
-	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
-	rc = j_add_str(ticket_req, JK_TICKET, ticket);
-	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
-
-	rc = j_add_str(ticket_resp, JK_COMMAND, JV_TYPE_TICKET_RESP);
-	TESTI_MES(rc, EBAD, "Can't add JK_COMMAND, JV_TYPE_TICKET");
-	rc = j_add_str(ticket_resp, JK_TYPE, JV_TYPE_TICKET_RESP);
-	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_TICKET");
-	rc = j_add_str(ticket_resp, JK_TICKET, ticket);
-	TESTI_MES(rc, EBAD, "Can't add JK_TICKET, ticket");
-
-	do {
-		if (resp) j_rm(resp);
-		DD("starting: getting tickets\n");
-		j_print(ticket_req, "Sending ticket request");
-		resp = mp_shell_do_requiest(ticket_req);
-		/* TODO: test answer */
-		if (resp) {
-			j_print(resp, "Got responce:");
-			j_rm(resp);
-			resp = NULL;
-		}
-
-		sleep(1);
-
-		j_print(ticket_req, "Sending get ticket request");
-		resp = mp_shell_do_requiest(ticket_resp);
-		if (resp) {
-			j_print(resp, "Got responce:");
-		}
-	} while (EOK != j_test(resp, JK_STATUS, JV_STATUS_FAIL) || EOK != j_test(resp, JK_STATUS, JV_STATUS_SUCCESS));
-
-
-
-	return (EOK);
-}
-#endif
-
 static err_t mp_shell_wait_and_print_tickets(void)
 {
 	waiting_counter = 0;
 	status = IN_STATUS_WORKING;
 
 	while (IN_STATUS_WORKING == status && waiting_counter < 10) {
-		int slept;
+		unsigned int slept;
 		waiting_counter++;
 		slept = sleep(1);
 		if (0 != slept) {
@@ -317,7 +262,7 @@ static err_t mp_shell_wait_and_print_tickets(void)
 	return (EOK);
 }
 
-static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
+static err_t mp_shell_ask_openport(json_t *args)
 {
 	err_t rc = EBAD;
 	/*@only@*/const char *uid_dst = NULL;
@@ -362,8 +307,7 @@ static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = mp_shell_do_requiest(root);
 	TESTP_MES_GO(resp, err, "Responce is NULL\n");
-	rc = j_rm(root);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	j_rm(root);
 
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
@@ -375,18 +319,12 @@ static err_t mp_shell_ask_openport(/*@keep@*/json_t *args)
 
 	/* Now receive tickets until requiest not done */
 err:
-	if (root) {
-		rc = j_rm(root);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
-	}
-	if (resp) {
-		rc = j_rm(resp);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
-	}
+	j_rm(root);
+	j_rm(resp);
 	return (rc);
 }
 
-static err_t mp_shell_ask_closeport(/*@keep@*/json_t *args)
+static err_t mp_shell_ask_closeport(json_t *args)
 {
 	int rc = EBAD;
 	/*@only@*/const char *uid = NULL;
@@ -431,22 +369,15 @@ static err_t mp_shell_ask_closeport(/*@keep@*/json_t *args)
 	printf("Please wait. Port remapping may take up to 10 seconds. Or more, who knows, kid.\n");
 	resp = mp_shell_do_requiest(root);
 	TESTP_GO(resp, err);
-	rc = j_rm(root);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	j_rm(root);
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
 
 	rc = mp_shell_wait_and_print_tickets();
 err:
-	if (root) {
-		rc = j_rm(root);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
-	}
-	if (resp) {
-		rc = j_rm(resp);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
-	}
+	j_rm(root);
+	j_rm(resp);
 	return (rc);
 }
 
@@ -512,13 +443,12 @@ static err_t mp_shell_get_info()
 	printf("%s\n", ft_to_string(table));
 	ft_destroy_table(table);
 
-	rc = j_rm(resp);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+	j_rm(resp);
 
 	return (EOK);
 }
 
-static err_t mp_shell_ssh(/*@keep@*/json_t *args)
+static err_t mp_shell_ssh(json_t *args)
 {
 	/*@only@*/json_t *root = j_new();
 	/*@only@*/json_t *resp = NULL;
@@ -537,8 +467,7 @@ static err_t mp_shell_ssh(/*@keep@*/json_t *args)
 		return (EBAD);
 	}
 
-	rc = j_rm(resp);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+	j_rm(resp);
 	return (EOK);
 }
 
@@ -558,13 +487,11 @@ static err_t mp_shell_get_hosts()
 	}
 
 	resp = mp_shell_do_requiest(root);
-	rc = j_rm(root);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	j_rm(root);
 
 	if (NULL == resp || 0 == j_count(resp)) {
 		printf("No host in the list\n");
-		rc = j_rm(resp);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'rest'\n");
+		j_rm(resp);
 		return (EOK);
 	}
 
@@ -624,13 +551,11 @@ static err_t mp_shell_get_ports()
 	}
 
 	resp = mp_shell_do_requiest(root);
-	rc = j_rm(root);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	j_rm(root);
 
 	if (NULL == resp || 0 == json_array_size(resp)) {
 		printf("No mapped ports\n");
-		rc = j_rm(resp);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+		j_rm(resp);
 		return (EOK);
 	}
 
@@ -696,13 +621,11 @@ static err_t mp_shell_get_remote_ports()
 	}
 
 	resp = mp_shell_do_requiest(root);
-	rc = j_rm(root);
-	TESTI_MES(rc, EBAD, "Can't remove json object 'root'\n");
+	j_rm(root);
 
 	if (NULL == resp || 0 == j_count(resp)) {
 		printf("No host in the list\n");
-		rc = j_rm(resp);
-		TESTI_MES(rc, EBAD, "Can't remove json object 'resp'\n");
+		j_rm(resp);
 		return (EOK);
 	}
 
@@ -854,7 +777,7 @@ int main(int argc, char *argv[])
 {
 	int opt;
 	/*@only@*/json_t *args = NULL;
-	pthread_t in_thread_id;
+	/*@only@*/pthread_t in_thread_id;
 	int rc;
 
 	/* 
@@ -885,62 +808,102 @@ int main(int argc, char *argv[])
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
 	while ((opt = getopt(argc, argv, ":limro:u:s:p:x:c:h")) != -1) {
-		int rc;
 		switch (opt) {
 		case 'i': /* Show this machine info */
 			rc = j_add_str(args, JK_SHOW_INFO, JV_YES);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 'l': /* Show remote hosts */
 			rc = j_add_str(args, JK_SHOW_HOSTS, JV_YES);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
+
 			break;
 		case 'o': /* Open port comand (open the port on remote machine UID */
 			rc = j_add_str(args, JK_TYPE, JV_TYPE_OPENPORT);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
+
 			rc = j_add_str(args, JK_PORT_INT, optarg);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'c': /* Close port comand (open the port on remote machine UID */
 			rc = j_add_str(args, JK_TYPE, JV_TYPE_CLOSEPORT);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			rc = j_add_str(args, JK_PORT_INT, optarg);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'u': /* UID of remote machine */
 			rc = j_add_str(args, JK_UID_DST, optarg);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 's': /* OPen ssh channel for communication */
 			rc = j_add_str(args, JK_TYPE, JV_TYPE_SSH);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			rc = j_add_str(args, JK_UID_DST, optarg);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 'p': /* Protocol to use for port opening (-o command) */
 			rc = j_add_str(args, JK_PROTOCOL, optarg);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 'm': /* Show ports mapped on this machine */
 			rc = j_add_str(args, JK_SHOW_PORTS, JV_YES);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 'r': /* TODO: Show ports mapped on a remote machine (if UID given) / on all remotes (if UID is not specified) */
 			rc = j_add_str(args, JK_SHOW_RPORTS, JV_YES);
-			TESTI(rc, EBAD);
+			if (EOK != rc) {
+				j_rm(args);
+				return (EBAD);
+			}
 			break;
 		case 'h': /* Print help */
 			mp_shell_usage(argv[0]);
+			j_rm(args);
 			break;
 		case ':':
 			printf("option needs a value\n");
 			mp_shell_usage(argv[0]);
+			j_rm(args);
 			return (EBAD);
 		case '?':
 			printf("unknown option:%c\n", optopt);
 			mp_shell_usage(argv[0]);
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -948,6 +911,7 @@ int main(int argc, char *argv[])
 	if (EOK == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
 		if (0 != mp_shell_get_hosts()) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -955,6 +919,7 @@ int main(int argc, char *argv[])
 	if (EOK == j_test(args, JK_SHOW_PORTS, JV_YES)) {
 		if (0 != mp_shell_get_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -962,6 +927,7 @@ int main(int argc, char *argv[])
 	if (EOK == j_test(args, JK_SHOW_INFO, JV_YES)) {
 		if (0 != mp_shell_get_info()) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -970,6 +936,7 @@ int main(int argc, char *argv[])
 		DDD("Founf SSH command\n");
 		if (0 != mp_shell_ssh(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -977,6 +944,7 @@ int main(int argc, char *argv[])
 	if (EOK == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
 		if (0 != mp_shell_ask_openport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -984,6 +952,7 @@ int main(int argc, char *argv[])
 	if (EOK == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		if (0 != mp_shell_ask_closeport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
@@ -992,9 +961,11 @@ int main(int argc, char *argv[])
 		D("Found RPORTS command\n");
 		if (EOK != mp_shell_get_remote_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");
+			j_rm(args);
 			return (EBAD);
 		}
 	}
 
+	j_rm(args);
 	return (0);
 }

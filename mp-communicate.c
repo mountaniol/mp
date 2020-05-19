@@ -105,7 +105,7 @@ err_t mp_communicate_clean_missed_counters(void)
 		}
 
 		buf = (buf_t *)ret;
-		if (EOK != buf_free_force(buf)) {
+		if (EOK != buf_free(buf)) {
 			DE("Can't remove buf_t: probably passed NULL pointer?\n");
 			ctl_unlock();
 			return (EBAD);
@@ -466,9 +466,7 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 	DDD("Going to send request\n");
 	rc = mp_communicate_send_json(forum_topic, resp);
 	free(forum_topic);
-	if(EOK != j_rm(resp)){
-		DE("Can't remove JSON object\n");
-	}
+	j_rm(resp);
 	TESTI_MES(rc, EBAD, "Can't remove json object");
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);

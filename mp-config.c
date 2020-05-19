@@ -213,7 +213,7 @@ err_t mp_config_save()
 
 err:
 	if (NULL != buf) {
-		if (EOK != buf_free_force(buf)) {
+		if (EOK != buf_free(buf)) {
 			DE("Can't remove buf_t: probably passed NULL pointer?\n");
 		}
 	}

@@ -391,7 +391,7 @@ shutdown:
 	return (NULL);
 }
 
-int ssh_thread_start(json_t *root)
+int ssh_thread_start(/*@temp@*/json_t *root)
 {
 	pthread_t ssh_thread_id;
 	TESTP(root, EBAD);

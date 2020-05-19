@@ -10,5 +10,5 @@ typedef struct ssh_forward_args_struct {
 
 }ssh_forward_args_t;
 
-extern int ssh_thread_start(json_t *root);
+extern int ssh_thread_start(/*@temp@*/json_t *root);
 #endif /* _SEC_SSH_PORT_FORWARD_H_ */
