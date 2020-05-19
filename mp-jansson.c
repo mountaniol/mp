@@ -368,6 +368,12 @@ err_t j_replace(/*@null@*/json_t *root, /*@null@*/const char *key, /*@null@*/jso
 	TESTP(root, EBAD);
 	TESTP(key, EBAD);
 	TESTP(j_new, EBAD);
+	if (EOK == j_test_key(root,key)) {
+		if(EOK != j_rm_key(root,key)) {
+			DE("Can't remove key '%s'\n", key);
+			j_print(root,"Object where I can't remove the key");
+		}
+	}
 	return (json_object_set_new(root, key, j_new));
 }
 
