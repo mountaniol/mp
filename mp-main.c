@@ -1,9 +1,12 @@
 /*@-skipposixheaders@*/
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <sys/prctl.h>
 #include <unistd.h>
 #include <string.h>
 #include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
+#include <errno.h>
 /*@=skipposixheaders@*/
 
 #include "mosquitto.h"
@@ -102,7 +105,7 @@ static err_t mp_main_remove_host_l(const json_t *root)
 	if (EOK != j_test_key(ctl->hosts, uid_src)) {
 		DE("Not found client %s\n", uid_src);
 		ctl_unlock();
-		return EBAD;
+		return (EBAD);
 	}
 
 	rc = j_rm_key(ctl->hosts, uid_src);
@@ -499,6 +502,15 @@ end:
 
 	TESTP(root, NULL);
 
+	//rc = pthread_setname_np(pthread_self(), "mp_main_on_message_processor");
+
+	rc = prctl(PR_SET_NAME, "mp_main_on_message_processor");
+	if (0 != rc) {
+		DE("Can't set pthread name:\n");
+		errno = rc;
+		perror("pthread error");
+	}
+	
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
 		DE("Thread: can't detach myself\n");
@@ -727,6 +739,13 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	/* Instance ID, we dont care, it always random */
 	int counter = 0;
 
+	//rc = pthread_setname_np(pthread_self(), "main_mosq_thread");
+	rc = prctl(PR_SET_NAME, "main_mosq_thread");
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
+
+
 	TESTP(cert, NULL);
 
 	/* Return MOSQ_ERR_SUCCESS - always */
@@ -920,6 +939,13 @@ end:
 		perror("Can't detach thread");
 		abort();
 	}
+
+	//rc = pthread_setname_np(pthread_self(), "mosq_thread_manager");
+	rc = prctl(PR_SET_NAME, "mosq_thread_manager");
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
+
 
 	ctl = ctl_get();
 	while (ST_STOP != ctl->status) {

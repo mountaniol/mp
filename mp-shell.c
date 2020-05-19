@@ -1,4 +1,6 @@
 /*@-skipposixheaders@*/
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <sys/prctl.h>
 #include <netdb.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -77,7 +79,12 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	struct sockaddr_un cli_addr;
 	ssize_t rc = -1;
 
-
+	//rc = pthread_setname_np(pthread_self(), "m_shell_in_thread");
+	rc = prctl(PR_SET_NAME, "m_shell_in_thread");
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
+	
 	DDD("CLI thread started\n");
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);

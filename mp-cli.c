@@ -1,4 +1,8 @@
 /*@-skipposixheaders@*/
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <pthread.h>
+#include <sys/prctl.h>
+
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -82,7 +86,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	ctl = ctl_get_locked();
 	ret = j_dup(ctl->me);
 	ctl_unlock();
-	return ret;
+	return (ret);
 }
 
 /*@null@*/ static json_t *mp_cli_get_received_tickets_l(/*@temp@*/json_t *root)
@@ -357,6 +361,13 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	DDD("CLI thread started\n");
 
+	//rc = pthread_setname_np(pthread_self(), "mp_cli_thread");
+	rc = prctl(PR_SET_NAME, "mp_cli_thread");
+
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
+
 	fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd_socket < 0) {
 		DE("Can't open CLI socket\n");
@@ -444,7 +455,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		D("Got all of the buffer:\n");
-		D("len %d,  \n%s\n", buft->len, buft->data); 
+		D("len %d,  \n%s\n", buft->len, buft->data);
 
 		/* Convert the buffer to JSON object */
 		root = j_buf2j(buft);

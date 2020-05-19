@@ -1,3 +1,5 @@
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <sys/prctl.h>
 #include <libssh2.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -347,6 +349,12 @@ shutdown:
 	TESTP(root, NULL);
 	DDD("root = %p\n", root);
 
+	//rc = pthread_setname_np(pthread_self(), "ssh_thread");
+	rc = prctl(PR_SET_NAME, "ssh_thread");
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
+	
 	/* 
 	   Connect to remote host and create forwarding port on this machine.
 	   Params:
