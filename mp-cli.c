@@ -194,6 +194,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	ctl = ctl_get_locked();
 	resp = j_dup(ctl->hosts);
 	ctl_unlock();
+	j_print(resp, "Copied ctl->hosts");
+	j_print(resp, "Orig   ctl->hosts");
 	return (resp);
 }
 
