@@ -57,7 +57,7 @@
 		if (0 == strncmp(dest, "00000000", 8)) {
 			char *ret = strdup(interface);
 			//D("Found default WAN interface: %s\n", interface);
-			free(buf);
+			TFREE(buf);
 			if (0 != fclose(fd)) {
 				DE("Can't close file!");
 				perror("Can't close file");
@@ -98,7 +98,7 @@ err:
 	if (getifaddrs(&ifaddr) == -1) {
 		DE("Failed: getifaddrs\n");
 		perror("getifaddrs");
-		free(wan_interface);
+		TFREE(wan_interface);
 		return (NULL);
 	}
 
@@ -111,20 +111,20 @@ err:
 			char *ret;
 			if (s != 0) {
 				printf("getnameinfo() failed: %s\n", gai_strerror(s));
-				free(wan_interface);
+				TFREE(wan_interface);
 				return (NULL);
 			}
 
 			DDD("Interface: %s\n", ifa->ifa_name);
 			DDD("Address: %s\n", host);
 			ret = strdup(host);
-			free(wan_interface);
+			TFREE(wan_interface);
 			freeifaddrs(ifaddr);
 			return (ret);
 		}
 	}
 
-	free(wan_interface);
+	TFREE(wan_interface);
 	freeifaddrs(ifaddr);
 	return (NULL);
 }

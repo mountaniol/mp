@@ -567,7 +567,7 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
 
 	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
-	free(wan_address);
+	TFREE(wan_address);
 
 	if (0 != rc) {
 		DE("UPNP_GetExternalIPAddress failed\n");

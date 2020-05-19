@@ -23,7 +23,7 @@
 	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/%s", user, uid);
 	if (rc < 0) {
 		DE("Can't create topic\n");
-		free(topic);
+		TFREE(topic);
 		return (NULL);
 	}
 	return (topic);
@@ -38,7 +38,7 @@
 	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/forum/#", user);
 	if (rc < 0) {
 		DE("Can't create topic\n");
-		free(topic);
+		TFREE(topic);
 		return (NULL);
 	}
 	return (topic);
@@ -54,7 +54,7 @@
 	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
 	if (rc < 0) {
 		DE("Can't create topic\n");
-		free(topic);
+		TFREE(topic);
 		return (NULL);
 	}
 	return (topic);
@@ -69,7 +69,7 @@
 	rc = snprintf(topic, TOPIC_MAX_LEN, "users/%s/personal/#", user);
 	if (rc < 0) {
 		DE("Can't create topic\n");
-		free(topic);
+		TFREE(topic);
 		return (NULL);
 	}
 	return (topic);
@@ -151,7 +151,7 @@ err_t mp_communicate_clean_missed_counters(void)
 	rc = snprintf(buf_counter_s, 32, "%d", counter);
 	if (rc < 0) {
 		DE("Can't transform buffer counter to string\n");
-		free(buf_counter_s);
+		TFREE(buf_counter_s);
 		return (NULL);
 	}
 
@@ -170,7 +170,7 @@ err_t mp_communicate_clean_missed_counters(void)
 		ctl_lock();
 		rc = j_add_int(ctl->buf_missed, buf_counter_s, counter);
 		ctl_unlock();
-		free(buf_counter_s);
+		TFREE(buf_counter_s);
 		if (EOK != rc) {
 			DE("Can't add counter into ctl->buf_missed\n");
 		}
@@ -188,7 +188,7 @@ err_t mp_communicate_clean_missed_counters(void)
 	if (EOK != rc) {
 		DE("Can't remove key from json: ctl->buffers, buf_counter_s");
 	}
-	free(buf_counter_s);
+	TFREE(buf_counter_s);
 	return (buf_p);
 }
 
@@ -217,14 +217,14 @@ static err_t mp_communicate_save_buf_t_to_ctl(buf_t *buf, int counter)
 	rc = snprintf(buf_counter_s, 32, "%d", counter);
 	if (rc < 0) {
 		DE("Can't convert counter to string\n");
-		free(buf_counter_s);
+		TFREE(buf_counter_s);
 		return (EBAD);
 	}
 
 	ctl = ctl_get_locked();
 	rc = j_add_int(ctl->buffers, buf_counter_s, (size_t)buf);
 	ctl_unlock();
-	free(buf_counter_s);
+	TFREE(buf_counter_s);
 	TESTI_MES(rc, EBAD, "Can't add int to json: buf_counter_s, (size_t) buf\n");
 
 	return (EOK);
@@ -320,7 +320,7 @@ err_t send_reveal_l()
 	TESTP_MES(buf, EBAD, "Can't build notification");
 
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
-	free(forum_topic);
+	TFREE(forum_topic);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Failed to send reveal request\n");
 		return (EBAD);
@@ -344,7 +344,7 @@ err_t mp_communicate_send_request(const json_t *root)
 	DDD0("Going to send request\n");
 	//j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
-	free(forum_topic);
+	TFREE(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -364,7 +364,7 @@ int send_request_to_open_port(/*@temp@*/const json_t *root){
 	DDD0("Going to send request\n");
 	//j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
-	free(forum_topic);
+	TFREE(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -389,7 +389,7 @@ err_t send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, ch
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
-	free(forum_topic);
+	TFREE(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -412,7 +412,7 @@ int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
 	rc = mp_communicate_mosquitto_publish(forum_topic, buf);
-	free(forum_topic);
+	TFREE(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
@@ -448,7 +448,7 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 
 	resp = j_arr();
 	if (NULL == resp) {
-		free(forum_topic);
+		TFREE(forum_topic);
 		return (EBAD);
 	}
 
@@ -465,7 +465,7 @@ err_t send_request_return_tickets(/*@temp@*/json_t *root)
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD("Going to send request\n");
 	rc = mp_communicate_send_json(forum_topic, resp);
-	free(forum_topic);
+	TFREE(forum_topic);
 	j_rm(resp);
 	TESTI_MES(rc, EBAD, "Can't remove json object");
 	DDD("Sent request, status is %d\n", rc);

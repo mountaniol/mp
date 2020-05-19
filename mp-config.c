@@ -175,10 +175,10 @@ err_t mp_config_save()
 	} else {
 		DE("Some error\n");
 		perror("Config directory testing error");
-		free(dirname);
+		TFREE(dirname);
 		return (EBAD);
 	}
-	free(dirname);
+	TFREE(dirname);
 
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, -1, "Can't create config file name");

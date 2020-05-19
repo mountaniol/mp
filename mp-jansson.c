@@ -52,7 +52,7 @@
 
 	memcpy(buf, str, len);
 	root = j_str2j(buf);
-	free(buf);
+	TFREE(buf);
 	return (root);
 }
 

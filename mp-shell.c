@@ -130,7 +130,7 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 				/* realloc can return new buffer. In this case the old one should be freed */
 				if (tmp != buf) {
-					free(buf);
+					TFREE(buf);
 					/*@ignore@*/
 					buf = tmp;
 					/*@end@*/

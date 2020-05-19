@@ -108,10 +108,10 @@ err_t buf_free(/*@only@*/buf_t *buf)
 	TESTP(buf, EBAD);
 
 	if (NULL != buf->data) {
-		free(buf->data);
+		TFREE(buf->data);
 	}
 
-	free(buf);
+	TFREE(buf);
 
 	return (EOK);
 }

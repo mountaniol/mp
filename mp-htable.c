@@ -83,7 +83,7 @@ uint32_t murmur3_32(const uint8_t *key, size_t len)
 	ht->nodes = zmalloc(sizeof(hnode_t *) * size);
 	if (NULL == ht->nodes) {
 		DE("Can't allocate array of pointers\n");
-		free(ht);
+		TFREE(ht);
 		return (NULL);
 	}
 
@@ -96,8 +96,8 @@ int htable_free(htable_t *ht)
 {
 	TESTP_MES(ht, -1, "Got NULL");
 	/* TODO */
-	free(ht->nodes);
-	free(ht);
+	TFREE(ht->nodes);
+	TFREE(ht);
 	return (0);
 }
 
@@ -197,14 +197,14 @@ int htable_insert(htable_t *ht, char *key, void *data)
 	data = node->data;
 
 	if (NULL == ht->nodes[slot]->next) {
-		free(node->key);
-		free(node);
+		TFREE(node->key);
+		TFREE(node);
 		ht->nodes[slot] = NULL;
 	} else {
 		/* SEB: TODO: Fix here */
 		node_p->next = node->next;
-		free(node->key);
-		free(node);
+		TFREE(node->key);
+		TFREE(node);
 	}
 
 	ht->members--;
@@ -323,7 +323,7 @@ int htable_unsort(htable_t *ht)
 {
 	TESTP_MES(ht, -1, "Got NULL");
 	TESTP_MES(ht->misc, -1, "misc is NULL");
-	free(ht->misc);
+	TFREE(ht->misc);
 	return (0);
 }
 
@@ -415,7 +415,7 @@ static int hrable_test_number(int table_size){
 			return (-1);
 		}
 		DE("Found entry for key %s : %s\n", key, (char *)found);
-		free(found);
+		TFREE(found);
 	}
 
 	htable_free(ht);

@@ -80,7 +80,7 @@ err_t mp_main_ticket_responce(const json_t *req, const char *status, const char 
 	forum = mp_communicate_forum_topic();
 	TESTP_ASSERT(forum, "Can't allocate forum!");
 	rc = mp_communicate_send_json(forum, root);
-	free(forum);
+	TFREE(forum);
 
 end:
 	j_rm(root);
@@ -1012,7 +1012,7 @@ static err_t mp_main_complete_me_init(void)
 		TESTP_MES(var, EBAD, "Can't generate UID\n");
 
 		ctl_uid_set(var);
-		free(var);
+		TFREE(var);
 		var = NULL;
 	}
 
@@ -1119,6 +1119,6 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 		}
 	}
 
-	free(cert);
+	TFREE(cert);
 	return (rc);
 }

@@ -41,6 +41,8 @@ typedef enum {
 #define PRINTP_STR(p) do {DD("Pointer %s is %s\n", #p, p);}while(0)
 
 #define TESTP_ASSERT(x, mes) do {if(NULL == x) { DE("[[ ASSERT! ]] %s == NULL: %s\n", #x, mes); abort(); } } while(0)
-#define TFREE(x) do { if(NULL != x) {free(x); x = NULL;} }while(0)
+
+#define TFREE(x) do { if(NULL != x) {free(x); x = NULL;} else {DE(">>>>>>>> Tried to free() NULL: %s\n", #x);} }while(0)
+													   
 
 #endif /* _SEC_COMMON_H_ */
