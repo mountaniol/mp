@@ -109,7 +109,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 			if (EOK != rc) {
 				j_rm(copied);
-				j_rm(arr); 
+				j_rm(arr);
 				return (NULL);
 			}
 
@@ -409,17 +409,19 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			abort();
 		}
 
-		/* Create select set */
-		FD_ZERO(&sready);
-		FD_SET(fd_connection, &sready);
-		memset((char *)&nowait, 0, sizeof(nowait));
+
 
 		/* Receive the first buffer */
 		rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
 		buft->len += rc;
 
-		D("Got first part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
+		D("Got first part of the buffer:\n");
+		D("len %d,  \n%s\n", buft->len, buft->data);
 
+		/* Create select set */
+		FD_ZERO(&sready);
+		FD_SET(fd_connection, &sready);
+		memset((char *)&nowait, 0, sizeof(nowait));
 		/* if there is more to receive, do it: select() returns > 0 until there is data to read  */
 		while (select(fd_connection + 1, &sready, NULL, NULL, &nowait) > 0) {
 			/* If we almost filled the buffer, we add memory */
@@ -433,8 +435,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
 			buft->len += rc;
 
-			D("Got second part of the buffer: len %d,  \n%s\n", buft->len, buft->data);
+			D("Got second part of the buffer:\n");
+			D("len %d,  \n%s\n", buft->len, buft->data);
 		}
+
+		D("Got all of the buffer:\n");
+		D("len %d,  \n%s\n", buft->len, buft->data); 
 
 		/* Convert the buffer to JSON object */
 		root = j_buf2j(buft);

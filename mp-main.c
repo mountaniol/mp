@@ -349,6 +349,14 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 		DD("Got 'openport' request\n");
 
+		if (NULL == ctl->rootdescurl) {
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "This machine doesn't have UPNP ability");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
+			return (EBAD);
+		}
+
 		rc = mp_main_do_open_port_l(root);
 		/* 
 		 * When the port opened, it added ctl global control_t structure 
@@ -379,13 +387,21 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 	}
 
 	/** 
-     * 5. Request "closeport" from remote client. The remote client 
+	 * 5. Request "closeport" from remote client. The remote client 
 	 *    wants us to close UPNP port
-     *  
-     **/
+	 *  
+	 **/
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		DD("Got 'closeport' request\n");
+
+		if (NULL == ctl->rootdescurl) {
+			int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "This machine doesn't have UPNP ability");
+			if (EOK != rrc) {
+				DE("Can't send ticket\n");
+			}
+			return (EBAD);
+		}
 
 		rc = mp_main_do_close_port_l(root);
 		/* 
@@ -394,7 +410,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		 * we just send update to all listeners
 		 */
 
-		/*** TODO: SEB: Send update to all */
+		/*** ***/
 		if (EOK == rc) {
 			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
 			if (EOK != rrc) {
@@ -410,34 +426,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 			int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
 			if (EOK != rrc) {
 				DE("Can't send ticket\n");
-			}
-		}
-
-		if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
-			DD("Got 'closeport' request\n");
-
-			rc = mp_main_do_close_port_l(root);
-			/* 
-			 * When the port opened, it added ctl global control_t structure 
-			 * We don't need to know what port exactly opened, 
-			 * we just send update to all listeners
-			 */
-
-			/*** TODO: SEB: Send update to all */
-			if (EOK == rc) {
-				int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-				if (EOK != rrc) {
-					DE("Can't send ticket\n");
-				}
-				rrc = send_keepalive_l();
-				if (EOK != rrc) {
-					DE("Can't send keepalive\n");
-				}
-			} else {
-				int rrc = mp_main_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
-				if (EOK != rrc) {
-					DE("Can't send ticket\n");
-				}
 			}
 		}
 
@@ -1057,6 +1045,9 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 
 	rc = mp_main_complete_me_init();
 	TESTI_MES(rc, EBAD, "Can't finish 'me' init\n");
+
+	/* Find our router */
+	mp_ports_router_root_discover();
 
 	if (0 != mp_network_init_network_l()) {
 		DE("Can't init network\n");

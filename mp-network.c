@@ -133,10 +133,13 @@ err:
 err_t mp_network_init_network_l()
 {
 	/*@shared@*/control_t *ctl = ctl_get();
-	char *var;
+	char *var = NULL;
 
 	/* Try to read external IP from Upnp */
-	var = mp_ports_get_external_ip();
+	/* We don't even try if no router found */
+	if (NULL != ctl->rootdescurl) {
+		var = mp_ports_get_external_ip();
+	}
 
 	/* If can't read from Upnp assign it to 0.0.0.0 - means "can't use Upnp" */
 	if (NULL == var) {
