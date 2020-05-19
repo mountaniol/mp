@@ -546,6 +546,8 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 	int rc;
 	control_t *ctl = ctl_get();
 
+	DD("ctl->rootdescurl: %s\n", ctl->rootdescurl);
+
 	TESTP_ASSERT(arr, "Bad param NULL");
 	TESTP_ASSERT(local_host, "Bad param NULL");
 
