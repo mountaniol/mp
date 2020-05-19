@@ -14,6 +14,8 @@ DEBUG += -DDERROR3
 #DEBUG=-DDEBUG3
 
 # client daemon
+
+J_ARCH=/usr/lib/x86_64-linux-gnu/libjansson.a
 MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o buf_t.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
@@ -38,11 +40,12 @@ all: m cli
 
 m: $(MOSQ_O)
 	@echo "|>> Linking mserver"
-	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread -lssh2
+	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lminiupnpc -lpthread -lssh2
+	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread -lssh2
 
 cli: $(CLI_O)
 	@echo "|>> Linking mclient"
-	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) -o $(CLI_T) -ljansson -lpthread
+	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(J_ARCH) -o $(CLI_T) -lpthread
 	#@$(GCC) $(CFLAGS) $(CLI_O) -o $(CLI_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread
 	
 u:
