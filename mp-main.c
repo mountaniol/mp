@@ -1034,6 +1034,7 @@ static err_t mp_main_complete_me_init(void)
 
 	/* SEB: TODO: This should be defined by user from first time config */
 	if (EOK != j_test_key(ctl->me, JK_USER)) {
+		/* TODO: Check user name len, must be no more than JK_USER_MAX_LEN */
 		ctl_user_set("seb");
 	}
 

@@ -22,6 +22,8 @@
 #define JK_DEST "destination"
 /* Client user name, used to form topic name */
 #define JK_USER "user"
+/* Maximal length of user name */
+#define JK_USER_MAX_LEN 64
 /* Client machine name (defined by user) */
 #define JK_NAME "name"
 /* Client external (router) IP */

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <limits.h>
 #define STATICLIB
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -523,8 +524,8 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 
 		index++;
 
-		/* A mapping found */
-		if (0 == strncmp(req->map_lan_address, local_host, strlen(local_host))) {
+		/* A mapping found */ 
+		if (0 == strncmp(req->map_lan_address, local_host, strnlen(local_host, _POSIX_HOST_NAME_MAX))) {
 			D("Asked mapping is already exists: ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
 
 			mapping = j_new();

@@ -29,7 +29,9 @@ static char *mp_config_get_config_dir(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	len = strlen(homedir) + strlen(CONFIG_DIR_NAME);
+	
+	/* TODO: Warning! This should not be hardcoded value but should depend on the OS and FS */
+	len = strnlen(homedir, 4096) + strnlen(CONFIG_DIR_NAME, CONFIG_DIR_NAME_MAX_LEN);
 
 	/* Filename len: directory + slash + file config dir + '\0' */
 	dirname = zmalloc(len + 2);
@@ -60,7 +62,8 @@ static char *mp_config_get_config_name(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	len = strlen(homedir) + strlen(CONFIG_DIR_NAME) + strlen(CONFIG_FILE_NAME);
+	/* TODO: Warning! This should not be hardcoded value but should depend on the OS and FS */
+	len = strnlen(homedir, PATH_MAX) + strnlen(CONFIG_DIR_NAME, CONFIG_DIR_NAME_MAX_LEN) + strnlen(CONFIG_FILE_NAME, CONFIG_FILE_NAME_MAX_LEN);
 
 	/* Filename len: directory + slash + file config dir + slash + file name + '\0' */
 	filename = zmalloc(len + 3);

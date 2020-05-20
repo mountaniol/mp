@@ -2,8 +2,11 @@
 #define _SEC_CLIENT_MOSQ_CONFIG_H_
 #include <jansson.h>
 
+/* If these names changed care about name lenghts as well*/
 #define CONFIG_DIR_NAME ".mightypapa"
+#define CONFIG_DIR_NAME_MAX_LEN 11
 #define CONFIG_FILE_NAME "config"
+#define CONFIG_FILE_NAME_MAX_LEN 6
 
 /**
  * @brief Save ctl->config into config file

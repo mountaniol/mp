@@ -7,6 +7,7 @@
 #include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-memory.h"
+#include "mp-limits.h"
 
 /*@null@*/ char *mp_os_get_hostname()
 {
@@ -123,7 +124,7 @@ int mp_os_random_in_range(int lower, int upper)
 	TESTP_GO(part3, err);
 	len += 4;
 
-	len += 2 + strlen(name);
+	len += 2 + strnlen(name, MP_LIMIT_USER_MAX);
 
 	str = zmalloc(len);
 	//DD("name: %s, part1: %s, part2: %s", name, part1, part2);
