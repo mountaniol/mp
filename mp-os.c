@@ -56,9 +56,13 @@ const char charset_num[] = "0123456789";
 	str = zmalloc(size);
 	TESTP_MES(str, NULL, "Can't allocate");
 
+	/* TODO: Make sure this is opened. If not, use other random number generators */
 	fd = fopen("/dev/urandom", "r");
-	TESTP_MES(fd, NULL, "Can't open /dev/urandom");
-
+	if (NULL == fd) {
+		fd = fopen("/dev/random", "r");
+	}
+	TESTP_MES(fd, NULL, "Can't open either /dev/urandom nor /dev/randomn");
+	
 	rc = fread(str, 1, size, fd);
 	if (0 != fclose(fd)) {
 		DE("Can't close /dev/urandom\n");
