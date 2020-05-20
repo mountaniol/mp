@@ -3,7 +3,6 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 #include <string.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
@@ -11,14 +10,10 @@
 
 #include "mosquitto.h"
 #include "buf_t.h"
-#include "mp-common.h"
-#include "mp-main.h"
 #include "mp-debug.h"
-#include "mp-memory.h"
 #include "mp-ctl.h"
 #include "mp-jansson.h"
 #include "mp-ports.h"
-#include "mp-main.h"
 #include "mp-cli.h"
 #include "mp-config.h"
 #include "mp-network.h"
@@ -312,7 +307,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 		/* We do not own this object, it will be cleaned in caller */
 		root_dup = j_dup(root);
-		TESTP(root_dup, EBAD); 
+		TESTP(root_dup, EBAD);
 		ctl_lock();
 		rc = j_replace(ctl->hosts, uid_src, root_dup);
 		ctl_unlock();
@@ -506,7 +501,7 @@ end:
 }
 
 /* Message processor, runs as a thread */
-/*@null@*/static void *mp_main_on_message_processor(/*@only@*/void *v)
+/*@null@*/static void *mp_main_message_processor_pthread(/*@only@*/void *v)
 {
 	/*@only@*/char **topics = NULL;
 	/*@temp@*/ const char *topic = NULL;
@@ -616,7 +611,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 		abort();
 	}
 
-	rc = pthread_create(&message_thread, NULL, mp_main_on_message_processor, root);
+	rc = pthread_create(&message_thread, NULL, mp_main_message_processor_pthread, root);
 	if (0 != rc) {
 		DE("Can't start mp_main_on_message_processor\n");
 		perror("Can't start mp_main_on_message_processor");
@@ -745,7 +740,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 #define PASS "asasqwqw"
 
 /* This thread is responsible for connection to the broker */
-/*@null@*/ static void *mp_main_mosq_thread(void *arg)
+/*@null@*/ static void *mp_main_mosq_pthread(void *arg)
 {
 	/*@temp@*/control_t *ctl = NULL;
 	int rc = EBAD;
@@ -761,6 +756,12 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	/* Instance ID, we dont care, it always random */
 	int counter = 0;
 
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
 	//rc = pthread_setname_np(pthread_self(), "main_mosq_thread");
 	rc = prctl(PR_SET_NAME, "main_mosq_thread");
 	if (0 != rc) {
@@ -949,12 +950,12 @@ end:
 	return (NULL);
 }
 
-/*@null@*/ static void *mp_main_mosq_thread_manager(void *arg)
+/*@null@*/ static void *mp_main_mosq_threads_manager_pthread(void *arg)
 {
 	/*@temp@*/control_t *ctl = NULL;
-	void *status = NULL;
 	pthread_t mosq_thread_id;
 	int rc;
+
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
 		DE("Can't detach thread\n");
@@ -962,30 +963,24 @@ end:
 		abort();
 	}
 
-	//rc = pthread_setname_np(pthread_self(), "mosq_thread_manager");
 	rc = prctl(PR_SET_NAME, "mosq_thread_manager");
 	if (0 != rc) {
 		DE("Can't set pthread name\n");
 	}
 
-
 	ctl = ctl_get();
-	while (ST_STOP != ctl->status) {
-
-		rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread, arg);
-		if (0 != rc) {
-			DE("Can't create thread\n");
-			perror("Can't create thread");
-			abort();
-		}
-
-		rc = pthread_join(mosq_thread_id, &status);
-		if (0 != rc) {
-			DE("Can't join thread \n");
-			perror("Can't join thread");
-			abort();
-		}
+	rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_pthread, arg);
+	if (0 != rc) {
+		DE("Can't create thread\n");
+		perror("Can't create thread");
+		abort();
 	}
+
+	while (ST_STOP != ctl->status) {
+		/* TODO: WE should restart mosq thread if it terminated */
+		mp_os_usleep(500);
+	}
+
 	D("Exit\n");
 	ctl->status = ST_STOPPED;
 	return (NULL);
@@ -1144,13 +1139,13 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	mp_main_print_info_banner();
-	rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_thread_manager, cert);
+	rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_threads_manager_pthread, cert);
 	if (0 != rc) {
 		DE("Can't create thread mp_main_mosq_thread_manager\n");
 		perror("Can't create thread mp_main_mosq_thread_manager");
 		abort();
 	}
-	rc = pthread_create(&cli_thread_id, NULL, mp_cli_thread, NULL);
+	rc = pthread_create(&cli_thread_id, NULL, mp_cli_pthread, NULL);
 	if (0 != rc) {
 		DE("Can't create thread mp_cli_thread\n");
 		perror("Can't create thread mp_cli_thread");

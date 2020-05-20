@@ -1,14 +1,10 @@
 #include <string.h>
-#include <stdlib.h>
-#include <string.h>
 #define STATICLIB
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 
-#include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-memory.h"
-#include "mp-ports.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
 #include "mp-main.h"

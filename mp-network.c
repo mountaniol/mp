@@ -1,12 +1,11 @@
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <string.h>
-#include "mp-common.h"
+
 #include "buf_t.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-memory.h"
-#include "mp-network.h"
 #include "mp-jansson.h"
 #include "mp-ports.h"
 #include "mp-dict.h"

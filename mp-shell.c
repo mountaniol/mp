@@ -6,10 +6,10 @@
 #include <unistd.h>
 #include <pthread.h>
 /*@=skipposixheaders@*/
-#include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-jansson.h"
 #include "mp-network.h"
+#include "mp-net-utils.h"
 #include "mp-cli.h"
 #include "mp-os.h"
 #include "mp-dict.h"
@@ -72,19 +72,26 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 /* This thread accepts connection from CLI or from GUI client
    Only one client a time */
-/*@null@*/ static void *mp_shell_in_thread(/*@unused@*/void *arg __attribute__((unused)))
+/*@null@*/ static void *mp_shell_in_stream_pthread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
 	int fd = -1;
 	struct sockaddr_un cli_addr;
 	ssize_t rc = -1;
 
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+
 	//rc = pthread_setname_np(pthread_self(), "m_shell_in_thread");
 	rc = prctl(PR_SET_NAME, "m_shell_in_thread");
 	if (0 != rc) {
 		DE("Can't set pthread name\n");
 	}
-	
+
 	DDD("CLI thread started\n");
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -176,12 +183,8 @@ static err_t mp_shell_parse_in_command(json_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
-	char buffer[CLI_BUF_LEN];
 	struct sockaddr_un serveraddr;
-
-	/*@only@*/buf_t *buf = j_2buf(root);
-
-	TESTP_MES(buf, NULL, "Can't encode JSON object\n");
+	json_t *resp;
 
 	sd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sd < 0) {
@@ -206,48 +209,19 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 	DDD("Connected\n");
 
-	// memset(buf, '0', CLI_BUF_LEN);
-	rc = send(sd, buf->data, buf->len, 0);
-	if (rc < 0) {
-		DE("Failed\n");
-		perror("send() failed");
+	rc = mp_net_utils_send_json(sd, root);
+	if (EOK != rc) {
+		DE("Can't send JSON request\n");
 		return (NULL);
 	}
 
 	DDD("Sent\n");
 
-	rc = recv(sd, buffer, CLI_BUF_LEN, 0);
-	if (rc < 0) {
-		DE("Failed\n");
-		perror("recv() failed");
-		return (NULL);
-	}
-
-	if (rc == 0) {
-		printf("The server closed the connection\n");
-		return (NULL);
-	}
-
-	if (rc > CLI_BUF_LEN) {
-		/*@ignore@*/
-		printf("The received buffer is too big. Expected max %d, received %zu\n", CLI_BUF_LEN, rc);
-		/*@end@*/
-		return (NULL);
-	}
-
-	DDD("Received : %ld bytes\n", rc);
-
-	buffer[rc] = '\0';
-	if (sd != -1) {
-		if (0 != close(sd)) {
-			DE("can't close socket\n");
-			perror("can't close socket");
-			abort();
-		}
-
-	}
-	return (j_str2j(buffer));
+	resp = mp_net_utils_receive_json(sd);
+	close (sd);
+	return (resp);
 }
+
 
 static err_t mp_shell_wait_and_print_tickets(void)
 {
@@ -804,7 +778,7 @@ int main(int argc, char *argv[])
 		return (-1);
 	}
 
-	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_thread, NULL);
+	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_stream_pthread, NULL);
 	if (0 != rc) {
 		DE("Can't create mp_shell_in_thread\n");
 		perror("Can't create mp_shell_in_thread");

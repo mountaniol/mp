@@ -1,21 +1,18 @@
 /*@-skipposixheaders@*/
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
+#include <dirent.h>
+#include <errno.h>
 /*@=skipposixheaders@*/
-#include "mp-common.h"
 #include "mp-debug.h"
 #include "buf_t.h"
 #include "mp-jansson.h"
 #include "mp-config.h"
 #include "mp-dict.h"
 #include "mp-memory.h"
-#include "mp-common.h"
 #include "mp-ctl.h"
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <dirent.h>
-#include <errno.h>
 
 /* Construct config file directory full path */
 static char *mp_config_get_config_dir(void)

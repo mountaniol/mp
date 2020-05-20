@@ -8,16 +8,12 @@
 #include <unistd.h>
 /*@=skipposixheaders@*/
 
-#include "mp-common.h"
 #include "mp-debug.h"
-#include "mp-memory.h"
 #include "mp-ctl.h"
 #include "mp-jansson.h"
-#include "mp-main.h"
 #include "mp-cli.h"
-#include "mp-requests.h"
 #include "mp-communicate.h"
-#include "mp-network.h"
+#include "mp-net-utils.h"
 #include "mp-dict.h"
 #include "mp-ports.h"
 #include "mp-ssh.h"
@@ -355,13 +351,21 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 /* This thread accepts connection from shell or from GUI client
    Only one client a time */
-/*@null@*/ void *mp_cli_thread(/*@unused@*/void *arg __attribute__((unused)))
+/*@null@*/ void *mp_cli_pthread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	int fd_socket = -1;
 	struct sockaddr_un cli_addr;
 	ssize_t rc = -1;
+	control_t *ctl;
 
 	DDD("CLI thread started\n");
+
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
 
 	//rc = pthread_setname_np(pthread_self(), "mp_cli_thread");
 	rc = prctl(PR_SET_NAME, "mp_cli_thread");
@@ -392,11 +396,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		return (NULL);
 	}
 
+	ctl = ctl_get();
+
 	/* Now listen (blocking) -> accept -> receive a buffer -> process -> return responce -> repeat */
 	do {
-		fd_set sready;
-		struct timeval nowait;
-
 		int fd_connection = -1;
 		/*@only@*/buf_t *buft = NULL;
 
@@ -419,63 +422,16 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			break;
 		}
 
-		/* Allocate new buffer */
-		buft = buf_new(NULL, CLI_BUF_LEN);
-		if (NULL == buft) {
-			DE("Can't allocate buf_t\n");
-			abort();
-		}
-
-
-
-		/* Receive the first buffer */
-		rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
-		buft->len += rc;
-
-		D("Got first part of the buffer:\n");
-		D("len %d,  \n%s\n", buft->len, buft->data);
-
-		/* Create select set */
-		FD_ZERO(&sready);
-		FD_SET(fd_connection, &sready);
-		memset((char *)&nowait, 0, sizeof(nowait));
-		/* if there is more to receive, do it: select() returns > 0 until there is data to read  */
-		while (select(fd_connection + 1, &sready, NULL, NULL, &nowait) > 0) {
-			/* If we almost filled the buffer, we add memory */
-			if (buf_get_room(buft) < 1) {
-				if (EOK != buf_add_room(buft, CLI_BUF_LEN)) {
-					DE("Failed to frow room in buf_t\n");
-					abort();
-				}
-			}
-			/* Receive buffer from cli */
-			rc = recv(fd_connection, buft->data + buft->len, buf_get_room(buft), 0);
-			buft->len += rc;
-
-			D("Got second part of the buffer:\n");
-			D("len %d,  \n%s\n", buft->len, buft->data);
-		}
-
-		D("Got all of the buffer:\n");
-		D("len %d,  \n%s\n", buft->len, buft->data);
-
-		/* Convert the buffer to JSON object */
-		root = j_buf2j(buft);
+		root = mp_net_utils_receive_json(fd_connection);
 
 		if (NULL == root) {
-			DE("Can't decode buf to JSON object\n");
+			DE("Can't receive buf to JSON object\n");
 			if (EOK != buf_free(buft)) {
 				DE("Failed to release buf_t\n");
 				abort();
 			}
 			break;
 		}
-
-		if (EOK != buf_free(buft)) {
-			DE("Failed to release buf_t\n");
-			abort();
-		}
-		buft = NULL;
 
 		/* Now let's parse the command and receive from the parser an answer */
 		root_resp = mp_cli_parse_command(root);
@@ -491,35 +447,14 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 		j_print(root_resp, "Got responce, goung to send");
 
-		/* Encode response object into text buffer */
-		buft = j_2buf(root_resp);
-		if (NULL == buft) {
-			j_rm(root_resp);
-			return (NULL);
+		rc = mp_net_utils_send_json(fd_connection, root_resp);
+		if (EOK != rc) {
+			DE("Can't send JSON response\n");
 		}
 
 		j_rm(root_resp);
-
-		DD("Converted root_resp to buf_t:\n%s\n", buft->data);
-
-		if (NULL == buft) {
-			DE("Can't convert json to buf_t\n");
-			break;
-		}
-
-		/* Send the encoded JSON to cli */
-		rc = send(fd_connection, buft->data, buft->len, 0);
-		if (rc != (ssize_t)buft->len) {
-			DE("send() failed");
-		}
-
-		/* Release the buffer */
-		if (EOK != buf_free(buft)) {
-			DE("failed to free buf_t\n");
-			abort();
-		}
-
-	} while (1 == 1);
+		
+	} while (ST_STOP != ctl->status && ST_STOPPED != ctl->status);
 
 	return (NULL);
 }

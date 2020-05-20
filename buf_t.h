@@ -9,13 +9,22 @@
 
 /* Simple struct to hold a buffer / string and its size / lenght */
 struct buf_t_struct {
-	uint32_t room;    	/* Allocated size */
-	uint32_t len;     	/* Used size */
-	uint8_t  tp; 		/* Buffer type. Optional. We may use it as we wish. */
-	/*@temp@*/char *data;     	/* Pointer to data */
+	uint32_t room;      /* Allocated size */
+	uint32_t len;       /* Used size */
+	uint8_t tp;        /* Buffer type. Optional. We may use it as we wish. */
+	/*@temp@*/char *data;       /* Pointer to data */
 };
 
 typedef struct buf_t_struct buf_t;
+
+/* Size of a regular buf_t structure */
+#define BUF_T_STRUCT_SIZE (sizeof(buf_t))
+
+/* Size of buf_t structure for network transmittion: without the last 'char *data' pointer */
+#define BUF_T_STRUCT_NET_SIZE (sizeof(buf_t) - sizeof(char*))
+
+/* How much bytes will be transmitted to send buf_t + its actual data */
+#define BUF_T_NET_SEND_SIZE(b) (BUF_T_STRUCT_NET_SIZE + b->len)
 
 /**
  * 

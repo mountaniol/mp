@@ -2,21 +2,10 @@
 #include <sys/prctl.h>
 #include <libssh2.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
-
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/select.h>
 
 #include "mp-debug.h"
-#include "mp-common.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
@@ -330,7 +319,7 @@ shutdown:
 	return (0);
 }
 
-/*@null@*/ void *ssh_thread(void *arg)
+/*@null@*/ void *ssh_tunnel_pthread(void *arg)
 {
 	json_t *root = arg;
 	int rc = EBAD;
@@ -349,12 +338,19 @@ shutdown:
 	TESTP(root, NULL);
 	DDD("root = %p\n", root);
 
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+
 	//rc = pthread_setname_np(pthread_self(), "ssh_thread");
 	rc = prctl(PR_SET_NAME, "ssh_thread");
 	if (0 != rc) {
 		DE("Can't set pthread name\n");
 	}
-	
+
 	/* 
 	   Connect to remote host and create forwarding port on this machine.
 	   Params:
@@ -406,6 +402,6 @@ int ssh_thread_start(/*@temp@*/json_t *root)
 	DDD("root = %p\n", root);
 	j_print(root, "ssh_thread_start: params are: ");
 
-	pthread_create(&ssh_thread_id, NULL, ssh_thread, root);
+	pthread_create(&ssh_thread_id, NULL, ssh_tunnel_pthread, root);
 	return (EOK);
 }

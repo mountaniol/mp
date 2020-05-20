@@ -20,13 +20,13 @@ MINI_ARCH=/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o buf_t.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
-		mp-requests.o mp-communicate.o mp-os.o mp-ssh.o
+		mp-requests.o mp-communicate.o mp-os.o mp-ssh.o mp-net-utils.o
 
 MOSQ_C=mp-main.c mp-jansson.c buf_t.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
 		mp-requests.c
 # client cli
-CLI_O=mp-shell.o mp-jansson.o mp-memory.o buf_t.o mp-ctl.o mp-os.o libfort.a
+CLI_O=mp-shell.o mp-jansson.o mp-memory.o buf_t.o mp-ctl.o mp-os.o mp-net-utils.o libfort.a
 CLI_T=mp
 
 # Port mapper, standalone compilation

@@ -1,9 +1,7 @@
 /*@-skipposixheaders@*/
 #include <unistd.h>
-#include <time.h>
 #include <string.h>
 #include <netdb.h>
-#include <stdio.h>
 /*@=skipposixheaders@*/
 
 #include "mp-common.h"

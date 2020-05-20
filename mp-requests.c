@@ -1,11 +1,7 @@
-#include <jansson.h>
-#include "jansson.h"
 #include "buf_t.h"
-#include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-jansson.h"
-#include "mp-network.h"
 #include "mp-dict.h"
 
 /* SEB:TODO: What exactly the params? */
@@ -224,34 +220,6 @@ err:
 	}
 	return (buf);
 }
-
-#if 0 /* SEB DEADCODE 14/05/2020 21:36  */
-/*@null@*/ buf_t *mp_requests_close_port(const char *uid, const char *port, const char *protocol){
-	buf_t *buf = NULL;
-	json_t *root = NULL;
-
-	TESTP_MES(uid, NULL, "Got NULL");
-	TESTP_MES(port, NULL, "Got NULL");
-
-	root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_CLOSEPORT)) goto err;
-	if (EOK != j_add_str(root, JK_PORT_INT, port)) goto err;
-	if (EOK != j_add_str(root, JK_PROTOCOL, protocol)) goto err;
-	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	if (NULL != root) {
-		int rc = j_rm(root);
-		TESTI_MES(rc, NULL, "Can't remove json object 'root'\n");
-	}
-	return (buf);
-}
-#endif /* SEB DEADCODE 14/05/2020 21:36 */
 
 
 

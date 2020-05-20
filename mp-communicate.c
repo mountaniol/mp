@@ -1,10 +1,5 @@
-/*@-skipposixheaders@*/
-#include <string.h>
-/*@=skipposixheaders@*/
-
 #include "mosquitto.h"
 #include "buf_t.h"
-#include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-main.h"
