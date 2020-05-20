@@ -174,7 +174,7 @@ err_t buf_network_prepare(buf_t *buf)
 
 	/* If the buffer containf only the buf_t header - finish here */
 	if (size == buf->room) {
-		DD("Probably wrong buf size: received %zu, buf->size = %d", size, buf->room);
+		DD("Probably wrong buf size: received %zu, buf->size = %u", size, buf->room);
 		return (buf);
 	}
 

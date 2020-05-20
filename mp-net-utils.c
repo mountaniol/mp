@@ -104,7 +104,7 @@ err_t mp_net_utils_send_buf_t(int con, buf_t *buf)
 	}
 
 	/* Nown send the data */
-	DD("Going to send buffer data: con = %d, buf->data = %p, buf->len = %d\n", con, buf->data, buf->len);
+	DD("Going to send buffer data: con = %d, buf->data = %p, buf->len = %u\n", con, buf->data, buf->len);
 	rc = send(con, buf->data, buf->len, 0);
 	DD("Sent: %d\n", rc);
 	if (rc < 0) {
