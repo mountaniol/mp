@@ -167,8 +167,10 @@ err_t mp_config_save()
 		}
 	} else if (ENOENT == errno) {
 		rc = mkdir(dirname, 0700);
-		DE("mkdir failed; probably it is a;ready exists?\n");
-		perror("can't mkdir");
+		if (0 != rc) {
+			DE("mkdir failed; probably it is a;ready exists?\n");
+			perror("can't mkdir");
+		}
 	} else {
 		DE("Some error\n");
 		perror("Config directory testing error");

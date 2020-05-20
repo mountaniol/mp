@@ -425,9 +425,9 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 		index++;
 
 		/* Check case 1: port mapped but local port is different */
-		if (0 == strncmp(req->map_lan_port, internal_port, strlen(internal_port)) &&
-			0 == strncmp(req->map_protocol, protocol, strlen(protocol)) &&
-			0 == strncmp(req->map_lan_address, local_host, strlen(protocol))) {
+		if (0 == strncmp(req->map_lan_port, internal_port, PORT_STR_LEN) &&
+			0 == strncmp(req->map_protocol, protocol, 4) &&
+			0 == strncmp(req->map_lan_address, local_host, IP_STR_LEN)) {
 			D("Asked mapping is already exists: ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
 
 			mapping = j_new();
