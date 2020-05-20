@@ -431,10 +431,11 @@ void j_print(/*@null@*/const json_t *root, /*@null@*/const char *prefix)
 		return;
 	}
 
-	if (prefix) D("%s :\n", prefix);
+	D("%s :\n", prefix);
 	printf("%s\n", buf->data);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 }
+
 

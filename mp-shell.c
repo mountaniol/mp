@@ -53,11 +53,13 @@ static err_t mp_shell_parse_in_command(json_t *root)
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_FAIL)) {
 		printf("- The operation failed\n");
+		/* Global variable */
 		status = IN_STATUS_FAILED;
 	}
 
 	if (EOK == j_test(root, JK_STATUS, JV_STATUS_SUCCESS)) {
 		printf("+ The operation finished\n");
+		/* Global variable */
 		status = IN_STATUS_FINISHED;
 	}
 
@@ -104,6 +106,9 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_CLI);
 	rc = unlink(CLI_SOCKET_PATH_CLI);
+	if ((0 != rc) && (-1 != rc)) {
+		DE("Can't remove the file %s\n", CLI_SOCKET_PATH_CLI);
+	}
 
 	rc = (ssize_t)bind(fd, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
@@ -218,18 +223,21 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	DDD("Sent\n");
 
 	resp = mp_net_utils_receive_json(sd);
-	close (sd);
+	close(sd);
 	return (resp);
 }
 
 
 static err_t mp_shell_wait_and_print_tickets(void)
 {
+	/* Global variable */
 	waiting_counter = 0;
+	/* Global variable */
 	status = IN_STATUS_WORKING;
 
 	while (IN_STATUS_WORKING == status && waiting_counter < 10) {
 		unsigned int slept;
+		/* Global variable */
 		waiting_counter++;
 		slept = sleep(1);
 		if (0 != slept) {
@@ -297,7 +305,10 @@ static err_t mp_shell_ask_openport(json_t *args)
 	TESTP(root, EBAD);
 
 	rc = mp_shell_wait_and_print_tickets();
-
+	if (EOK != rc) {
+		DE("Error on tickets receive\n");
+	}
+	
 	/* Now receive tickets until requiest not done */
 err:
 	j_rm(root);

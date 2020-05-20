@@ -101,8 +101,8 @@ err:
 }
 
 static int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
-										struct IGDdatas *upnp_data,
-										upnp_req_str_t *req)
+											   struct IGDdatas *upnp_data,
+											   upnp_req_str_t *req)
 {
 	int error = UPNP_GetGenericPortMappingEntry(
 				upnp_urls->controlURL,
@@ -246,15 +246,25 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 	int rc;
 
 	for (i = 0; i < 3; i++) {
-		int i_port = mp_os_random_in_range(1024, 65535);
+		int e_port = mp_os_random_in_range(1024, 65535);
+		int i_port = atoi(internal_port);
+
+		if (i_port < 0 || i_port > 65535) {
+			DE("Wrong port number: %d, must be between 0 and 65535\n", i_port);
+			return (NULL);
+		}
 
 		rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
-		rc = mp_ports_remap_port(i_port, atoi(internal_port), protocol);
+		if (EOK != rc) {
+			DE("Can't send ticket\n");
+		}
+
+		rc = mp_ports_remap_port(e_port, i_port, protocol);
 
 		if (EOK == rc) {
 			reservedPort = zmalloc(PORT_STR_LEN);
 			TESTP(reservedPort, NULL);
-			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", i_port);
+			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", e_port);
 			if (rc < 0) {
 				DE("Can't transform port from integer to string\n");
 				TFREE(reservedPort);
@@ -363,6 +373,9 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 	control_t *ctl = ctl_get();
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
+	if (EOK != rc) {
+		DE("Can't send ticket\n");
+	}
 
 	if (EOK != mp_ports_router_root_discover()) {
 		DE("Can't discover router\n");
@@ -376,10 +389,17 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 		return (NULL);
 	}
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
+	if (EOK != rc) {
+		DE("Can't send ticket\n");
+	}
 
 	memset(s_ext, 0, PORT_STR_LEN);
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
+	if (EOK != rc) {
+		DE("Can't send ticket\n");
+	}
+	
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
@@ -589,10 +609,9 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 			ports = j_find_j(host, "ports");
 
 			json_array_foreach(ports, index, port) {
-				int rc;
-
 				/* For now we search for intenal port 22 and protocol TCP */
 				if (EOK == j_test(port, JK_PORT_INT, "22") && EOK == j_test(port, JK_PROTOCOL, "TCP")) {
+					int rc;
 					root = j_new();
 					if (NULL == root) {
 						DE("Can't get root\n");
