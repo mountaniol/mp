@@ -1,6 +1,6 @@
 GCC=gcc
 #GCC=clang-10
-CFLAGS=-Wall -Wextra -rdynamic
+CFLAGS=-Wall -Wextra -rdynamic -O2
 DEBUG=-DDEBUG3
 DEBUG += -DDERROR3
 #CFLAGS += -fanalyzer
@@ -58,6 +58,9 @@ upnp:
 eth:
 	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-network.c -o sec-eth
 #	/usr/lib/x86_64-linux-gnu/libminiupnpc.a
+
+tunnel:
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c buf_t.c mp-jansson.c mp-memory.c $(J_ARCH) -o tunnel.standalone -lutil -lpthread -lpam
 clean:
 	rm -f $(MOSQ_T) $(MOSQ_O) $(MOSQ_CLI_O) $(MOSQ_CLI_T) *.o 
 
