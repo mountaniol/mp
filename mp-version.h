@@ -1,0 +1,10 @@
+#ifndef MP_VERSION_H
+#define MP_VERSION_H
+
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 1
+#define VERSION_DATE __DATE__
+#define VERSION_TIME __TIME__
+#define VERSION_COMPILER __VERSION__
+
+#endif /* MP_VERSION_H */
