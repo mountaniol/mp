@@ -308,7 +308,7 @@ static err_t mp_shell_ask_openport(json_t *args)
 	if (EOK != rc) {
 		DE("Error on tickets receive\n");
 	}
-	
+
 	/* Now receive tickets until requiest not done */
 err:
 	j_rm(root);
@@ -379,6 +379,7 @@ static err_t mp_shell_get_info()
 	/*@only@*/json_t *resp = NULL;
 	/*@only@*/ft_table_t *table = NULL;
 	int rc;
+	const char *val;
 
 	TESTP(root, EBAD);
 
@@ -402,31 +403,40 @@ static err_t mp_shell_get_info()
 		abort();
 	}
 
-	rc = ft_write_ln(table, "My Machine", j_find_ref(resp, JK_NAME));
+	val = j_find_ref(resp, JK_NAME);
+	if (NULL == val) val = "N/A";
+	rc = ft_write_ln(table, "My Machine", val);
+	if (0 != rc) {
+		DE("Error on table creation");
+		abort();
+	}
+	val = j_find_ref(resp, JK_USER);
+	if (NULL == val) val = "N/A";
+	rc = ft_write_ln(table, "My Username", val);
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();
 	}
 
-	rc = ft_write_ln(table, "My Username", j_find_ref(resp, JK_USER));
+	val = j_find_ref(resp, JK_UID_ME);
+	if (NULL == val) val = "N/A";
+	rc = ft_write_ln(table, "My UID", val);
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();
 	}
 
-	rc = ft_write_ln(table, "My UID", j_find_ref(resp, JK_UID_ME));
+	val = j_find_ref(resp, JK_IP_EXT);
+	if (NULL == val) val = "N/A";
+	rc = ft_write_ln(table, "My External IP", val);
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();
 	}
 
-	rc = ft_write_ln(table, "My External IP", j_find_ref(resp, JK_IP_EXT));
-	if (0 != rc) {
-		DE("Error on table creation");
-		abort();
-	}
-
-	rc = ft_write_ln(table, "My Internal IP", j_find_ref(resp, JK_IP_INT));
+	val = j_find_ref(resp, JK_IP_INT);
+	if (NULL == val) val = "N/A";
+	rc = ft_write_ln(table, "My Internal IP", val);
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();
@@ -585,7 +595,6 @@ static err_t mp_shell_get_ports()
 			DE("Error on table creation");
 			abort();
 		}
-
 	}
 
 	printf("%s\n", ft_to_string(table));
@@ -621,7 +630,7 @@ static err_t mp_shell_get_remote_ports()
 		return (EOK);
 	}
 
-	j_print(resp, "resp");
+	//j_print(resp, "resp");
 
 	printf("List of connected clients\n");
 	rc = ft_set_default_border_style(FT_PLAIN_STYLE);

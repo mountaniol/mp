@@ -58,12 +58,14 @@ typedef struct control_struct {
 	void *tickets_in;
 	void *buffers; /* Here we keep allocate buffers until they sent */
 	void *buf_missed; /* Here we keep buffer counters that we couldn't find on the first run */
-	const char *rootdescurl; /* The router UPNP description, use it to speed up UPNP requests */
+	char *rootdescurl; /* The router UPNP description, use it to speed up UPNP requests */
 } control_t;
 
 
 /* Allocate and init sct scruct, must be called once */
 extern err_t ctl_allocate_init(void);
+/* Destoy control structure and all objects it holds */
+err_t cli_destoy();
 /* Get pointer to global  control_structure */
 extern /*@temp@*//*@notnull@*/ control_t *ctl_get(void);
 /* Lock ctl and get pointer to global  control_structure */

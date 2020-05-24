@@ -3,6 +3,24 @@
 
 #include <stdio.h>
 #include <time.h>
+#ifdef DDD
+	#undef DDD
+#endif
+#ifdef DD
+	#undef DD
+#endif
+#ifdef D
+	#undef D
+#endif
+#ifdef DE
+	#undef DE
+#endif
+#ifdef DDE
+	#undef DDE
+#endif
+#ifdef DDD0
+	#undef DDD0
+#endif
 
 #define _D_PRINT(fmt, ...) do{printf("%s +%d : ", __func__, __LINE__); printf(fmt, ##__VA_ARGS__); }while(0 == 1)
 #define _D_PRINT_ERR(fmt, ...) do{fprintf(stderr, "%s +%d [ERR] : ", __func__, __LINE__); printf(fmt, ##__VA_ARGS__); }while(0 == 1)
@@ -16,7 +34,7 @@
 #ifdef DEBUG3
 	#define DDD _D_PRINT
 #else
-	/* Extra debug */
+/* Extra debug */
 	#define DDD(x,...) do{}while(0)
 #endif // DEBUG3
 #define DE _D_PRINT_ERR
@@ -24,7 +42,7 @@
 #ifdef DERROR3
 	#define DDE _D_PRINT_ERR
 #else
-	/* Extra debug */
+/* Extra debug */
 	#define DDE(x,...) do{}while(0)
 #endif // DEBUG3
 #define DE _D_PRINT_ERR

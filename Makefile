@@ -33,6 +33,14 @@ CLI_T=mp
 U_T=portmapper
 U_C=mp-ports.c sec-memory.c
 
+# Files to check with splint
+SPLINT_C=buf_t.c buf_t.h mp-cli.c mp-cli.h mp-common.h mp-communicate.c mp-communicate.h \
+		mp-config.c mp-config.h mp-ctl.c mp-ctl.h mp-debug.h mp-dict.h mp-jansson.c \
+		mp-jansson.h mp-limits.h mp-main.c mp-main.h mp-memory.c mp-memory.h \
+		mp-net-utils.c mp-net-utils.h mp-network.c mp-network.h mp-os.c mp-os.h \
+		mp-ports.c mp-ports.h mp-requests.c mp-requests.h mp-shell.c mp-tunnel.c \
+		mp-tunnel.h mp-version.h
+
 all: m cli
 	@echo "Version = $(GCCVERSION)"
 	@echo "DEBUG = $(DEBUG)"
@@ -82,7 +90,7 @@ check:
 splint:
 	@echo "+++ $@: USER=$(USER), UID=$(UID), GID=$(GID): $(CURDIR)"
 	#splint -noeffect -mustfreeonly -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
-	splint -standard -noeffect -redef +matchanyintegral +gnuextensions -preproc +unixlib  ./*.[ch]
+	splint -standard -noeffect -redef +matchanyintegral +gnuextensions -preproc +unixlib  $(SPLINT_C)
 	#splint -forcehints -standard -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -checks -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]

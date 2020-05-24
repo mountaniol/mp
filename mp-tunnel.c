@@ -29,6 +29,10 @@
 #include "buf_t.h"
 
 #define MAX_WINSIZE 512
+#define RED_BUF 4096
+/* For test only */
+#define SERVER_PORT 2294
+#define MAX(a,b) ( a > b ? a : b)
 
 #define WELCOME \
 "+-+-+-+-+-+-+ +-+-+-+-+\n\
@@ -46,57 +50,6 @@
 	#define WELCOME "Mighty Papa welcomes you\n"
 #endif /* SEB 22/05/2020 15:32 */
 
-/* For test only */
-#define SERVER_PORT 2294
-
-typedef struct fd_set_struct {
-	int fd_in;
-	int fd_out;
-} fd_set_t;
-
-#define MAX(a,b) ( a > b ? a : b)
-/* This is a listener, for direct connection.
-   Another function should serve reverse connection */
-
-
-#if 0
-
-/* Read from stdin, write to socket */
-void *mp_tunnel_stdin_to_socket(void *v){
-	int n;
-	fd_set read_set;
-	fd_set_t *fds = (fd_set_t *)v;
-
-	/* Socket sets */
-	FD_ZERO(&read_set);
-	FD_SET(fds->fd_out, &read_set);
-	FD_SET(STDIN_FILENO, &read_set);
-
-	n = MAX(fds->fd_out, STDIN_FILENO) + 1;
-	select(n, &read_set, NULL, NULL, NULL);
-
-	/* Data is ready in terminal */
-	if (FD_ISSET(STDIN_FILENO, &read_set)) {
-		char buf[4096];
-		int rr, rs;
-		rr = read(STDIN_FILENO, buf, 4096);
-		DD("Read %d\n", rr);
-		if (rr < 0) {
-			DE("Can't receive buffer\n");
-			pthread_exit(NULL);
-		}
-
-		rs = send(STDIN_FILENO, buf, rr, 0);
-		if (rr != rs) {
-			DE("Expected to send %d, sent %d\n", rr, rs);
-			pthread_exit(NULL);
-		}
-	}
-
-	return (NULL);
-}
-#endif
-
 int mp_tunnel_get_winsize(int fd, struct winsize *sz)
 {
 	return (ioctl(fd, TIOCGWINSZ, sz));
@@ -108,8 +61,8 @@ int mp_tunnel_set_winsize(int fd, struct winsize *sz)
 }
 
 /* Ask user name, password. Check it and return answer: EOK if authorized, EBAD on fail */
-err_t mp_tunnel_pam_auth(int socket)
-{
+#if 0
+err_t mp_tunnel_pam_auth(int socket){
 	struct pam_conv conv;
 	pam_handle_t *pamh = NULL;
 	int retval;
@@ -137,6 +90,7 @@ err_t mp_tunnel_pam_auth(int socket)
 
 	return (retval == PAM_SUCCESS ? 0 : 1);       /* indicate success */
 }
+#endif
 
 static void mp_tunnel_tty_handler(int sig)
 {
@@ -245,6 +199,148 @@ void print_terminal_flags()
 	PRINT_O_FLAG(tio, OPOST);
 	printf("tio.c_cc[VMIN] = %d\n", tio.c_cc[VMIN]);
 	printf("tio.c_cc[VTIME] = %d\n", tio.c_cc[VTIME]);
+#undef PRINT_I_FLAG
+#undef PRINT_L_FLAG
+#undef PRINT_O_FLAG
+}
+
+
+/* These two function pointer are abstraction of read / write poerations */
+typedef int (*conn_read_t) (int, char *, size_t);
+typedef int (*conn_write_t) (int, char *, size_t);
+typedef int (*conn_close_t) (int);
+
+/* This is a connection abstraction.
+   The connection defined as a file descriptor and 3 operation - read, write and (optional) close.
+   The connection may have a name (optional) - for debug prints */
+typedef struct connection_struct {
+	int fd; 					/* (Must) File descriptor for read / write */
+	conn_read_t read_fd;		/* (Must) Read from fd */
+	conn_write_t write_fd;		/* (Must) Write to fd */
+	conn_close_t close_fd;		/* (Optional) Close fd */
+	const char *name;			/* (Optional) Name of the connection (optional) */
+} conn_t;
+
+
+/* Implementations of connection operations */
+int conn_write_to_socket(int fd, char *buf, size_t sz)
+{
+	return (send(fd, buf, sz, 0));
+}
+
+int conn_read_from_socket(int fd, char *buf, size_t sz)
+{
+	return (recv(fd, buf, sz, 0));
+}
+
+int conn_write_to_std(int fd, char *buf, size_t sz)
+{
+	return (write(fd, buf, sz));
+}
+
+int conn_read_from_std(int fd, char *buf, size_t sz)
+{
+	return (read(fd, buf, sz));
+}
+
+void conn_t_fill(conn_t *conn, int fd, conn_read_t read_fd, conn_write_t write_fd, conn_close_t close_fd, const char *name)
+{
+	conn->fd = fd;
+	conn->close_fd = close_fd;
+	conn->read_fd = read_fd;
+	conn->write_fd = write_fd;
+	conn->name = name;
+}
+
+/* Read data from conn1, send to conn2 */
+static inline int mp_tunnel_x_conn_execute(conn_t *conn1, conn_t *conn2, char *buf, const size_t buf_size)
+{
+	int rr, rs;
+	rr = conn1->read_fd(conn1->fd, buf, buf_size);
+	if (rr < 0) {
+		DE("Error on reading from %s\n", conn1->name ? conn1->name : "conn1");
+		return (EBAD);
+	}
+
+	if (0 == rr) {
+		DE("Probably closed: %s\n", conn1->name ? conn1->name : "conn1");
+		return (EBAD);
+	}
+
+	/* Write buffer to another connection */
+	rs = conn2->write_fd(conn2->fd, buf, rr);
+
+	/* Is there an error on writing? */
+	if (rs < 0) {
+		DE("Error (return < 0) on write to %s\n", conn2->name ? conn2->name : "conn2");
+		return (EBAD);
+	}
+
+	/* We can't write asked anount of data */
+	if (rs != rr) {
+		DE("Error (write != read) on write to %s\n", conn2->name ? conn2->name : "conn2");
+		return (EBAD);
+	}
+	/* All good */
+	return (EOK);
+}
+
+/* 
+ * This is a pretty universal function to 'pipe' two connection.
+ * Doesn't matter what is the connection type, the most important, it must have an 'int' file descriptor. 
+ * Because we use 'select' to watch the file descriptors.
+ * It does its job until an error or until one ot the connections is disconnected
+ */
+static inline int mp_tunnel_run_x_conn(conn_t *conn1, conn_t *conn2)
+{
+	size_t buf_size;
+	char *buf = zmalloc_any(RED_BUF, &buf_size);
+	if (NULL == buf) {
+		DE("Can't allocate buffer\n");
+		return (EBAD);
+	}
+
+	while (1) {
+		int rc;
+		fd_set read_set;
+		fd_set ex_set;
+		int n;
+
+		/* Socket sets */
+		FD_ZERO(&read_set);
+		FD_ZERO(&ex_set);
+
+		FD_SET(conn1->fd, &read_set);
+		FD_SET(conn2->fd, &read_set);
+
+		FD_SET(conn1->fd, &ex_set);
+		FD_SET(conn2->fd, &ex_set);
+
+		n = MAX(conn1->fd, conn2->fd) + 1;
+
+		rc = select(n, &read_set, NULL, &ex_set, NULL);
+
+		/* Some exception happened */
+		if (FD_ISSET(conn1->fd, &ex_set) || FD_ISSET(conn2->fd, &ex_set)) {
+			DD("Some exception happened. Ending x_connect\n");
+			return (EBAD);
+		}
+
+		/* Data is ready on connection 1: read from conn1, write to conn2 */
+		if (FD_ISSET(conn1->fd, &read_set)) {
+			rc = mp_tunnel_x_conn_execute(conn1, conn2, buf, buf_size);
+			if (EOK != rc) goto end;
+		}
+
+		/* Data is ready on connection 2: read from conn2, write to conn1 */
+		if (FD_ISSET(conn2->fd, &read_set)) {
+			rc = mp_tunnel_x_conn_execute(conn2, conn1, buf, buf_size);
+			if (EOK != rc) goto end;
+		}
+	}
+end:
+	free(buf);
+	return (EOK);
 }
 
 /* Copied as is from ssh */
@@ -284,12 +380,14 @@ void syslog_terminal_flags()
 	PRINT_O_FLAG(tio, OPOST);
 	DDLOG("tio.c_cc[VMIN] = %d\n", tio.c_cc[VMIN]);
 	DDLOG("tio.c_cc[VTIME] = %d\n", tio.c_cc[VTIME]);
+#undef PRINT_I_FLAG
+#undef PRINT_L_FLAG
+#undef PRINT_O_FLAG
 }
 
 
 static void *mp_tunnel_tty_server_go(void *v)
 {
-	int n;
 	int terminal = -1;
 	int client = *((int *)v);
 	pid_t pid;
@@ -297,6 +395,8 @@ static void *mp_tunnel_tty_server_go(void *v)
 	int rc;
 	struct winsize sz;
 	struct termios tio;
+	conn_t conn_terminal;
+	conn_t conn_socket;
 
 	char *buf;
 	size_t buf_size = 0;
@@ -314,17 +414,13 @@ static void *mp_tunnel_tty_server_go(void *v)
 	rc += recv(client, &tio, sizeof(tio), 0);
 
 	if (sizeof(struct winsize) + sizeof(tio) == rc) {
-		DD("Setting window size: col = %d, row = %d\n", sz.ws_col, sz.ws_row);
 		pid = forkpty(&terminal, NULL, &tio, &sz);
 	} else { /* Can't receive winsize setting from the client */
 		pid = forkpty(&terminal, NULL, &tparams, NULL);
-		//#if 0
 		tcgetattr(terminal, &tparams);
 		tparams.c_lflag |= EXTPROC;
-		//tparams.c_iflag |= INLCR;
 		tparams.c_lflag &= ~ECHO;
 		tcsetattr(terminal, TCSANOW, &tparams);
-		//#endif
 
 	}
 
@@ -336,91 +432,29 @@ static void *mp_tunnel_tty_server_go(void *v)
 	}
 	if (pid == 0) {
 		openlog(DL_PREFIX, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_SYSLOG);
-		syslog_terminal_flags();
-		print_terminal_flags();
+
+		printf("%s", WELCOME);
 		signal(SIGINT, mp_tunnel_tty_handler);
 		/* TODO: We may configure which shell to open and even receive it from the other side */
 		execlp("/bin/bash", "/bin/login", NULL);
-		//execlp("/bin/bash", "/bin/bash", "--login", NULL);
-		//execlp("/bin/login", NULL, NULL);
 		exit(0);
 	}
 
-	buf = zmalloc_any(4096, &buf_size);
+	buf = zmalloc_any(RED_BUF, &buf_size);
 	if (NULL == buf) {
 		DE("Can't allocate buffer\n");
 		mp_tunnel_kill_pty(pid);
 		pthread_exit(NULL);
 	}
 
-	send(client, WELCOME, sizeof(WELCOME), 0);
-
-	while (1) {
-		int rr, rs;
-		fd_set read_set;
-		fd_set ex_set;
-		int rc;
-
-		/* Socket sets */
-		FD_ZERO(&read_set);
-		FD_ZERO(&ex_set);
-
-		FD_SET(client, &read_set);
-		FD_SET(terminal, &read_set);
-
-		FD_SET(client, &ex_set);
-		FD_SET(terminal, &ex_set);
-
-		n = MAX(client, terminal) + 1;
-
-		rc = select(n, &read_set, NULL, &ex_set, NULL);
-
-		/* Some exception happened terminal */
-		if (FD_ISSET(client, &ex_set) || FD_ISSET(terminal, &ex_set)) {
-			DD("Looks like remote client closed connection\n");
-			goto end;
-		}
-
-		/* Data is ready in terminal */
-		if (FD_ISSET(terminal, &read_set)) {
-			rr = read(terminal, buf, buf_size);
-			if (NULL == buf) {
-				DE("Can't receive buffer\n");
-				goto end;
-			}
-
-			rs = send(client, (char *)buf, rr, 0);
-			if (rs != rr) {
-				DE("Can't send buffer: expected to send %d, sent %d\n", rr, rs);
-				goto end;
-			}
-		}
-
-		/* Data is ready on socket */
-		if (FD_ISSET(client, &read_set)) {
-			/* Read data from socket, write to terminal */
-			rr = recv(client, buf, buf_size, 0);
-			if (rr < 0) {
-				DE("Can't receive buffer\n");
-				goto end;
-			}
-
-			if (0 == rr) {
-				DE("Looks like the socket closed\n");
-				goto end;
-			}
-
-			/* Write data to the pty */
-			rs = write(terminal, buf, rr);
-
-			if (rr != rs) {
-				DE("Expected to send %d, sent %d\n", rr, rs);
-				goto end;
-			}
-		}
+	/* All done, start x_conn - read-write from one descriptor to another unbtil an error or disconnect */
+	conn_t_fill(&conn_socket, client, conn_read_from_socket, conn_write_to_socket, NULL, "Socket from remote");
+	conn_t_fill(&conn_terminal, terminal, conn_read_from_std, conn_write_to_std, NULL, "PTY");
+	rc = mp_tunnel_run_x_conn(&conn_socket, &conn_terminal);
+	if (EOK != rc) {
+		DE("Finished with an error\n");
 	}
 
-end:
 	close(client);
 	close(terminal);
 	mp_tunnel_kill_pty(pid);
@@ -457,7 +491,6 @@ void *mp_tunnel_tty_server_start(void *v)
 		pthread_exit(NULL);
 	}
 
-
 	/* TODO: From here: this code should be isolated into a separated function */
 
 	/* Acept connection and create pty */
@@ -465,7 +498,6 @@ void *mp_tunnel_tty_server_start(void *v)
 		pthread_t p_go;
 
 		/* TODO: This number should not be hardcoded */
-		DD("Going to listen for the next connection\n");
 		if (listen(sock, 16)) {
 			perror("listen()");
 			pthread_exit(NULL);
@@ -490,15 +522,14 @@ void *mp_tunnel_tty_client_start(void *v)
 {
 	/* Socket initialization */
 	int sock;
-	//fd_set read_set;
 	struct sockaddr_in serv_addr;
-	// int *port = (int *)v;
 	int port = SERVER_PORT;
 	int rc;
 	struct winsize sz;
 	struct termios tio;
-	char *buf;
 	size_t buf_size = 0;
+	conn_t conn_stdin;
+	conn_t conn_socket;
 
 	// struct termios tparams;
 
@@ -542,7 +573,7 @@ void *mp_tunnel_tty_client_start(void *v)
 
 
 	if (tcgetattr(fileno(stdin), &tio) == -1) {
-		return;
+		return (NULL);
 	}
 
 	rc = send(sock, &tio, sizeof(tio), 0);
@@ -551,89 +582,18 @@ void *mp_tunnel_tty_client_start(void *v)
 	}
 
 	/* TODO: From here: this code should be isolated into a separated function */
-	print_terminal_flags();
 	enter_raw_mode(1);
-	write(STDOUT_FILENO, "\n", 1);
+
 	/* Acept connection and create pty */
 
-	buf = zmalloc_any(4096, &buf_size);
-	if (NULL == buf) {
-		DE("Can't allocate buffer\n");
-		pthread_exit(NULL);
+	conn_t_fill(&conn_socket, sock, conn_read_from_socket, conn_write_to_socket, NULL, "Socket from remote");
+	conn_t_fill(&conn_stdin, STDIN_FILENO, conn_read_from_std, conn_write_to_std, NULL, "STDIN");
+	rc = mp_tunnel_run_x_conn(&conn_socket, &conn_stdin);
+	if (EOK != rc) {
+		DE("Finished with an error\n");
 	}
-
-	while (1) {
-		int n;
-		int terminal;
-		//char t_count = 0;
-
-		do {
-			int rr, rs;
-			fd_set read_set;
-			fd_set ex_set;
-
-			/* Socket sets */
-			FD_ZERO(&read_set);
-			FD_ZERO(&ex_set);
-			FD_SET(sock, &read_set);
-			FD_SET(STDIN_FILENO, &read_set);
-			FD_SET(sock, &ex_set);
-			FD_SET(STDIN_FILENO, &ex_set);
-
-			n = MAX(sock, STDIN_FILENO) + 1;
-			select(n, &read_set, NULL, &ex_set, NULL);
-
-			/* Some exception happened on socket */
-			//if (FD_ISSET(sock, &ex_set) || FD_ISSET(STDIN_FILENO, &ex_set)) {
-			if (FD_ISSET(sock, &ex_set)) {
-				DD("Looks like remote client or terminal closed connection\n");
-				goto end;
-			}
-
-			/* Data is ready in terminal */
-			if (FD_ISSET(STDIN_FILENO, &read_set)) {
-				rr = read(STDIN_FILENO, buf, buf_size);
-				if (rr < 0) {
-					DE("Can't receive buffer\n");
-					goto end;
-				}
-
-				if (rr >= 1 && 0 == strncmp(buf, "#$close", 7)) {
-					DD("Mighty Papa: closing connection\n");
-					goto end;
-				}
-
-				rs = send(sock, buf, rr, 0);
-				if (rr != rs) {
-					DE("Expected to send %d, sent %d\n", rr, rs);
-					goto end; }
-			}
-
-			/* Data is ready on socket */
-			if (FD_ISSET(sock, &read_set)) {
-				rr = recv(sock, buf, buf_size, 0);
-				if (rr < 0) {
-					DE("Can't receive buffer\n");
-					goto end;
-				}
-
-				if (0 == rr) {
-					DE("Looks like the server closed the socket\n");
-					goto end;
-				}
-				
-				/* Write data to the pty */
-				rs = write(STDOUT_FILENO, buf, rr);
-				if (rr != rs) {
-					DE("Expected to send %d, sent %d\n", rr, rs);
-					goto end;
-				}
-			}
-		} while (1);
-	}
-end:
+	
 	close(sock);
-	free(buf);
 	/* Set saved terminal flags */
 	tcsetattr(STDIN_FILENO, TCSANOW, &tio);
 	printf("Remote cnnection closed\n");

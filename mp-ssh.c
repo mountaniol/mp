@@ -364,7 +364,7 @@ shutdown:
 	   const char *password - password, in out case just "", we use public key auth
 	   */
 
-	j_print(root, "In ssh_thread: arguments are: ");
+	//j_print(root, "In ssh_thread: arguments are: ");
 	server_ip = j_find_ref(root, JK_SSH_SERVER);
 	TESTP(server_ip, NULL);
 	remote_destport_src = j_find_ref(root, JK_SSH_DESTPORT);
@@ -400,7 +400,7 @@ int ssh_thread_start(/*@temp@*/json_t *root)
 	pthread_t ssh_thread_id;
 	TESTP(root, EBAD);
 	DDD("root = %p\n", root);
-	j_print(root, "ssh_thread_start: params are: ");
+	//j_print(root, "ssh_thread_start: params are: ");
 
 	pthread_create(&ssh_thread_id, NULL, ssh_tunnel_pthread, root);
 	return (EOK);

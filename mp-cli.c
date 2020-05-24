@@ -190,8 +190,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	ctl = ctl_get_locked();
 	resp = j_dup(ctl->hosts);
 	ctl_unlock();
-	j_print(resp, "Copied ctl->hosts");
-	j_print(resp, "Orig   ctl->hosts");
+	//j_print(resp, "Copied ctl->hosts");
+	//j_print(resp, "Orig   ctl->hosts");
 	return (resp);
 }
 
@@ -230,7 +230,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	remote_host = mp_ports_ssh_port_for_uid(j_find_ref(root, JK_UID_SRC));
 	TESTP(remote_host, NULL);
-	j_print(remote_host, "Found remote host for ssh connection");
+	//j_print(remote_host, "Found remote host for ssh connection");
 
 	rc = j_add_str(root, JK_SSH_SERVER, j_find_ref(remote_host, JK_IP_EXT));
 	TESTI_MES(rc, NULL, "can't find / add JK_IP_EXT -> JK_SSH_SERVER");
@@ -251,7 +251,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	TESTI_MES(rc, NULL, "can't add port JK_SSH_USERNAME 'se'");
 
 	DDD("Going to start SSH thread\n");
-	j_print(root, "Params for ssh thread");
+	//j_print(root, "Params for ssh thread");
 	rc = ssh_thread_start(j_dup(root));
 
 	resp = j_new();
@@ -277,7 +277,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	TESTI_MES(rc, NULL, "Can't add my UID into JSON");
 
 	DDD("Calling send_request_to_open_port\n");
-	j_print(root, "Sending request to open a port:");
+	//j_print(root, "Sending request to open a port:");
 	if (NULL != ctl->mosq) {
 		rc = mp_communicate_send_request(root);
 	}
@@ -445,7 +445,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 			break;
 		}
 
-		j_print(root_resp, "Got responce, goung to send");
+		//j_print(root_resp, "Got responce, goung to send");
 
 		rc = mp_net_utils_send_json(fd_connection, root_resp);
 		if (EOK != rc) {

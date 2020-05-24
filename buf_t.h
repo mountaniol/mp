@@ -141,31 +141,4 @@ extern err_t buf_free(/*@only@*/buf_t *buf);
  */
 extern err_t buf_add(buf_t *b, const char *buf, const size_t size);
 
-/**
- * @brief Serialization: Prepare buffer for sending through 
- *  	  socket: add buf_t structure to the end of the
- *  	  buf->data. On the other side of the socket we will cut
- *  	  if off
- * @func err_t buf_network_prepare(buf_t *buf)
- * @author se (19/05/2020)
- * 
- * @param buf_t *buf Buffer to prepare (serialize) 
- * 
- * @return err_t OEK on success, EBAD on an error
- */
-err_t buf_network_prepare(buf_t *buf);
-
-/**
- * @brief Deserialization: Restore buf_t from received data 
- *  	  buffer. Used to restore buf_t after it received from
- *  	  socket.
- * @func buf_t* buf_network_restore(char *data, size_t size)
- * @author se (19/05/2020)
- * 
- * @param char *data Data recived from socket 
- * @param size Size of data received from socket
- * 
- * @return buf_t* Restored buf_t on success; NULL on failure
- */
-/*@null@*/ buf_t *buf_network_restore(char *data, size_t size);
 #endif /* _BUF_T_H_ */

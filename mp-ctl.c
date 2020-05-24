@@ -46,6 +46,20 @@ err_t ctl_allocate_init(void)
 	return (sem_init(&g_ctl->lock, 0, 1));
 }
 
+err_t cli_destoy()
+{
+	ctl_lock();
+	j_rm(g_ctl->hosts);
+	j_rm(g_ctl->config);
+	j_rm(g_ctl->tickets_out);
+	j_rm(g_ctl->buffers);
+	j_rm(g_ctl->buf_missed);
+	TFREE(g_ctl->rootdescurl);
+	free(g_ctl);
+	g_ctl = NULL;
+	return (EOK);
+}
+
 void ctl_lock()
 {
 	int rc = sem_getvalue(&g_ctl->lock, &rc);

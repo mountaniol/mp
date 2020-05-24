@@ -313,8 +313,6 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 		ctl_unlock();
 		if (EOK != rc) {
 			DE("Can't replace 'me' message for remote host\n");
-		} else {
-			j_print(ctl->hosts, "Added 'me' message");
 		}
 		return (rc);
 	}
@@ -1102,11 +1100,21 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	rc = mp_main_complete_me_init();
 	TESTI_MES(rc, EBAD, "Can't finish 'me' init\n");
 
+	/* Start CLI thread as fast as we can */
+	rc = pthread_create(&cli_thread_id, NULL, mp_cli_pthread, NULL);
+	if (0 != rc) {
+		DE("Can't create thread mp_cli_thread\n");
+		perror("Can't create thread mp_cli_thread");
+		cli_destoy();
+		abort();
+	}
+
 	/* Find our router */
 	mp_ports_router_root_discover();
 
 	if (0 != mp_network_init_network_l()) {
 		DE("Can't init network\n");
+		cli_destoy();
 		return (EBAD);
 	}
 
@@ -1114,6 +1122,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	cert = strdup(argv[1]);
 	if (NULL == cert) {
 		printf("arg1 should be path to certificate\n");
+		cli_destoy();
 		return (EBAD);
 	}
 
@@ -1125,6 +1134,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 
 	if (SIG_ERR == signal(SIGINT, mp_main_signal_handler)) {
 		DE("Can't register signal handler\n");
+		cli_destoy();
 		return (EBAD);
 	}
 
@@ -1144,12 +1154,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	if (0 != rc) {
 		DE("Can't create thread mp_main_mosq_thread_manager\n");
 		perror("Can't create thread mp_main_mosq_thread_manager");
-		abort();
-	}
-	rc = pthread_create(&cli_thread_id, NULL, mp_cli_pthread, NULL);
-	if (0 != rc) {
-		DE("Can't create thread mp_cli_thread\n");
-		perror("Can't create thread mp_cli_thread");
+		cli_destoy();
 		abort();
 	}
 
@@ -1164,5 +1169,6 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	TFREE(cert);
+	cli_destoy();
 	return (rc);
 }
