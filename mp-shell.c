@@ -5,6 +5,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <getopt.h>
 /*@=skipposixheaders@*/
 #include "mp-debug.h"
 #include "mp-jansson.h"
@@ -776,6 +777,7 @@ static void mp_shell_usage(char *name)
 
 int main(int argc, char *argv[])
 {
+	int option_index = 0;
 	int opt;
 	/*@only@*/json_t *args = NULL;
 	/*@only@*/pthread_t in_thread_id;
@@ -799,6 +801,7 @@ int main(int argc, char *argv[])
 	}
 
 	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_stream_pthread, NULL);
+
 	if (0 != rc) {
 		DE("Can't create mp_shell_in_thread\n");
 		perror("Can't create mp_shell_in_thread");
@@ -808,7 +811,25 @@ int main(int argc, char *argv[])
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
-	while ((opt = getopt(argc, argv, ":limro:u:s:p:x:c:h")) != -1) {
+   static struct option long_options[] =
+        {
+          /* These options set a flag. */
+          {"list",		no_argument,		0, 'l'},
+          {"help",		no_argument,		0, 'h'},
+          {"info",		no_argument,		0, 'i'},
+          {"open",		required_argument,	0, 'o'},
+          {"close",		required_argument,	0, 'c'},
+          {"uid",		required_argument,	0, 'u'},
+          {"ssh",		required_argument,	0, 's'},
+          {"proto",		required_argument,	0, 'p'},
+          {"protocol",	required_argument,	0, 'p'},
+          {"remote",	required_argument,	0, 'r'},
+          {0, 0, 0, 0}
+        };
+	     
+
+	while ((opt = getopt_long (argc, argv, ":limro:u:s:p:c:h", long_options, &option_index)) != -1) {
+	//while ((opt = getopt(argc, argv, ":limro:u:s:p:c:h")) != -1) {
 		switch (opt) {
 		case 'i': /* Show this machine info */
 			rc = j_add_str(args, JK_SHOW_INFO, JV_YES);
@@ -859,7 +880,7 @@ int main(int argc, char *argv[])
 				return (EBAD);
 			}
 			break;
-		case 's': /* OPen ssh channel for communication */
+		case 's': /* Open ssh channel for communication */
 			rc = j_add_str(args, JK_TYPE, JV_TYPE_SSH);
 			if (EOK != rc) {
 				j_rm(args);
