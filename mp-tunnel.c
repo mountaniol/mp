@@ -29,7 +29,8 @@
 #include "buf_t.h"
 
 #define MAX_WINSIZE 512
-#define RED_BUF 4096
+/* TODO: Make this configurable */
+#define READ_BUF 4096
 /* For test only */
 #define SERVER_PORT 2294
 #define MAX(a,b) ( a > b ? a : b)
@@ -96,7 +97,7 @@ static void mp_tunnel_tty_handler(int sig)
 {
 	//#if 0
 	if (SIGUSR2 != sig) {
-		DD("Got signal: %d, ignore\n", sig);
+		DD("Got signal: %d, ignore\n\r", sig);
 		return;
 	}
 	//#endif
@@ -105,20 +106,18 @@ static void mp_tunnel_tty_handler(int sig)
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
 
-	DD("Found signal: %d, setting stop\n", sig);
-	exit(0);
+	DD("Found signal: %d, setting stop\n\r", sig);
+
+	return;
 }
 
 int mp_tunnel_kill_pty(pid_t pid)
 {
 	int wstatus;
-	DD("Asked to kill forked pty process\n");
-	// kill(pid, SIGTERM);
-	kill(pid, SIGUSR2);
+	DD("Asked to kill forked pty process\n\r");
 	kill(pid, SIGKILL);
-	//waitpid(pid, &wstatus, WNOHANG);
 	waitpid(pid, &wstatus, 0);
-	DD("waitpid returned %d\n", wstatus);
+	DD("waitpid returned %d\n\r", wstatus);
 	return (EOK);
 }
 
@@ -214,12 +213,19 @@ typedef int (*conn_close_t) (int);
    The connection defined as a file descriptor and 3 operation - read, write and (optional) close.
    The connection may have a name (optional) - for debug prints */
 typedef struct connection_struct {
-	int fd; 					/* (Must) File descriptor for read / write */
-	conn_read_t read_fd;		/* (Must) Read from fd */
-	conn_write_t write_fd;		/* (Must) Write to fd */
-	conn_close_t close_fd;		/* (Optional) Close fd */
-	const char *name;			/* (Optional) Name of the connection (optional) */
+	int fd;                     /* (Must) File descriptor for read / write */
+	conn_read_t read_fd;        /* (Must) Read from fd */
+	conn_write_t write_fd;      /* (Must) Write to fd */
+	conn_close_t close_fd;      /* (Optional) Close fd */
+	const char *name;           /* (Optional) Name of the connection (optional) */
 } conn_t;
+
+typedef struct conn2_struct {
+	conn_t conn_in;
+	conn_t conn_out;
+	int status;
+} conn2_t;
+
 
 
 /* Implementations of connection operations */
@@ -252,13 +258,19 @@ void conn_t_fill(conn_t *conn, int fd, conn_read_t read_fd, conn_write_t write_f
 	conn->name = name;
 }
 
+void sig_hnd(int sig)
+{
+	//(void)sig;
+	printf("Got signal %d\n", sig);
+}
+
 /* Read data from conn1, send to conn2 */
 static inline int mp_tunnel_x_conn_execute(conn_t *conn1, conn_t *conn2, char *buf, const size_t buf_size)
 {
 	int rr, rs;
 	rr = conn1->read_fd(conn1->fd, buf, buf_size);
 	if (rr < 0) {
-		DE("Error on reading from %s\n", conn1->name ? conn1->name : "conn1");
+		DE("Error on reading from %s\n\r", conn1->name ? conn1->name : "conn1");
 		return (EBAD);
 	}
 
@@ -285,6 +297,74 @@ static inline int mp_tunnel_x_conn_execute(conn_t *conn1, conn_t *conn2, char *b
 	return (EOK);
 }
 
+/* This thread watch connection 1, read from it and writes to connection 2 */
+/* For every connection we run two such a threads, one for each direction */
+void *mp_tunnel_run_x_one_direction_conn(void *v)
+{
+	//(SIGCHLD, SIG_IGN);
+	/* In this structure we get 2 connection:
+	   in connection - read from
+	   out connection - write to */
+	conn2_t *cons = (conn2_t *)v;
+
+	size_t buf_size;
+
+	if (0 != pthread_detach(pthread_self())) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+
+	char *buf = zmalloc_any(READ_BUF, &buf_size);
+	if (NULL == buf) {
+		DE("Can't allocate buffer\n");
+		pthread_exit(NULL);
+		//return (EBAD);
+	}
+
+	while (1) {
+		int rc;
+		fd_set read_set;
+		fd_set ex_set;
+		int n;
+
+		/* Socket sets */
+		FD_ZERO(&read_set);
+		FD_ZERO(&ex_set);
+
+		FD_SET(cons->conn_in.fd, &read_set);
+		FD_SET(cons->conn_in.fd, &ex_set);
+
+		n = cons->conn_in.fd + 1;
+
+		rc = select(n, &read_set, NULL, &ex_set, NULL);
+
+		/* Some exception happened */
+		if (FD_ISSET(cons->conn_in.fd, &ex_set)) {
+			DD("Some exception happened. Ending x_connect\n");
+			cons->status = EBAD;
+			free(buf);
+			pthread_exit(NULL);
+			//return (NULL);
+		}
+
+		/* Data is ready on connection 1: read from conn1, write to conn2 */
+		if (FD_ISSET(cons->conn_in.fd, &read_set)) {
+			rc = mp_tunnel_x_conn_execute(&cons->conn_in, &cons->conn_out, buf, buf_size);
+			if (EOK != rc) {
+				cons->status = EBAD;
+				free(buf);
+				DE("Finishing\n");
+				pthread_exit(NULL);
+			}
+		}
+	}
+
+	/* Should never be here*/
+	pthread_exit(NULL);
+	//return (NULL);
+}
+
 /* 
  * This is a pretty universal function to 'pipe' two connection.
  * Doesn't matter what is the connection type, the most important, it must have an 'int' file descriptor. 
@@ -294,7 +374,7 @@ static inline int mp_tunnel_x_conn_execute(conn_t *conn1, conn_t *conn2, char *b
 static inline int mp_tunnel_run_x_conn(conn_t *conn1, conn_t *conn2)
 {
 	size_t buf_size;
-	char *buf = zmalloc_any(RED_BUF, &buf_size);
+	char *buf = zmalloc_any(READ_BUF, &buf_size);
 	if (NULL == buf) {
 		DE("Can't allocate buffer\n");
 		return (EBAD);
@@ -398,8 +478,20 @@ static void *mp_tunnel_tty_server_go(void *v)
 	conn_t conn_terminal;
 	conn_t conn_socket;
 
+	conn2_t conn_one_direction;
+	conn2_t conn_second_direction;
+
+	pthread_t pid_one;
+	pthread_t pid_two;
+
 	char *buf;
 	size_t buf_size = 0;
+
+	if (0 != pthread_detach(pthread_self())) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
 
 	if (client < 0) {
 		DE("Can't accept connection\n");
@@ -420,27 +512,29 @@ static void *mp_tunnel_tty_server_go(void *v)
 		tcgetattr(terminal, &tparams);
 		tparams.c_lflag |= EXTPROC;
 		tparams.c_lflag &= ~ECHO;
+		//tparams.c_cc[VEOF] = 3; // ^C
+		//tparams.c_cc[VINTR] = 4; // ^D
 		tcsetattr(terminal, TCSANOW, &tparams);
-
 	}
-
-	//enter_raw_mode(terminal);
 
 	if (pid < 0) {
 		DE("Can't fork");
-		exit(EXIT_FAILURE);
+		pthread_exit(NULL);
+		//exit(EXIT_FAILURE);
 	}
 	if (pid == 0) {
 		openlog(DL_PREFIX, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_SYSLOG);
 
 		printf("%s", WELCOME);
-		signal(SIGINT, mp_tunnel_tty_handler);
+		signal(SIGUSR2, mp_tunnel_tty_handler);
+		//(SIGINT, mp_tunnel_tty_handler);
 		/* TODO: We may configure which shell to open and even receive it from the other side */
-		execlp("/bin/bash", "/bin/login", NULL);
-		exit(0);
+		execlp("/bin/bash", "/bin/bash", NULL);
+		pthread_exit(NULL);
+		//exit(0);
 	}
 
-	buf = zmalloc_any(RED_BUF, &buf_size);
+	buf = zmalloc_any(READ_BUF, &buf_size);
 	if (NULL == buf) {
 		DE("Can't allocate buffer\n");
 		mp_tunnel_kill_pty(pid);
@@ -448,18 +542,51 @@ static void *mp_tunnel_tty_server_go(void *v)
 	}
 
 	/* All done, start x_conn - read-write from one descriptor to another unbtil an error or disconnect */
-	conn_t_fill(&conn_socket, client, conn_read_from_socket, conn_write_to_socket, NULL, "Socket from remote");
-	conn_t_fill(&conn_terminal, terminal, conn_read_from_std, conn_write_to_std, NULL, "PTY");
-	rc = mp_tunnel_run_x_conn(&conn_socket, &conn_terminal);
-	if (EOK != rc) {
-		DE("Finished with an error\n");
-	}
+	conn_t_fill(&conn_socket, client, conn_read_from_socket, conn_write_to_socket, NULL, "Server:Socket");
+	conn_t_fill(&conn_terminal, terminal, conn_read_from_std, conn_write_to_std, NULL, "Server:PTY");
 
+	rc = mp_tunnel_run_x_conn(&conn_socket, &conn_terminal);
+
+	DD("Returned from mp_tunnel_run_x_conn\n\r");
+
+#if 0
+
+	conn_one_direction.conn_in = conn_socket;
+	conn_one_direction.conn_out = conn_terminal;
+
+	conn_second_direction.conn_in = conn_terminal;
+	conn_second_direction.conn_out = conn_socket;
+
+	pthread_create(&pid_one, NULL, mp_tunnel_run_x_one_direction_conn, &conn_one_direction);
+	pthread_create(&pid_two, NULL, mp_tunnel_run_x_one_direction_conn, &conn_second_direction);
+
+	while (1) {
+		rc = pthread_kill(pid_one, 0);
+		if (0 != rc) {
+			pthread_kill(pid_two, SIGTERM);
+			break;
+		}
+		rc = pthread_kill(pid_two, 0);
+		if (0 != rc) {
+			pthread_kill(pid_one, SIGTERM);
+			break;
+		}
+		mp_os_usleep(200);
+	}
+#endif
+
+	/* No need to join thread - they were dettached */
+
+	// rc = mp_tunnel_run_x_conn(&conn_socket, &conn_terminal);
+
+	free(buf);
 	close(client);
 	close(terminal);
+	DD("Close file descriptors\n\r");
 	mp_tunnel_kill_pty(pid);
-	DD("Finishing thread and return\n");
-	return (0);
+	DD("Finishing thread\n\r");
+	//return (0);
+	pthread_exit(NULL);
 }
 
 void *mp_tunnel_tty_server_start(void *v)
@@ -471,6 +598,7 @@ void *mp_tunnel_tty_server_start(void *v)
 	// int *port = (int *)v;
 	int port = SERVER_PORT;
 
+	//signal(SIGCHLD, SIG_IGN);
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(port);
 	serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -510,10 +638,18 @@ void *mp_tunnel_tty_server_start(void *v)
 			If we do not expect connection from this machine, we reject */
 
 		int client = accept(sock, (struct sockaddr *)&serv_addr, &addrlen);
-		dup2(client, 0);
-		dup2(client, 1);
-		dup2(client, 2);
-
+		//dup2(client, 0);
+		//dup2(client, 1);
+		//dup2(client, 2);
+#if 0
+		signal(SIGINT, sig_hnd);
+		signal(SIGTERM, sig_hnd);
+		signal(SIGHUP, sig_hnd);
+		signal(SIGTSTP, sig_hnd);
+		signal(SIGTTIN, sig_hnd);
+		signal(SIGTTOU, sig_hnd);
+		signal(SIGCHLD, sig_hnd);
+#endif
 		pthread_create(&p_go, NULL, mp_tunnel_tty_server_go, &client);
 	}
 }
@@ -527,12 +663,15 @@ void *mp_tunnel_tty_client_start(void *v)
 	int rc;
 	struct winsize sz;
 	struct termios tio;
-	size_t buf_size = 0;
 	conn_t conn_stdin;
 	conn_t conn_socket;
 
-	// struct termios tparams;
-
+	if (0 != pthread_detach(pthread_self())) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+	
 	DD("Starting client\n");
 
 	serv_addr.sin_family = AF_INET;
@@ -542,7 +681,8 @@ void *mp_tunnel_tty_client_start(void *v)
 	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
 		perror("socket");
-		exit(1);
+		pthread_exit(NULL);
+		//exit(1);
 	}
 
 	if (INADDR_NONE == serv_addr.sin_addr.s_addr) {
@@ -569,8 +709,6 @@ void *mp_tunnel_tty_client_start(void *v)
 	}
 
 	DD("Sent window size: col = %d, row = %d\n", sz.ws_col, sz.ws_row);
-	//#endif
-
 
 	if (tcgetattr(fileno(stdin), &tio) == -1) {
 		return (NULL);
@@ -579,6 +717,7 @@ void *mp_tunnel_tty_client_start(void *v)
 	rc = send(sock, &tio, sizeof(tio), 0);
 	if (sizeof(tio) != rc) {
 		DE("Can't sent tio\n");
+		pthread_exit(NULL);
 	}
 
 	/* TODO: From here: this code should be isolated into a separated function */
@@ -586,16 +725,16 @@ void *mp_tunnel_tty_client_start(void *v)
 
 	/* Acept connection and create pty */
 
-	conn_t_fill(&conn_socket, sock, conn_read_from_socket, conn_write_to_socket, NULL, "Socket from remote");
-	conn_t_fill(&conn_stdin, STDIN_FILENO, conn_read_from_std, conn_write_to_std, NULL, "STDIN");
+	conn_t_fill(&conn_socket, sock, conn_read_from_socket, conn_write_to_socket, NULL, "Client:Socket");
+	conn_t_fill(&conn_stdin, STDIN_FILENO, conn_read_from_std, conn_write_to_std, NULL, "Client:STDIN");
+
 	rc = mp_tunnel_run_x_conn(&conn_socket, &conn_stdin);
-	if (EOK != rc) {
-		DE("Finished with an error\n");
-	}
-	
-	close(sock);
+
+	printf("Finished mp_tunnel_run_x_conn\n");
+
 	/* Set saved terminal flags */
 	tcsetattr(STDIN_FILENO, TCSANOW, &tio);
+	close(sock);
 	printf("Remote cnnection closed\n");
 	pthread_exit(NULL);
 }
@@ -644,6 +783,16 @@ int main(int argi, char *argv[])
 	}
 	setlogmask(LOG_UPTO(LOG_INFO));
 	openlog(DL_PREFIX, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_SYSLOG);
+
+	#if 0
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+	signal(SIGTTIN, SIG_IGN);
+	signal(SIGTTOU, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
+	#endif
 
 	if (0 == strcmp(argv[1], "-s")) {
 		pthread_t pid;
