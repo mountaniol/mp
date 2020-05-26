@@ -1,4 +1,6 @@
+/*@-skipposixheaders@*/
 #include <stdlib.h>
+/*@=skipposixheaders@*/
 #include "mp-ctl.h"
 #include "mp-common.h"
 #include "mp-debug.h"
@@ -9,7 +11,7 @@
 /*@only@*/control_t *g_ctl = NULL;
 err_t ctl_allocate_init(void)
 {
-	json_t *ports = NULL;
+	j_t *ports = NULL;
 	err_t rc;
 
 	if (NULL != g_ctl) return (EBAD);

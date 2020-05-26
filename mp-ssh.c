@@ -1,10 +1,11 @@
+/*@-skipposixheaders@*/
 #define _GNU_SOURCE             /* See feature_test_macros(7) */
 #include <sys/prctl.h>
 #include <libssh2.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
+/*@=skipposixheaders@*/
 #include "mp-debug.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
@@ -321,7 +322,7 @@ shutdown:
 
 /*@null@*/ void *ssh_tunnel_pthread(void *arg)
 {
-	json_t *root = arg;
+	j_t *root = arg;
 	int rc = EBAD;
 
 	const char *local_listenip = "127.0.0.1";
@@ -395,7 +396,7 @@ shutdown:
 	return (NULL);
 }
 
-int ssh_thread_start(/*@temp@*/json_t *root)
+int ssh_thread_start(/*@temp@*/j_t *root)
 {
 	pthread_t ssh_thread_id;
 	TESTP(root, EBAD);

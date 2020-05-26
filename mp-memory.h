@@ -1,8 +1,9 @@
 #ifndef _SEC_MEMORY_H_
 #define _SEC_MEMORY_H_
-
+/*@-skipposixheaders@*/
 /* For size_t */
 #include <stddef.h>
+/*@=skipposixheaders@*/
 
 /**
  * @author Sebastian Mountaniol (22/05/2020)

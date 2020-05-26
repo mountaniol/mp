@@ -1,3 +1,5 @@
+#include <jansson.h>
+
 #include "mosquitto.h"
 #include "buf_t.h"
 #include "mp-debug.h"
@@ -78,7 +80,7 @@ err_t mp_communicate_clean_missed_counters(void)
 	/*@shared@*/control_t *ctl;
 	/*@shared@*/void *tmp;
 	/*@shared@*/const char *key;
-	/*@shared@*/json_t *val;
+	/*@shared@*/j_t *val;
 
 	ctl = ctl_get_locked();
 	if (j_count(ctl->buf_missed) < 1) {
@@ -243,7 +245,7 @@ static err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@te
 	return (rc);
 }
 
-err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t *root)
+err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/j_t *root)
 {
 	buf_t *buf;
 
@@ -324,7 +326,7 @@ err_t send_reveal_l()
 	return (EOK);
 }
 
-err_t mp_communicate_send_request(const json_t *root)
+err_t mp_communicate_send_request(const j_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
@@ -345,7 +347,7 @@ err_t mp_communicate_send_request(const json_t *root)
 }
 
 #if 0 /* SEB DEADCODE 14/05/2020 21:32  */
-int send_request_to_open_port(/*@temp@*/const json_t *root){
+int send_request_to_open_port(/*@temp@*/const j_t *root){
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
@@ -413,15 +415,15 @@ int send_request_to_close_port(/*@temp@*/const char *target_uid, /*@temp@*/const
 }
 #endif /* SEB DEADCODE 14/05/2020 21:33 */
 
-err_t send_request_return_tickets_l(/*@temp@*/json_t *root)
+err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 {
 	int rc = EBAD;
 	buf_t *buf = NULL;
 	char *forum_topic;
 	/*@shared@*/control_t *ctl = NULL;
-	json_t *resp = NULL;
+	j_t *resp = NULL;
 	size_t index;
-	json_t *val = NULL;
+	j_t *val = NULL;
 	const char *ticket = NULL;
 	const char *target_uid = NULL;
 

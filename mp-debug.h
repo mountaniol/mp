@@ -1,8 +1,10 @@
 #ifndef _SEC_DEBUG_H_
 #define _SEC_DEBUG_H_
-
+/*@-skipposixheaders@*/
 #include <stdio.h>
 #include <time.h>
+/*@=skipposixheaders@*/
+
 #ifdef DDD
 	#undef DDD
 #endif

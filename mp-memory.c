@@ -1,6 +1,7 @@
+/*@-skipposixheaders@*/
 #include <stdlib.h>
 #include <string.h>
-
+/*@=skipposixheaders@*/
 
 /*@null@*/ /*@only@*/void *zmalloc(size_t sz)
 {

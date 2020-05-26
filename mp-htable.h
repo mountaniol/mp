@@ -1,6 +1,8 @@
 #ifndef _SEC_HTABLE_H_
 #define _SEC_HTABLE_H_
+/*@-skipposixheaders@*/
 #include <stdint.h>
+/*@=skipposixheaders@*/
 
 #define MURMUR_SEED 17
 uint32_t murmur3_32(const uint8_t *key, size_t len);

@@ -1,8 +1,13 @@
-#include <string.h>
-#include <limits.h>
+#ifndef S_SPLINT_S
+	#include <limits.h>
+	#include <string.h>
 #define STATICLIB
+#endif
+
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
+
+#include <jansson.h>
 
 #include "mp-debug.h"
 #include "mp-memory.h"
@@ -238,12 +243,12 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 
 /* Send upnp request to router, ask to remap "internal_port"
    to any external port on the router */
-/*@null@*/ json_t *mp_ports_remap_any(/*@temp@*/const json_t *req, /*@temp@*/const char *internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
+/*@null@*/ j_t *mp_ports_remap_any(/*@temp@*/const j_t *req, /*@temp@*/const char *internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
 	char *reservedPort = NULL;
 	//char reservedPort[PORT_STR_LEN];
 	int i = 0;
-	json_t *resp = NULL;
+	j_t *resp = NULL;
 	int rc;
 
 	for (i = 0; i < 3; i++) {
@@ -294,7 +299,7 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 	return (resp);
 }
 
-err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
+err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
 	int error = 0;
 	struct UPNPUrls upnp_urls;
@@ -360,14 +365,14 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*//*@only@*/ json_t *mp_ports_if_mapped_json(/*@temp@*/const json_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
+/*@null@*//*@only@*/ j_t *mp_ports_if_mapped_json(/*@temp@*/const j_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
 	char s_ext[PORT_STR_LEN];
 	int status;
-	/*@temp@*/json_t *mapping = NULL;
+	/*@temp@*/j_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
 	int rc;
@@ -400,7 +405,7 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 	if (EOK != rc) {
 		DE("Can't send ticket\n");
 	}
-	
+
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
@@ -410,8 +415,11 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 	while (1) {
 		int error;
 
-		/*@unused@*/
+		/*@ignore@*/
+
+#ifndef S_SPLINT_S
 		snprintf(req->s_index, PORT_STR_LEN, "%zu", index);
+#endif
 		/*@end@*/
 		error = upnp_get_generic_port_mapping_entry(&upnp_urls, &upnp_data, req);
 
@@ -458,14 +466,14 @@ err_t mp_ports_unmap_port(/*@temp@*/const json_t *root, /*@temp@*/const char *in
 }
 
 /* Scan existing mappings to this machine and add them to the given array 'arr' */
-err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
+err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
 	char *wan_address = NULL;
 	int status;
-	json_t *mapping = NULL;
+	j_t *mapping = NULL;
 	upnp_req_str_t *req = NULL;
 	size_t index = 0;
 	int rc;
@@ -524,7 +532,7 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 
 		index++;
 
-		/* A mapping found */ 
+		/* A mapping found */
 		if (0 == strncmp(req->map_lan_address, local_host, strnlen(local_host, _POSIX_HOST_NAME_MAX))) {
 			D("Asked mapping is already exists: ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
 
@@ -594,17 +602,17 @@ err_t mp_ports_scan_mappings(json_t *arr, /*@temp@*/const char *local_host)
 /*** Local port manipulation ****/
 
 /* Find ip and port for ssh connection to UID */
-/*@null@*/ json_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
+/*@null@*/ j_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
 {
-	json_t *root = NULL;
-	json_t *host = NULL;
+	j_t *root = NULL;
+	j_t *host = NULL;
 	const char *key;
 	/*@shared@*/control_t *ctl = ctl_get_locked();
 
 	json_object_foreach(ctl->hosts, key, host) {
 		if (EOK == strcmp(key, uid)) {
-			json_t *ports = NULL;
-			json_t *port;
+			j_t *ports = NULL;
+			j_t *port;
 			size_t index;
 			/* Found host */
 			ports = j_find_j(host, "ports");
@@ -648,7 +656,7 @@ int main(int argi, char **argc)
 	int rc;
 	int i_ext;
 	int i_int;
-	json_t *mapping;
+	j_t *mapping;
 
 	if (argi < 2) {
 		D("Usage: this_util external_port internal_port\n");

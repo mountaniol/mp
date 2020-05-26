@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <getopt.h>
+#include <jansson.h>
 /*@=skipposixheaders@*/
 #include "mp-debug.h"
 #include "mp-jansson.h"
@@ -47,7 +48,7 @@ static int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
    These messages are responces requests done from here */
-static err_t mp_shell_parse_in_command(json_t *root)
+static err_t mp_shell_parse_in_command(j_t *root)
 {
 	TESTP(root, EBAD);
 	printf("+ %s\n", j_find_ref(root, JK_REASON));
@@ -120,7 +121,7 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	do {
 		int fd2 = -1;
 		/*@only@*/char *buf = NULL;
-		/*@only@*/json_t *root = NULL;
+		/*@only@*/j_t *root = NULL;
 		ssize_t received = 0;
 		size_t allocated = 0;
 
@@ -185,12 +186,12 @@ static err_t mp_shell_parse_in_command(json_t *root)
 	return (NULL);
 }
 
-/*@null@*/ static json_t *mp_shell_do_requiest(json_t *root)
+/*@null@*/ static j_t *mp_shell_do_requiest(j_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
 	struct sockaddr_un serveraddr;
-	json_t *resp;
+	j_t *resp;
 
 	sd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sd < 0) {
@@ -252,14 +253,14 @@ static err_t mp_shell_wait_and_print_tickets(void)
 	return (EOK);
 }
 
-static err_t mp_shell_ask_openport(json_t *args)
+static err_t mp_shell_ask_openport(j_t *args)
 {
 	err_t rc = EBAD;
 	/*@only@*/const char *uid_dst = NULL;
 	/*@only@*/const char *port = NULL;
 	/*@only@*/const char *protocol = NULL;
-	/*@only@*/json_t *resp = NULL;
-	/*@only@*/json_t *root = NULL;
+	/*@only@*/j_t *resp = NULL;
+	/*@only@*/j_t *root = NULL;
 	/*@only@*/char *ticket = NULL;
 
 	TESTP(args, EBAD);
@@ -317,14 +318,14 @@ err:
 	return (rc);
 }
 
-static err_t mp_shell_ask_closeport(json_t *args)
+static err_t mp_shell_ask_closeport(j_t *args)
 {
 	int rc = EBAD;
 	/*@only@*/const char *uid = NULL;
 	/*@only@*/const char *port = NULL;
 	/*@only@*/const char *protocol = NULL;
-	/*@only@*/json_t *resp = NULL;
-	/*@only@*/json_t *root = NULL;
+	/*@only@*/j_t *resp = NULL;
+	/*@only@*/j_t *root = NULL;
 	/*@only@*/char *ticket = NULL;
 
 	TESTP(args, EBAD);
@@ -376,8 +377,8 @@ err:
 
 static err_t mp_shell_get_info()
 {
-	/*@only@*/json_t *root = j_new();
-	/*@only@*/json_t *resp = NULL;
+	/*@only@*/j_t *root = j_new();
+	/*@only@*/j_t *resp = NULL;
 	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 	const char *val;
@@ -451,10 +452,10 @@ static err_t mp_shell_get_info()
 	return (EOK);
 }
 
-static err_t mp_shell_ssh(json_t *args)
+static err_t mp_shell_ssh(j_t *args)
 {
-	/*@only@*/json_t *root = j_new();
-	/*@only@*/json_t *resp = NULL;
+	/*@only@*/j_t *root = j_new();
+	/*@only@*/j_t *resp = NULL;
 	err_t rc;
 
 	TESTP(root, EBAD);
@@ -476,10 +477,10 @@ static err_t mp_shell_ssh(json_t *args)
 
 static err_t mp_shell_get_hosts()
 {
-	/*@only@*/json_t *resp = NULL;
-	/*@only@*/json_t *root = j_new();
+	/*@only@*/j_t *resp = NULL;
+	/*@only@*/j_t *root = j_new();
 	/*@only@*/const char *key;
-	/*@only@*/json_t *val = NULL;
+	/*@only@*/j_t *val = NULL;
 	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
@@ -540,10 +541,10 @@ static err_t mp_shell_get_hosts()
 
 static err_t mp_shell_get_ports()
 {
-	/*@only@*/json_t *resp = NULL;
-	/*@only@*/json_t *root = j_new();
+	/*@only@*/j_t *resp = NULL;
+	/*@only@*/j_t *root = j_new();
 	size_t index = 0;
-	/*@only@*/json_t *val = NULL;
+	/*@only@*/j_t *val = NULL;
 	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
@@ -588,7 +589,7 @@ static err_t mp_shell_get_ports()
 		abort();
 	}
 
-	json_array_foreach(resp, index, val) {
+	j_arr_foreach(resp, index, val) {
 		rc = ft_write_ln(table, j_find_ref(val, JK_PORT_EXT),
 						 j_find_ref(val, JK_PORT_INT),
 						 j_find_ref(val, JK_PROTOCOL));
@@ -606,11 +607,11 @@ static err_t mp_shell_get_ports()
 /* show opened remote ports */
 static err_t mp_shell_get_remote_ports()
 {
-	/*@only@*/json_t *resp = NULL;
-	/*@only@*/json_t *root = j_new();
+	/*@only@*/j_t *resp = NULL;
+	/*@only@*/j_t *root = j_new();
 	size_t index;
 	/*@only@*/const char *key;
-	/*@only@*/json_t *val = NULL;
+	/*@only@*/j_t *val = NULL;
 	/*@only@*/ft_table_t *table = NULL;
 	int rc;
 
@@ -660,10 +661,10 @@ static err_t mp_shell_get_remote_ports()
 
 	json_object_foreach(resp, key, val) {
 		/* Here we are inside of a host */
-		json_t *host_ports;
-		json_t *port;
+		j_t *host_ports;
+		j_t *port;
 		host_ports = j_find_j(val, "ports");
-		json_array_foreach(host_ports, index, port) {
+		j_arr_foreach(host_ports, index, port) {
 			rc = ft_write_ln(table, j_find_ref(val, JK_UID_ME), j_find_ref(port, JK_PORT_EXT),
 							 j_find_ref(port, JK_PORT_INT), j_find_ref(port, JK_PROTOCOL));
 			if (0 != rc) {
@@ -779,7 +780,7 @@ int main(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	/*@only@*/json_t *args = NULL;
+	/*@only@*/j_t *args = NULL;
 	/*@only@*/pthread_t in_thread_id;
 	int rc;
 
@@ -811,10 +812,9 @@ int main(int argc, char *argv[])
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
-   static struct option long_options[] =
-        {
+   static struct option long_options[] = {
           /* These options set a flag. */
-          {"list",		no_argument,		0, 'l'},
+          {"list",		no_argument,		0, 'l'},\
           {"help",		no_argument,		0, 'h'},
           {"info",		no_argument,		0, 'i'},
           {"open",		required_argument,	0, 'o'},
@@ -824,9 +824,9 @@ int main(int argc, char *argv[])
           {"proto",		required_argument,	0, 'p'},
           {"protocol",	required_argument,	0, 'p'},
           {"remote",	required_argument,	0, 'r'},
+          {"goto",		required_argument,	0, 'g'},
           {0, 0, 0, 0}
         };
-	     
 
 	while ((opt = getopt_long (argc, argv, ":limro:u:s:p:c:h", long_options, &option_index)) != -1) {
 	//while ((opt = getopt(argc, argv, ":limro:u:s:p:c:h")) != -1) {
@@ -912,6 +912,9 @@ int main(int argc, char *argv[])
 				j_rm(args);
 				return (EBAD);
 			}
+			break;
+
+			case 'g': /* goto - connect to remote mashine shell */
 			break;
 		case 'h': /* Print help */
 			mp_shell_usage(argv[0]);

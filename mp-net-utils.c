@@ -1,4 +1,6 @@
+/*@-skipposixheaders@*/
 #include <netdb.h>
+/*@=skipposixheaders@*/
 #include <jansson.h>
 
 #include "buf_t.h"
@@ -65,9 +67,9 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 	return (buf);
 }
 
-json_t *mp_net_utils_receive_json(int con)
+j_t *mp_net_utils_receive_json(int con)
 {
-	json_t *root;
+	j_t *root;
 	buf_t *buf = mp_net_utils_receive_buf_t(con);
 	TESTP(buf, NULL);
 	root = j_buf2j(buf);
@@ -122,7 +124,7 @@ err_t mp_net_utils_send_buf_t(int con, buf_t *buf)
 	return (EOK);
 }
 
-err_t mp_net_utils_send_json(int con, json_t *root)
+err_t mp_net_utils_send_json(int con, j_t *root)
 {
 	err_t rc;
 	buf_t *buf;

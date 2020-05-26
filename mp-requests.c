@@ -12,7 +12,7 @@
 
 	TESTP_MES(user_remote, NULL, "Got NULL");
 
-	json_t *root = j_new();
+	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_CONNECT)) goto err;
@@ -38,7 +38,7 @@ err:
 
 	TESTP_MES(name, NULL, "Got NULL");
 
-	json_t *root = j_new();
+	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECTED)) goto err;
@@ -58,7 +58,7 @@ err:
 /*@null@*/ buf_t *mp_requests_build_reveal()
 {
 	buf_t *buf = NULL;
-	json_t *root = NULL;
+	j_t *root = NULL;
 	const char *name;
 	/*@shared@*/control_t *ctl = ctl_get();
 	name = j_find_ref(ctl->me, JK_NAME);
@@ -83,7 +83,7 @@ err:
 /*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh(const char *uid)
 {
 	buf_t *buf = NULL;
-	json_t *root = j_new();
+	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	/* Type of the message */
@@ -105,7 +105,7 @@ err:
 /*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port)
 {
 	buf_t *buf = NULL;
-	json_t *root = j_new();
+	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	/* Type of the message */
@@ -136,7 +136,7 @@ err:
 /*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port)
 {
 	buf_t *buf = NULL;
-	json_t *root = NULL;
+	j_t *root = NULL;
 
 	root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
@@ -165,7 +165,7 @@ err:
 /*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status)
 {
 	buf_t *buf = NULL;
-	json_t *root = NULL;
+	j_t *root = NULL;
 
 	root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
@@ -198,7 +198,7 @@ err:
 /*@null@*/ buf_t *mp_requests_open_port(const char *uid, const char *port, const char *protocol)
 {
 	buf_t *buf = NULL;
-	json_t *root = NULL;
+	j_t *root = NULL;
 
 	TESTP_MES(uid, NULL, "Got NULL");
 	TESTP_MES(port, NULL, "Got NULL");

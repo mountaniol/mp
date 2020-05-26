@@ -1,3 +1,4 @@
+/*@-skipposixheaders@*/
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <netdb.h>
@@ -16,6 +17,9 @@
 #include <termios.h>
 #include <unistd.h>
 #include <syslog.h>
+/*@=skipposixheaders@*/
+
+#include "mp-tunnel.h"
 
 #define DL_PREFIX "mp-tunnel"
 #define DDLOG(fmt, ...) do{syslog(LOG_ALERT, "%s +%d : ", __func__, __LINE__); printf(fmt, ##__VA_ARGS__); }while(0 == 1)
@@ -202,31 +206,6 @@ void print_terminal_flags()
 #undef PRINT_L_FLAG
 #undef PRINT_O_FLAG
 }
-
-
-/* These two function pointer are abstraction of read / write poerations */
-typedef int (*conn_read_t) (int, char *, size_t);
-typedef int (*conn_write_t) (int, char *, size_t);
-typedef int (*conn_close_t) (int);
-
-/* This is a connection abstraction.
-   The connection defined as a file descriptor and 3 operation - read, write and (optional) close.
-   The connection may have a name (optional) - for debug prints */
-typedef struct connection_struct {
-	int fd;                     /* (Must) File descriptor for read / write */
-	conn_read_t read_fd;        /* (Must) Read from fd */
-	conn_write_t write_fd;      /* (Must) Write to fd */
-	conn_close_t close_fd;      /* (Optional) Close fd */
-	const char *name;           /* (Optional) Name of the connection (optional) */
-} conn_t;
-
-typedef struct conn2_struct {
-	conn_t conn_in;
-	conn_t conn_out;
-	int status;
-} conn2_t;
-
-
 
 /* Implementations of connection operations */
 int conn_write_to_socket(int fd, char *buf, size_t sz)
@@ -478,14 +457,14 @@ static void *mp_tunnel_tty_server_go(void *v)
 	conn_t conn_terminal;
 	conn_t conn_socket;
 
-	conn2_t conn_one_direction;
-	conn2_t conn_second_direction;
+	//conn2_t conn_one_direction;
+	//conn2_t conn_second_direction;
 
-	pthread_t pid_one;
-	pthread_t pid_two;
+	//pthread_t pid_one;
+	//pthread_t pid_two;
 
 	char *buf;
-	size_t buf_size = 0;
+	size_t buf_size;
 
 	if (0 != pthread_detach(pthread_self())) {
 		DE("Thread: can't detach myself\n");

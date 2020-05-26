@@ -7,5 +7,5 @@
 #define CLI_SOCKET_PATH_CLI "/tmp/mightydaddycli"
 
 extern /*@null@*/ void *mp_cli_pthread(/*@temp@*/void *arg);
-extern err_t mp_cli_send_to_cli(/*@temp@*/ const json_t *root);
+extern err_t mp_cli_send_to_cli(/*@temp@*/ const j_t *root);
 #endif /* _CLI_THREAD_T_ */

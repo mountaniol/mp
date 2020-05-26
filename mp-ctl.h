@@ -1,8 +1,9 @@
 #ifndef _SEC_CTL_H_
 #define _SEC_CTL_H_
-
+/*@-skipposixheaders@*/
 #include <semaphore.h>
-#include "mp-htable.h"
+/*@=skipposixheaders@*/
+
 /* For err_t */
 #include "mp-common.h"
 

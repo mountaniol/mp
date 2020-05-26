@@ -1,6 +1,8 @@
+/*@-skipposixheaders@*/
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <string.h>
+/*@=skipposixheaders@*/
 
 #include "buf_t.h"
 #include "mp-debug.h"

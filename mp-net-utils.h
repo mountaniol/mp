@@ -7,8 +7,8 @@
 #define NET_REST(expected, received) (expected - received)
 
 extern buf_t *mp_net_utils_receive_buf_t(int con);
-extern json_t *mp_net_utils_receive_json(int con);
+extern j_t *mp_net_utils_receive_json(int con);
 extern err_t mp_net_utils_send_buf_t(int con, buf_t *buf);
-extern err_t mp_net_utils_send_json(int con, json_t *root);
+extern err_t mp_net_utils_send_json(int con, j_t *root);
 
 #endif /* MP_NET_UTILS_H */

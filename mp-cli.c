@@ -1,12 +1,12 @@
-/*@-skipposixheaders@*/
 #define _GNU_SOURCE             /* See feature_test_macros(7) */
-#include <pthread.h>
-#include <sys/prctl.h>
+#ifndef S_SPLINT_S
+	#include <pthread.h>
+	#include <sys/prctl.h>
 
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
-/*@=skipposixheaders@*/
+	#include <sys/socket.h>
+	#include <sys/un.h>
+	#include <unistd.h>
+#endif
 
 #include "mp-debug.h"
 #include "mp-ctl.h"
@@ -18,7 +18,7 @@
 #include "mp-ports.h"
 #include "mp-ssh.h"
 
-err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
+err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 {
 	int sd = -1;
 	ssize_t rc = -1;
@@ -73,10 +73,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 
 /* Get this machine info */
-/*@null@*/ static json_t *mp_cli_dup_self_info_l()
+/*@null@*/ static j_t *mp_cli_dup_self_info_l()
 {
 	/*@temp@*/control_t *ctl = NULL;
-	/*@temp@*/json_t *ret = NULL;
+	/*@temp@*/j_t *ret = NULL;
 
 	DDD("Starting\n");
 	ctl = ctl_get_locked();
@@ -85,12 +85,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (ret);
 }
 
-/*@null@*/ static json_t *mp_cli_get_received_tickets_l(/*@temp@*/json_t *root)
+/*@null@*/ static j_t *mp_cli_get_received_tickets_l(/*@temp@*/j_t *root)
 {
 	int rc = -1;
 	/*@temp@*/control_t *ctl;
-	/*@temp@*/json_t *arr = NULL;
-	/*@temp@*/json_t *val = NULL;
+	/*@temp@*/j_t *arr = NULL;
+	/*@temp@*/j_t *val = NULL;
 	size_t index = 0;
 	/*@temp@*/ const char *ticket = NULL;
 	DDD("Starting\n");
@@ -103,9 +103,9 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 
 	ctl = ctl_get_locked();
 
-	json_array_foreach(ctl->tickets_in, index, val) {
+	j_arr_foreach(ctl->tickets_in, index, val) {
 		if (j_test(val, JK_TICKET, ticket)) {
-			/*@temp@*/json_t *copied = j_dup(val);
+			/*@temp@*/j_t *copied = j_dup(val);
 			if (NULL == copied) {
 				j_rm(arr);
 				return (NULL);
@@ -117,7 +117,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 				return (NULL);
 			}
 
-			rc = json_array_remove(ctl->tickets_in, index);
+			rc = j_arr_rm(ctl->tickets_in, index);
 			if (EOK != rc) {
 				j_rm(copied);
 				j_rm(arr);
@@ -137,9 +137,9 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (arr);
 }
 
-/*@null@*/ static json_t *mp_cli_send_ticket_req(/*@temp@*/json_t *root)
+/*@null@*/ static j_t *mp_cli_send_ticket_req(/*@temp@*/j_t *root)
 {
-	/*@temp@*/json_t *resp;
+	/*@temp@*/j_t *resp;
 	int rc;
 
 	DDD("Starting\n");
@@ -162,11 +162,11 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_get_ports_l()
+/*@null@*/ static j_t *mp_cli_get_ports_l()
 {
 	/*@shared@*/control_t *ctl = NULL;
-	/*@temp@*/json_t *resp;
-	/*@temp@*/json_t *ports;
+	/*@temp@*/j_t *resp;
+	/*@temp@*/j_t *ports;
 	DDD("Starting\n");
 
 	ctl = ctl_get_locked();
@@ -182,10 +182,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 }
 
 /* Get list of all sources and targets */
-/*@null@*/ static json_t *mp_cli_get_list_l()
+/*@null@*/ static j_t *mp_cli_get_list_l()
 {
 	/*@shared@*/control_t *ctl = NULL;
-	/*@temp@*/json_t *resp;
+	/*@temp@*/j_t *resp;
 	DDD("Starting\n");
 	ctl = ctl_get_locked();
 	resp = j_dup(ctl->hosts);
@@ -195,12 +195,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_ssh_forward(/*@temp@*/json_t *root)
+/*@null@*/ static j_t *mp_cli_ssh_forward(/*@temp@*/j_t *root)
 {
 	//control_t *ctl = NULL;
 	int rc = EBAD;
-	/*@temp@*/json_t *resp = NULL;
-	/*@temp@*/json_t *remote_host = NULL;
+	/*@temp@*/j_t *resp = NULL;
+	/*@temp@*/j_t *remote_host = NULL;
 
 	DDD("Start\n");
 
@@ -265,11 +265,11 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_execute_req(/*@temp@*/json_t *root)
+/*@null@*/ static j_t *mp_cli_execute_req(/*@temp@*/j_t *root)
 {
 	/*@shared@*/control_t *ctl = NULL;
 	int rc = EBAD;
-	/*@temp@*/json_t *resp = NULL;
+	/*@temp@*/j_t *resp = NULL;
 
 	ctl = ctl_get_locked();
 	rc = j_add_str(root, JK_UID_SRC, ctl_uid_get());
@@ -294,7 +294,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 	return (resp);
 }
 
-/*@null@*/ static json_t *mp_cli_parse_command(/*@temp@*/json_t *root)
+/*@null@*/ static j_t *mp_cli_parse_command(/*@temp@*/j_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
 
@@ -403,8 +403,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		int fd_connection = -1;
 		/*@only@*/buf_t *buft = NULL;
 
-		/*@only@*/json_t *root = NULL;
-		/*@only@*/json_t *root_resp = NULL;
+		/*@only@*/j_t *root = NULL;
+		/*@only@*/j_t *root_resp = NULL;
 
 		/* Listen for incoming connection (blocking) */
 		rc = (ssize_t)listen(fd_socket, 2);
@@ -453,7 +453,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const json_t *root)
 		}
 
 		j_rm(root_resp);
-		
+
 	} while (ST_STOP != ctl->status && ST_STOPPED != ctl->status);
 
 	return (NULL);

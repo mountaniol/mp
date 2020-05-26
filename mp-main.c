@@ -1,4 +1,4 @@
-/*@-skipposixheaders@*/
+#ifndef S_SPLINT_S
 #define _GNU_SOURCE             /* See feature_test_macros(7) */
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
-/*@=skipposixheaders@*/
+#endif
 
 #include "mosquitto.h"
 #include "buf_t.h"
@@ -34,9 +34,9 @@
    req - request which must contain JK_TICKET with ticket id
    status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
    comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
-err_t mp_main_ticket_responce(const json_t *req, const char *status, const char *comment)
+err_t mp_main_ticket_responce(const j_t *req, const char *status, const char *comment)
 {
-	/*@only@*/json_t *root = NULL;
+	/*@only@*/j_t *root = NULL;
 	/*@temp@*/const char *ticket = NULL;
 	/*@temp@*/const char *uid = NULL;
 	err_t rc;
@@ -85,8 +85,8 @@ end:
 	return (rc);
 }
 
-//static err_t mp_main_remove_host_l(const json_t *root)
-err_t mp_main_remove_host_l(const json_t *root)
+//static err_t mp_main_remove_host_l(const j_t *root)
+err_t mp_main_remove_host_l(const j_t *root)
 {
 	/*@temp@*/const control_t *ctl = NULL;
 	/*@temp@*/const char *uid_src = NULL;
@@ -123,14 +123,14 @@ err_t mp_main_remove_host_l(const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static err_t mp_main_do_open_port_l(const json_t *root)
+static err_t mp_main_do_open_port_l(const j_t *root)
 {
 	/*@temp@*/ const control_t *ctl = ctl_get();
-	/*@temp@*/json_t *mapping = NULL;
+	/*@temp@*/j_t *mapping = NULL;
 	/*@temp@*/const char *asked_port = NULL;
 	/*@temp@*/const char *protocol = NULL;
-	/*@temp@*/json_t *val = NULL;
-	/*@temp@*/json_t *ports = NULL;
+	/*@temp@*/j_t *val = NULL;
+	/*@temp@*/j_t *ports = NULL;
 	size_t index = 0;
 	/*@temp@*/const char *ip_internal = NULL;
 	err_t rc;
@@ -206,13 +206,13 @@ static err_t mp_main_do_open_port_l(const json_t *root)
 }
 
 /* This function is called when remote machine asks to open port for imcoming connection */
-static err_t mp_main_do_close_port_l(const json_t *root)
+static err_t mp_main_do_close_port_l(const j_t *root)
 {
 	/*@temp@*/const control_t *ctl = ctl_get();
 	/*@temp@*/const char *asked_port = NULL;
 	/*@temp@*/const char *protocol = NULL;
-	/*@temp@*/json_t *val = NULL;
-	/*@temp@*/json_t *ports = NULL;
+	/*@temp@*/j_t *val = NULL;
+	/*@temp@*/j_t *ports = NULL;
 	size_t index = 0;
 	int index_save = 0;
 	/*@temp@*/const char *external_port = NULL;
@@ -274,7 +274,7 @@ static err_t mp_main_do_close_port_l(const json_t *root)
  * type: "keepalive" - a source sends its status 
  * type: "reveal" - a new host asks all clients to send information
  */
-static err_t mp_main_parse_message_l(const char *uid, json_t *root)
+static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 {
 	err_t rc = EBAD;
 	/*@temp@*/control_t *ctl = ctl_get();
@@ -299,7 +299,7 @@ static err_t mp_main_parse_message_l(const char *uid, json_t *root)
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
-		json_t *root_dup;
+		j_t *root_dup;
 
 		/* Find uid of this remote host */
 		const char *uid_src = j_find_ref(root, JK_UID_ME);
@@ -506,7 +506,7 @@ end:
 	int topics_count = 0;
 	int rc = EBAD;
 	/*@temp@*/ const char *uid = NULL;
-	/*@only@*/json_t *root = v;
+	/*@only@*/j_t *root = v;
 
 	TESTP(root, NULL);
 
@@ -590,7 +590,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 {
 	int rc;
 	pthread_t message_thread;
-	/*@temp@*/ json_t *root = NULL;
+	/*@temp@*/ j_t *root = NULL;
 	if (NULL == msg) {
 		DE("msg is NULL!\n");
 		return;
@@ -1083,7 +1083,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	/*@temp@*/control_t *ctl = NULL;
 	pthread_t cli_thread_id;
 	pthread_t mosq_thread_id;
-	/*@temp@*/json_t *ports;
+	/*@temp@*/j_t *ports;
 
 	int rc = EOK;
 

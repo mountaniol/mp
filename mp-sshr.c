@@ -2,13 +2,12 @@
 https://www.libssh2.org/examples/tcpip-forward.html 
 The original example also contains Windows parts */
 
+/*@-skipposixheaders@*/
 #include <libssh2.h>
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
-
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -16,6 +15,7 @@ The original example also contains Windows parts */
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/select.h>
+/*@=skipposixheaders@*/
 
 #include "mp-debug.h"
 #include "mp-common.h"

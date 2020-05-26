@@ -3,12 +3,12 @@
 
 extern err_t send_keepalive_l(void);
 extern err_t send_reveal_l(void);
-extern err_t mp_communicate_send_request(/*@temp@*/const json_t *root);
+extern err_t mp_communicate_send_request(/*@temp@*/const j_t *root);
 extern /*@null@*/ char *mp_communicate_forum_topic(void);
 extern /*@null@*/ char *mp_communicate_forum_topic_all(void);
 extern /*@null@*/ char *mp_communicate_private_topic(void);
 extern err_t mp_communicate_clean_missed_counters(void);
 extern /*@null@*/ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter);
-extern err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/json_t *root);
-extern err_t send_request_return_tickets_l(/*@temp@*/json_t *root);
+extern err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/j_t *root);
+extern err_t send_request_return_tickets_l(/*@temp@*/j_t *root);
 #endif /* MP_COMMUNICATE_H */

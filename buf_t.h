@@ -3,7 +3,9 @@
 
 /* For uint32_t / uint8_t */
 //#include <linux/types.h>
+/*@-skipposixheaders@*/
 #include <stdint.h>
+/*@=skipposixheaders@*/
 /* For err_t */
 #include "mp-common.h"
 

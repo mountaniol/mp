@@ -1,12 +1,13 @@
 #ifndef _SEC_COMMON_H_
 #define _SEC_COMMON_H_
 
+/*@-skipposixheaders@*/
 #include <stdlib.h>
 #include <assert.h>
+/*@=skipposixheaders@*/
 
 /* Size of buffer used in mp-cli network transmittions */
 #define CLI_BUF_LEN 4096
-
 
 typedef enum {
 	EBAD = -1,  /* Error status */

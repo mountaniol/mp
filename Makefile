@@ -1,6 +1,6 @@
-GCC=gcc
-#GCC=clang-10
-CFLAGS=-Wall -Wextra -rdynamic -O2
+#GCC=gcc
+GCC=clang-10
+CFLAGS=-Wall -Wextra -rdynamic -Os
 DEBUG=-DDEBUG3
 DEBUG += -DDERROR3
 #CFLAGS += -fanalyzer
@@ -82,15 +82,15 @@ libfort.a:
 check:
 	@echo "+++ $@: USER=$(USER), UID=$(UID), GID=$(GID): $(CURDIR)"
 	#echo ============= 32 bit check =============
-	$(ECH)cppcheck -q --force  --enable=all --platform=unix32 -I/usr/include/openssl ./*.[ch]       
+	$(ECH)cppcheck -j2 -q --force  --enable=all --platform=unix32 -I/usr/include/openssl $(SPLINT_C)       
 	#echo ============= 64 bit check =============
 	#$(ECH)cppcheck -q --force  --enable=all --platform=unix64 -I/usr/include/openssl ./*.[ch]
 
 .PHONY:splint
 splint:
 	@echo "+++ $@: USER=$(USER), UID=$(UID), GID=$(GID): $(CURDIR)"
-	#splint -noeffect -mustfreeonly -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
-	splint -standard -noeffect -redef +matchanyintegral +gnuextensions -preproc +unixlib  $(SPLINT_C)
+	splint -noeffect -mustfreeonly -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
+	#splint -standard -noeffect -redef +matchanyintegral +gnuextensions -preproc +unixlib  +trytorecover -mayaliasunique +posixlib -I/usr/include/openssl -D__gnuc_va_list=va_list $(SPLINT_C)
 	#splint -forcehints -standard -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -checks -redef -exportlocal -export-header -isoreserved  -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
 	#splint -forcehints -weak -redef +matchanyintegral +gnuextensions -preproc +unixlib -I/usr/include/openssl -D__gnuc_va_list=va_list  ./*.[ch]
