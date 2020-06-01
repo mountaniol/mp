@@ -55,7 +55,7 @@
 
 	memcpy(buf, str, len);
 	root = j_str2j(buf);
-	TFREE(buf);
+	TFREE_SIZE(buf, len + 1);
 	return (root);
 }
 
@@ -428,6 +428,7 @@ void j_rm(/*@keep@*//*@null@*/j_t *root)
 
 	json_decref(root);
 }
+
 int j_arr_rm(j_t *arr, size_t index)
 {
 	return (json_array_remove(arr, index));

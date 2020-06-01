@@ -4,6 +4,7 @@
 /*@-skipposixheaders@*/
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 /*@=skipposixheaders@*/
 
 /* Size of buffer used in mp-cli network transmittions */
@@ -48,6 +49,8 @@ typedef enum {
 #define TESTP_ASSERT(x, mes) do {if(NULL == x) { DE("[[ ASSERT! ]] %s == NULL: %s\n", #x, mes); abort(); } } while(0)
 
 #define TFREE(x) do { if(NULL != x) {free(x); x = NULL;} else {DE(">>>>>>>> Tried to free() NULL: %s\n", #x);} }while(0)
+/* Secure version of free: memset emory to 0 before it freed */
+#define TFREE_SIZE(x,sz) do { if(NULL != x) {memset(x,0,sz);free(x); x = NULL;} else {DE(">>>>>>>> Tried to free_size() NULL: %s\n", #x);} }while(0)
 													   
 
 #endif /* _SEC_COMMON_H_ */

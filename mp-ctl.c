@@ -64,7 +64,8 @@ err_t cli_destoy()
 
 void ctl_lock()
 {
-	int rc = sem_getvalue(&g_ctl->lock, &rc);
+	int rc;
+	sem_getvalue(&g_ctl->lock, &rc);
 	if (rc > 1) {
 		DE("Semaphor count is too high: %d > 1\n", rc);
 		abort();
@@ -80,7 +81,8 @@ void ctl_lock()
 
 void ctl_unlock()
 {
-	int rc = sem_getvalue(&g_ctl->lock, &rc);
+	int rc;
+	sem_getvalue(&g_ctl->lock, &rc);
 	if (rc > 0) {
 		DE("Tried to unlock not locked semaphor\n");
 		abort();

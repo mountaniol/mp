@@ -802,7 +802,7 @@ int main(int argc, char *argv[])
 	}
 
 	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_stream_pthread, NULL);
-
+	
 	if (0 != rc) {
 		DE("Can't create mp_shell_in_thread\n");
 		perror("Can't create mp_shell_in_thread");

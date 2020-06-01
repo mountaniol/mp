@@ -1,5 +1,6 @@
 /*@-skipposixheaders@*/
 #include <string.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -15,13 +16,14 @@
 #include "mp-ctl.h"
 
 /* Construct config file directory full path */
-static char *mp_config_get_config_dir(void)
+static buf_t *mp_config_get_config_dir(void)
 {
-	char *dirname = NULL;
-	int rc = -1;
-	size_t len = 0;
-	struct passwd *pw = NULL;
-	const char *homedir = NULL;
+	buf_t         *dirname = buf_new(NULL, 4096);
+	int           rc       = -1;
+	struct passwd *pw      = NULL;
+	const char    *homedir = NULL;
+
+	TESTP(dirname, NULL);
 
 	pw = getpwuid(getuid());
 	TESTP(pw, NULL);
@@ -29,32 +31,26 @@ static char *mp_config_get_config_dir(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	
-	/* TODO: Warning! This should not be hardcoded value but should depend on the OS and FS */
-	len = strnlen(homedir, 4096) + strnlen(CONFIG_DIR_NAME, CONFIG_DIR_NAME_MAX_LEN);
-
-	/* Filename len: directory + slash + file config dir + '\0' */
-	dirname = zmalloc(len + 2);
-
-	TESTP_MES(dirname, NULL, "Can't allocate filepath");
-
-	rc = snprintf(dirname, len + 2, "%s/%s", homedir, CONFIG_DIR_NAME);
+	rc = snprintf(dirname->data, dirname->room, "%s/%s", homedir, CONFIG_DIR_NAME);
 
 	/* It must print len + slash */
-	if (-1 == rc || (size_t)rc != (len + 1)) {
+	if (rc < 0) {
 		DE("Wrong file name len\n");
+		buf_free(dirname);
+		return (NULL);
 	}
+	dirname->len = rc;
+	buf_pack(dirname);
 	return (dirname);
 }
 
 /* Construct config file full path */
-static char *mp_config_get_config_name(void)
+static buf_t *mp_config_get_config_name(void)
 {
-	char *filename = NULL;
-	int rc = -1;
-	size_t len = 0;
-	struct passwd *pw = NULL;
-	const char *homedir = NULL;
+	int           rc       = -1;
+	struct passwd *pw      = NULL;
+	const char    *homedir = NULL;
+	buf_t         *buf     = NULL;
 
 	pw = getpwuid(getuid());
 	TESTP(pw, NULL);
@@ -62,40 +58,52 @@ static char *mp_config_get_config_name(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	/* TODO: Warning! This should not be hardcoded value but should depend on the OS and FS */
-	len = strnlen(homedir, PATH_MAX) + strnlen(CONFIG_DIR_NAME, CONFIG_DIR_NAME_MAX_LEN) + strnlen(CONFIG_FILE_NAME, CONFIG_FILE_NAME_MAX_LEN);
-
-	/* Filename len: directory + slash + file config dir + slash + file name + '\0' */
-	filename = zmalloc(len + 3);
-
-	TESTP_MES(filename, NULL, "Can't allocate filepath");
-
-	rc = snprintf(filename, len + 3, "%s/%s/%s", homedir, CONFIG_DIR_NAME, CONFIG_FILE_NAME);
-
-	/* It must print len + slash */
-	if (-1 == rc || (size_t)rc != (len + 2)) {
-		/*@ignore@*/
-		DE("Wrong file name len : rc = %d, expected %zu\n", rc, len + 2);
-		/*@end@*/
+	buf = buf_new(NULL, 0);
+	TESTP(buf, NULL);
+	/* Allocate room preliminary */
+	if (EOK != buf_add_room(buf, 1024)) {
+		DE("Can't add room to the buffer\n");
+		buf_free(buf);
+		return (NULL);
 	}
-	return (filename);
+
+	rc = buf_add(buf, homedir, strlen(homedir));
+	TESTI(rc, NULL);
+	rc = buf_add(buf, "/", 1);
+	TESTI(rc, NULL);
+	rc = buf_add(buf, CONFIG_DIR_NAME, CONFIG_DIR_NAME_LEN);
+	TESTI(rc, NULL);
+	rc = buf_add(buf, "/", 1);
+	TESTI(rc, NULL);
+	rc = buf_add(buf, CONFIG_FILE_NAME, CONFIG_FILE_NAME_LEN);
+	TESTI(rc, NULL);
+	rc = buf_add_null(buf);
+	TESTI(rc, NULL);
+
+	rc = buf_pack(buf);
+	if (EOK != rc) {
+		DE("Error on buffer packing\n");
+	}
+
+	return (buf);
 }
 
 /* Read config file, transform to json obgect and return to caller */
 static json_t *mp_config_read(void)
 {
-	json_t *root = NULL;
-	FILE *fd = NULL;
-	char *filename = NULL;
+	json_t      *root     = NULL;
+	FILE        *fd       = NULL;
+	buf_t       *filename = NULL;
 	struct stat statbuf;
-	char *buf = NULL;
-	int rc = EBAD;
+	char        *buf      = NULL;
+	size_t      buf_len;
+	int         rc        = EBAD;
 
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, NULL, "Can't create config file name");
 
-	if (0 != stat(filename, &statbuf)) {
-		DDD("Can't stat config file: %s\n", filename);
+	if (0 != stat(filename->data, &statbuf)) {
+		DDD("Can't stat config file: %s\n", filename->data);
 		goto err;
 	}
 
@@ -104,24 +112,25 @@ static json_t *mp_config_read(void)
 		goto err;
 	}
 
-	fd = fopen(filename, "r");
+	fd = fopen(filename->data, "r");
 	if (NULL == fd) {
 		goto err;
 	}
 
-	buf = malloc((size_t)(statbuf.st_size + 1));
+	buf_len = (size_t)(statbuf.st_size + 1);
+
+	buf = malloc(buf_len);
 	if (NULL == buf) {
 		DE("Can't allocate biffer\n");
 		goto err;
 	}
 
-	memset(buf, 0, (size_t)statbuf.st_size + 1);
-
+	memset(buf, 0, buf_len);
 
 	rc = (int)fread(buf, 1, (size_t)statbuf.st_size, fd);
 	if (rc != statbuf.st_size) {
 		/*@ignore@*/
-		DE("can't read config file: expected %zu, read %d\n", statbuf.st_size, rc);
+		DE("can't read config file |%s|: expected %zu, read %d\n", filename->data, statbuf.st_size, rc);
 		/*@end@*/
 		goto err;
 	}
@@ -129,29 +138,28 @@ static json_t *mp_config_read(void)
 	root = j_str2j(buf);
 
 err:
-	TFREE(filename);
-	TFREE(buf);
-	if (fd) {
+	buf_free(filename);
+	TFREE_SIZE(buf, buf_len);
+	if (NULL != fd) {
 		if (0 != fclose(fd)) {
 			DE("Can't close file\n");
 			perror("Can't close file");
 		}
 	}
 	return (root);
-
 }
 
 /* Write config object to config file */
 err_t mp_config_save()
 {
-	FILE *fd = NULL;
-	char *filename = NULL;
-	char *dirname = NULL;
-	buf_t *buf = NULL;
-	int rc;
-	size_t written = 0;
+	FILE   *fd       = NULL;
+	buf_t  *filename = NULL;
+	buf_t  *dirname  = NULL;
+	buf_t  *buf      = NULL;
+	int    rc;
+	size_t written   = 0;
 	/*@shared@*/control_t *ctl = ctl_get();
-	DIR *dir;
+	DIR    *dir;
 
 	TESTP(ctl, EBAD);
 	TESTP(ctl->config, EBAD);
@@ -161,15 +169,16 @@ err_t mp_config_save()
 	dirname = mp_config_get_config_dir();
 	TESTP(dirname, EBAD);
 
-	dir = opendir(dirname);
+	dir = opendir(dirname->data);
 	if (NULL != dir) {
 		rc = closedir(dir);
 		if (0 != rc) {
 			DE("Can't close dir\n");
 			perror("can't close dir");
 		}
-	} else if (ENOENT == errno) {
-		rc = mkdir(dirname, 0700);
+	} else
+	if (ENOENT == errno) {
+		rc = mkdir(dirname->data, 0700);
 		if (0 != rc) {
 			DE("mkdir failed; probably it is a;ready exists?\n");
 			perror("can't mkdir");
@@ -177,15 +186,16 @@ err_t mp_config_save()
 	} else {
 		DE("Some error\n");
 		perror("Config directory testing error");
-		TFREE(dirname);
+		buf_free(dirname);
 		return (EBAD);
 	}
-	TFREE(dirname);
+	buf_free(dirname);
 
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, -1, "Can't create config file name");
 
-	fd = fopen(filename, "w+");
+	fd = fopen(filename->data, "w+");
+	buf_free(filename);
 	if (NULL == fd) {
 		rc = -1;
 		goto err;
@@ -267,9 +277,9 @@ err:
 /* Read config from file. If there is no config file - return error */
 err_t mp_config_load()
 {
-	err_t rc = EBAD;
+	err_t      rc   = EBAD;
 	const char *key = NULL;
-	json_t *val = NULL;
+	json_t     *val = NULL;
 	/*@shared@*/control_t *ctl = ctl_get();
 	ctl->config = mp_config_read();
 	if (NULL == ctl->config) {

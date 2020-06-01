@@ -64,6 +64,10 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 		received += rc;
 	} while (received < buf->len);
 
+	rc = buf_pack(buf);
+	if (EOK != rc) {
+		DE("Can't pack buf_t\n");
+	}
 	return (buf);
 }
 

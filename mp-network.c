@@ -12,36 +12,37 @@
 #include "mp-ports.h"
 #include "mp-dict.h"
 
-/*@null@*/ static char *mp_network_find_wan_interface(void)
+#define BUF_INTERFACE (1024)
+/*@null@*/ static buf_t *mp_network_find_wan_interface(void)
 {
-	FILE *fd = NULL;
-	char *buf = NULL;
-	char *rc = NULL;
-	char *ptr = NULL;
+	FILE  *fd   = NULL;
+	char  *rc   = NULL;
+	char  *ptr  = NULL;
+	buf_t *buft;
 
 	fd = fopen("/proc/net/route", "r");
 	TESTP_MES(fd, NULL, "Can't open /proc/net/route\n");
 
-	buf = zmalloc(1024);
-	TESTP_GO(buf, err);
+	buft = buf_new(NULL, BUF_INTERFACE);
+	TESTP_GO(buft, err);
 
 	do {
 		char *interface = NULL;
-		char *dest = NULL;
+		char *dest      = NULL;
 
 		/* Read the next string from /proc/net/route*/
-		rc = fgets(buf, 1024, fd);
+		rc = fgets(buft->data, buft->room, fd);
 		if (NULL == rc) {
 			break;
 		}
 
 		/* First string is a header, skip it */
-		if (0 == strncmp("Iface", buf, 5)) {
+		if (0 == strncmp("Iface", buft->data, 5)) {
 			continue;
 		}
 
 		/* Fields are separated by tabulation. The first field is the interface name */
-		interface = strtok_r(buf, "\t", &ptr);
+		interface = strtok_r(buft->data, "\t", &ptr);
 		if (NULL == interface) {
 			break;
 		}
@@ -56,16 +57,19 @@
 
 		/* If the default route is all nulls this should be the WAN interface */
 		if (0 == strncmp(dest, "00000000", 8)) {
-			char *ret = strdup(interface);
+			size_t len  = strlen(interface);
+			char   *ret = strndup(interface, len);
+			buf_free_room(buft);
+			buf_set_data(buft, ret, len + 1, len);
+
 			//D("Found default WAN interface: %s\n", interface);
-			TFREE(buf);
 			if (0 != fclose(fd)) {
 				DE("Can't close file!");
 				perror("Can't close file");
 				abort();
 			}
 
-			return (ret);
+			return (buft);
 		}
 
 		/* Read lines until NULL */
@@ -73,7 +77,7 @@
 
 	/* If we here it means nothing is found. Probably we don't have any inteface connected to WAN */
 err:
-	TFREE(buf);
+	buf_free(buft);
 	if (fd) {
 		if (0 != fclose(fd)) {
 			DE("Can't close file!");
@@ -87,12 +91,13 @@ err:
 /* Find interface connected to WAN and return its IP */
 /*@null@*/ static char *mp_network_get_internal_ip(void)
 {
-	struct ifaddrs *ifaddr = NULL;
-	struct ifaddrs *ifa = NULL;
-	int s;
-	char host[NI_MAXHOST];
+	struct ifaddrs *ifaddr        = NULL;
+	struct ifaddrs *ifa           = NULL;
+	int            s;
+	char           host[NI_MAXHOST];
 
-	char *wan_interface = mp_network_find_wan_interface();
+	//char           *wan_interface = mp_network_find_wan_interface();
+	buf_t          *wan_interface = mp_network_find_wan_interface();
 
 	TESTP_MES(wan_interface, NULL, "No WAN connected inteface");
 
@@ -108,24 +113,24 @@ err:
 
 		s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
 
-		if ((0 == strcmp(ifa->ifa_name, wan_interface)) && (ifa->ifa_addr->sa_family == AF_INET)) {
+		if ((0 == strcmp(ifa->ifa_name, wan_interface->data)) && (ifa->ifa_addr->sa_family == AF_INET)) {
 			char *ret;
 			if (s != 0) {
 				printf("getnameinfo() failed: %s\n", gai_strerror(s));
-				TFREE(wan_interface);
+				buf_free(wan_interface);
 				return (NULL);
 			}
 
 			DDD("Interface: %s\n", ifa->ifa_name);
 			DDD("Address: %s\n", host);
 			ret = strdup(host);
-			TFREE(wan_interface);
+			buf_free(wan_interface);
 			freeifaddrs(ifaddr);
 			return (ret);
 		}
 	}
 
-	TFREE(wan_interface);
+	buf_free(wan_interface);
 	freeifaddrs(ifaddr);
 	return (NULL);
 }

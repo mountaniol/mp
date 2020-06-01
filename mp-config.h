@@ -4,9 +4,9 @@
 
 /* If these names changed care about name lenghts as well*/
 #define CONFIG_DIR_NAME ".mightypapa"
-#define CONFIG_DIR_NAME_MAX_LEN 11
+#define CONFIG_DIR_NAME_LEN (sizeof(CONFIG_DIR_NAME) - 1)
 #define CONFIG_FILE_NAME "config"
-#define CONFIG_FILE_NAME_MAX_LEN 6
+#define CONFIG_FILE_NAME_LEN (sizeof(CONFIG_FILE_NAME) - 1)
 
 /**
  * @brief Save ctl->config into config file

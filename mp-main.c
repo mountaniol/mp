@@ -21,6 +21,7 @@
 #include "mp-communicate.h"
 #include "mp-os.h"
 #include "mp-dict.h"
+#include "mp-limits.h"
 
 
 /* If we got request with a ticket, it means that the scond part (remote client)
@@ -40,7 +41,8 @@ err_t mp_main_ticket_responce(const j_t *req, const char *status, const char *co
 	/*@temp@*/const char *ticket = NULL;
 	/*@temp@*/const char *uid = NULL;
 	err_t rc;
-	/*@only@*/char *forum = NULL;
+	/*@only@*/ //char *forum = NULL;
+	/*@only@*/buf_t *forum = NULL;
 
 	TESTP(req, EBAD);
 	//j_print(req, "Got req:");
@@ -77,8 +79,8 @@ err_t mp_main_ticket_responce(const j_t *req, const char *status, const char *co
 
 	forum = mp_communicate_forum_topic();
 	TESTP_ASSERT(forum, "Can't allocate forum!");
-	rc = mp_communicate_send_json(forum, root);
-	TFREE(forum);
+	rc = mp_communicate_send_json(forum->data, root);
+	buf_free(forum);
 
 end:
 	j_rm(root);
@@ -133,11 +135,11 @@ static err_t mp_main_do_open_port_l(const j_t *root)
 	/*@temp@*/j_t *ports = NULL;
 	size_t index = 0;
 	/*@temp@*/const char *ip_internal = NULL;
-	err_t rc;
+	err_t  rc;
 
 	TESTP(root, EBAD);
 
-	/*** Get fields from JSON request ***/
+	/*** Get fields from JSON request */
 
 	asked_port = j_find_ref(root, JK_PORT_INT);
 	TESTP_MES(asked_port, EBAD, "Can't find 'port' field");
@@ -148,7 +150,7 @@ static err_t mp_main_do_open_port_l(const j_t *root)
 	ports = j_find_j(ctl->me, "ports");
 	TESTP(ports, EBAD);
 
-	/*** Check if the asked port + protocol is already mapped; if yes, return OK ***/
+	/*** Check if the asked port + protocol is already mapped; if yes, return OK */
 
 	ctl_lock();
 	/*@ignore@*/
@@ -164,14 +166,14 @@ static err_t mp_main_do_open_port_l(const j_t *root)
 	ctl_unlock();
 
 	/*** If we here, this means that we don't have a record about this port.
-	   So we run UPNP request to our router to test this port ***/
+	 * So we run UPNP request to our router to test this port */
 
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
 	ip_internal = j_find_ref(ctl->me, JK_IP_INT);
 	TESTP_ASSERT(ip_internal, "internal IP is NULL");
 	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
 
-	/*** UPNP request found an existing mapping of asked port + protocol ***/
+	/*** UPNP request found an existing mapping of asked port + protocol */
 	if (NULL != mapping) {
 
 		/* Add this mapping to our internal table table */
@@ -192,11 +194,11 @@ static err_t mp_main_do_open_port_l(const j_t *root)
 		return (EOK);
 	}
 
-	/*** If we here it means no such mapping exists. Let's map it ***/
+	/*** If we here it means no such mapping exists. Let's map it */
 	mapping = mp_ports_remap_any(root, asked_port, protocol);
 	TESTP_MES(mapping, EBAD, "Can't map port");
 
-	/*** Ok, port mapped. Now we should update ctl->me->ports hash table ***/
+	/*** Ok, port mapped. Now we should update ctl->me->ports hash table */
 
 	ctl_lock();
 	rc = j_arr_add(ports, mapping);
@@ -213,10 +215,10 @@ static err_t mp_main_do_close_port_l(const j_t *root)
 	/*@temp@*/const char *protocol = NULL;
 	/*@temp@*/j_t *val = NULL;
 	/*@temp@*/j_t *ports = NULL;
-	size_t index = 0;
-	int index_save = 0;
+	size_t index      = 0;
+	int    index_save = 0;
 	/*@temp@*/const char *external_port = NULL;
-	err_t rc = EBAD;
+	err_t  rc         = EBAD;
 
 	TESTP(root, EBAD);
 
@@ -291,18 +293,18 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 
 	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
 
-	/** 
+	/**
 	 *   1. Remote host sent 'keepalive'.
 	 *    'keepalive' it is client's ctl->me structure.
-	 *  
-	 ***/
+	 *
+	 */
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
-		j_t *root_dup;
+		j_t        *root_dup;
 
 		/* Find uid of this remote host */
-		const char *uid_src = j_find_ref(root, JK_UID_ME);
+		const char *uid_src  = j_find_ref(root, JK_UID_ME);
 		TESTP_MES_GO(uid_src, end, "Can't find 'JK_UID_ME'");
 
 		/* We do not own this object, it will be cleaned in caller */
@@ -317,11 +319,11 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		return (rc);
 	}
 
-	/** 
+	/**
 	 *  2. Remote host sent 'reveal' request.
-	 *     We reply with our ctl->me structure.
-	 *  
-	 ***/
+	 *    We reply with our ctl->me structure.
+	 *
+	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_REVEAL)) {
 		rc = send_keepalive_l();
@@ -333,12 +335,12 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		goto end;
 	}
 
-	/** 
-	 *	3. Remote host sent 'disconnect' request.
-	 *      It means the remote client disconnected.
-	 *  	We should remove its record from ctl->hosts
-	 *  
-	 ***/
+	/**
+	 *    3. Remote host sent 'disconnect' request.
+	 * 	It means the remote client disconnected.
+	 *    We should remove its record from ctl->hosts
+	 *
+	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_DISCONNECTED)) {
 		DD("Found disconnected client\n");
@@ -347,11 +349,11 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	}
 
 
-	/** 
+	/**
 	 *  All requests except above must be be dedicated to us.
 	 *  From this point we accept only messages for us.
-	 *  
-	 ***/
+	 *
+	 */
 
 
 	if (EOK != j_test(root, JK_UID_DST, ctl_uid_get())) {
@@ -361,11 +363,11 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		goto end;
 	}
 
-	/** 
-	 * 4. Request "openport" from remote client. The remote client 
+	/**
+	 * 4. Request "openport" from remote client. The remote client
 	 *    wants us to close UPNP port.
-	 *  
-	 **/
+	 *
+	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
 
@@ -408,11 +410,11 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		goto end;
 	}
 
-	/** 
-	 * 5. Request "closeport" from remote client. The remote client 
+	/**
+	 * 5. Request "closeport" from remote client. The remote client
 	 *    wants us to close UPNP port
-	 *  
-	 **/
+	 *
+	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		DD("Got 'closeport' request\n");
@@ -432,7 +434,7 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		 * we just send update to all listeners
 		 */
 
-		/*** ***/
+		/*** */
 		if (EOK == rc) {
 			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
 			if (EOK != rrc) {
@@ -456,7 +458,7 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	}
 
 
-	/*** Message "ticket" ***/
+	/*** Message "ticket" */
 
 	/* The user asks for his tickets */
 	/* This command we receive from outside */
@@ -474,19 +476,19 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		goto end;
 	}
 
-	/*** Message "ssh-done" ***/
+	/*** Message "ssh-done" */
 	/*
 	 * A client responds that "ssh" command executed, ready for ssh connection 
 	 */
 
-	/*** Message "sshr" ***/
+	/*** Message "sshr" */
 	/*
 	 * A client wants to connect to us using reversed ssh channel. 
 	 * We should open a port and establish reversed SSH connection with the 
 	 * senser; then we send notification "sshr-done" about it 
 	 */
 
-	/*** Message "sshr-done ***/
+	/*** Message "sshr-done */
 	/*
 	 * Responce to "sshr" message, see above
 	 */
@@ -504,7 +506,7 @@ end:
 	/*@only@*/char **topics = NULL;
 	/*@temp@*/ const char *topic = NULL;
 	int topics_count = 0;
-	int rc = EBAD;
+	int rc           = EBAD;
 	/*@temp@*/ const char *uid = NULL;
 	/*@only@*/j_t *root = v;
 
@@ -557,7 +559,7 @@ end:
 
 	uid = ctl_uid_get();
 
-	if (0 == strcmp(uid, topics[3])) {
+	if (0 == strcmp(uid, topics[3] )) {
 		j_rm(root);
 		root = NULL;
 		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
@@ -568,7 +570,7 @@ end:
 	}
 
 
-	rc = mp_main_parse_message_l(topics[3], root);
+	rc = mp_main_parse_message_l(topics[3] , root);
 	if (EOK != rc) {
 		DE("Can't parse message\n");
 		j_print(root, "Message is");
@@ -588,7 +590,7 @@ static void mp_main_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 								  /*@unused@*/void *userdata __attribute__((unused)),
 								  const struct mosquitto_message *msg)
 {
-	int rc;
+	int       rc;
 	pthread_t message_thread;
 	/*@temp@*/ j_t *root = NULL;
 	if (NULL == msg) {
@@ -741,18 +743,19 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 /*@null@*/ static void *mp_main_mosq_pthread(void *arg)
 {
 	/*@temp@*/control_t *ctl = NULL;
-	int rc = EBAD;
-	int i;
-	/*@temp@*/const char *cert = (char *)arg;
-	char *forum_topic_all;
-	/*@only@*/char *forum_topic_me = NULL;
-	/*@only@*/char *personal_topic = NULL;
+	int   rc               = EBAD;
+	int   i;
+	/*@temp@*/const char *cert                = (char *)arg;
+	buf_t *forum_topic_all;
+	/*@only@*/ //char *forum_topic_me = NULL;
+	/*@only@*/buf_t *forum_topic_me = NULL;
+	/*@only@*/buf_t *personal_topic = NULL;
 	/*@only@*/buf_t *buf = NULL;
 
 	/* TODO: Client ID, should be assigned on registartion and gotten from config file */
-	char clientid[24] = "seb";
+	char  clientid[24]         = "seb";
 	/* Instance ID, we dont care, it always random */
-	int counter = 0;
+	int   counter          = 0;
 
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
@@ -815,7 +818,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
-	rc = mosquitto_will_set(ctl->mosq, forum_topic_me, (int)buf->len, buf->data, 1, false);
+	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf->len, buf->data, 1, false);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
@@ -840,13 +843,13 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		goto end;
 	}
 
-	rc = mosquitto_subscribe(ctl->mosq, NULL, forum_topic_all, 0);
+	rc = mosquitto_subscribe(ctl->mosq, NULL, forum_topic_all->data, 0);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can not subsribe\n");
 		goto end;
 	}
 
-	rc = mosquitto_subscribe(ctl->mosq, NULL, personal_topic, 0);
+	rc = mosquitto_subscribe(ctl->mosq, NULL, personal_topic->data, 0);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can not subsribe\n");
 		goto end;
@@ -941,9 +944,9 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	rc = mosquitto_lib_cleanup();
 
 end:
-	TFREE(forum_topic_all);
-	TFREE(forum_topic_me);
-	TFREE(personal_topic);
+	buf_free(forum_topic_all);
+	buf_free(forum_topic_me);
+	buf_free(personal_topic);
 	D("Exit thread\n");
 	return (NULL);
 }
@@ -952,7 +955,7 @@ end:
 {
 	/*@temp@*/control_t *ctl = NULL;
 	pthread_t mosq_thread_id;
-	int rc;
+	int       rc;
 
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
@@ -1085,7 +1088,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	pthread_t mosq_thread_id;
 	/*@temp@*/j_t *ports;
 
-	int rc = EOK;
+	int       rc             = EOK;
 
 	rc = ctl_allocate_init();
 	TESTI_MES(rc, EBAD, "Can't allocate and init control struct\n");
@@ -1119,7 +1122,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	/* TODO: We should have this certifivate in the config file */
-	cert = strdup(argv[1]);
+	cert = strdup(argv[1] );
 	if (NULL == cert) {
 		printf("arg1 should be path to certificate\n");
 		cli_destoy();

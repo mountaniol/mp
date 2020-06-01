@@ -6,7 +6,7 @@
 #include "mp-debug.h"
 #include "mp-memory.h"
 
-/*@null@*/ buf_t *buf_new(/*@temp@*//*@null@*/char *data, size_t size)
+/*@null@*/ buf_t *buf_new(/*@null@*/char *data, size_t size)
 {
 	/*@temp@*/buf_t *buf;
 
@@ -20,9 +20,11 @@
 		return (NULL);
 	}
 
+	/* If buffer is passed to this function - use it*/
 	if (NULL != data) {
 		buf->data = data;
 	} else {
+		/* If no buffer passed, but size given - allocate new buffer */
 		buf->data = zmalloc(size);
 		TESTP_ASSERT(buf->data, "Can't allocate buf->data");
 	}
@@ -32,14 +34,37 @@
 	return (buf);
 }
 
-err_t buf_set_type(buf_t *buf, uint8_t tp)
+err_t buf_set_data(/*@null@*/buf_t *buf, /*@null@*/char *data, size_t size, size_t len)
 {
 	TESTP(buf, EBAD);
-	buf->tp = tp;
+	TESTP(data, EBAD);
+	buf->data = data;
+	buf->room = size;
+	buf->len = len;
 	return (EOK);
 }
 
-err_t buf_add_room(buf_t *buf, size_t size)
+/*@null@*/void *buf_steal_data(/*@null@*/buf_t *buf)
+{
+	/*@temp@*/void *data;
+	TESTP(buf, NULL);
+	data = buf->data;
+	buf->data = NULL;
+	buf->room = 0;
+	buf->len = 0;
+	return (data);
+}
+
+/*@null@*/void *buf_2_data(/*@null@*/buf_t *buf)
+{
+	void *data;
+	TESTP(buf, NULL);
+	data = buf_steal_data(buf);
+	buf_free(buf);
+	return (data);
+}
+
+err_t buf_add_room(/*@null@*/buf_t *buf, size_t size)
 {
 	void *tmp;
 	if (NULL == buf || 0 == size) {
@@ -70,7 +95,7 @@ err_t buf_add_room(buf_t *buf, size_t size)
 	return (EOK);
 }
 
-err_t buf_test_room(buf_t *buf, size_t expect)
+err_t buf_test_room(/*@null@*/buf_t *buf, size_t expect)
 {
 	if (NULL == buf) {
 		DE("Got NULL\n");
@@ -84,53 +109,107 @@ err_t buf_test_room(buf_t *buf, size_t expect)
 	return (buf_add_room(buf, expect));
 }
 
-int buf_get_room(buf_t *buf)
-{
-	if (NULL == buf) {
-		DE("Got NULL\n");
-		return (EBAD);
-	}
-
-	return ((buf->room) - buf->len);
-}
-
-err_t buf_free_room(/*@only@*/buf_t *buf)
+err_t buf_free_room(/*@only@*//*@null@*/buf_t *buf)
 {
 	TESTP(buf, EBAD);
-	TFREE(buf->data);
+	if (buf->data) {
+		/* Security: zero memory before it freed */
+		memset(buf->data, 0, buf->room);
+		free(buf->data);
+	}
 	buf->len = buf->room = 0;
 	buf->tp = 0;
 	return (EOK);
 }
 
-err_t buf_free(/*@only@*/buf_t *buf)
+err_t buf_free(/*@only@*//*@null@*/buf_t *buf)
 {
 	TESTP(buf, EBAD);
-
-	if (NULL != buf->data) {
-		TFREE(buf->data);
-	}
-
+	buf_free_room(buf);
+	memset(buf, 0, sizeof(buf_t));
 	TFREE(buf);
-
 	return (EOK);
 }
 
-err_t buf_add(buf_t *b, const char *buf, const size_t size)
+err_t buf_add(/*@null@*/buf_t *buf, /*@null@*/const char *new_data, const size_t size)
 {
-	if (NULL == b || NULL == buf || size < 1) {
+	if (NULL == buf || NULL == new_data || size < 1) {
 		/*@ignore@*/
-		DE("Wrong params: b = %p, buf = %p, size = %zu\n", b, buf, size);
+		DE("Wrong params: b = %p, buf = %p, size = %zu\n", buf, new_data, size);
 		/*@end@*/
 		return (EBAD);
 	}
 
-	if (0 != buf_test_room(b, size)) {
+	if (0 != buf_test_room(buf, size)) {
 		DE("Can't add room into buf_t\n");
 		return (EBAD);
 	}
 
-	memcpy(b->data + b->len, buf, size);
-	b->len += size;
+	memcpy(buf->data + buf->len, new_data, size);
+	buf->len += size;
+	return (EOK);
+}
+
+err_t buf_add_null(/*@null@*/buf_t *buf)
+{
+	if (NULL == buf) {
+		/*@ignore@*/
+		DE("Wrong params: b = %p\n", buf);
+		/*@end@*/
+		return (EBAD);
+	}
+
+	if (0 != buf_test_room(buf, buf->len + 1)) {
+		DE("Can't add room into buf_t\n");
+		return (EBAD);
+	}
+
+	memset(buf->data + buf->len, '\0', 1);
+	buf->len++;
+	return (EOK);
+}
+
+err_t buf_pack(/*@null@*/buf_t *buf)
+{
+	TESTP(buf, EBAD);
+	if (NULL == buf->data) {
+
+		/* Sanity check */
+		if (buf->len > 0 || buf->room > 0) {
+			DE("WARNING! buf->data == NULL, buf room or len not: len = %u, room = %u\n",
+			   buf->len, buf->room);
+			buf->len = buf->room = 0;
+		}
+		return (EOK);
+	}
+
+	/* Sanity check */
+	if (buf->len > buf->room) {
+		DE("ERROR! buf->len (%u) > buf->room (%u)\n", buf->len, buf->room);
+		return (EBAD);
+	}
+
+	/* Here we should dhring the buffer */
+	if (buf->len < buf->room) {
+		DD("Packing buf_t: %u -> %u\n", buf->room, buf->len);
+		void *tmp = realloc(buf->data, buf->len);
+
+		/* Case 1: realloc can't reallocate */
+		if (NULL == tmp) {
+			DE("Realloc failed\n");
+			return (EBAD);
+		}
+
+		/* Case 2: realloc succidded, new memory returned */
+		/* No need to clean the old memory - done by realloc */
+		if (NULL != tmp) {
+			buf->data = tmp;
+		}
+
+		buf->room = buf->len;
+		return (EOK);
+	}
+
+	/* Here we are if buf->len == buf->room */
 	return (EOK);
 }
