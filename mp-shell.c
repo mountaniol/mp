@@ -149,7 +149,7 @@ static err_t mp_shell_parse_in_command(j_t *root)
 			if ((size_t)received == allocated - 1) {
 				/*@only@*/char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
 
-				/* realloc can return new buffer. In this case the old one should be freed */
+				/* realloc can return a new buffer. In this case the old one should be freed */
 				if (tmp != buf) {
 					TFREE(buf);
 					/*@ignore@*/
@@ -170,7 +170,7 @@ static err_t mp_shell_parse_in_command(j_t *root)
 		/* Add 0 terminator, else json decoding will fail */
 		*(buf + received) = '\0';
 		root = j_str2j(buf);
-		TFREE(buf);
+		TFREE_STR(buf);
 		if (NULL == root) {
 			DE("Can't decode buf to JSON object\n");
 			break;

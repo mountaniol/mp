@@ -104,7 +104,7 @@ err:
 	if (getifaddrs(&ifaddr) == -1) {
 		DE("Failed: getifaddrs\n");
 		perror("getifaddrs");
-		TFREE(wan_interface);
+		buf_free(wan_interface);
 		return (NULL);
 	}
 
@@ -161,7 +161,7 @@ err_t mp_network_init_network_l()
 	ctl_lock();
 	if (EOK != j_add_str(ctl->me, JK_IP_EXT, var)) DE("Can't add 'JK_IP_EXT'\n");
 	ctl_unlock();
-	TFREE(var);
+	TFREE_STR(var);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
 	if (EOK != j_add_str(ctl->me, JK_PORT_EXT, JV_NO_PORT)) DE("Can't add 'JK_PORT_EXT'\n");
@@ -172,7 +172,7 @@ err_t mp_network_init_network_l()
 	if (EOK != j_add_str(ctl->me, JK_IP_INT, var)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock();
-	TFREE(var);
+	TFREE_STR(var);
 	return (EOK);
 }
 

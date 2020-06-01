@@ -126,8 +126,7 @@ err_t buf_free(/*@only@*//*@null@*/buf_t *buf)
 {
 	TESTP(buf, EBAD);
 	buf_free_room(buf);
-	memset(buf, 0, sizeof(buf_t));
-	TFREE(buf);
+	TFREE_SIZE(buf, sizeof(buf_t));
 	return (EOK);
 }
 
@@ -200,7 +199,7 @@ err_t buf_pack(/*@null@*/buf_t *buf)
 			return (EBAD);
 		}
 
-		/* Case 2: realloc succidded, new memory returned */
+		/* Case 2: realloc succeeded, new memory returned */
 		/* No need to clean the old memory - done by realloc */
 		if (NULL != tmp) {
 			buf->data = tmp;

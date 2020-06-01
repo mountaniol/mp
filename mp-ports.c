@@ -40,16 +40,16 @@ typedef struct upnp_request_strings {
 
 static void upnp_req_str_t_free(/*@only@*/upnp_req_str_t *req)
 {
-	TFREE(req->s_index);            /* 1 */
-	TFREE(req->map_wan_port);       /* 2 */
-	TFREE(req->map_lan_address);    /* 3 */
-	TFREE(req->map_lan_port);       /* 4 */
-	TFREE(req->map_protocol);       /* 5 */
-	TFREE(req->map_description);    /* 6 */
-	TFREE(req->map_mapping_enabled); /* 7 */
-	TFREE(req->map_remote_host);    /* 8 */
-	TFREE(req->map_lease_duration); /* 9 */
-	TFREE(req);
+	TFREE_STR(req->s_index);            /* 1 */
+	TFREE_STR(req->map_wan_port);       /* 2 */
+	TFREE_STR(req->map_lan_address);    /* 3 */
+	TFREE_STR(req->map_lan_port);       /* 4 */
+	TFREE_STR(req->map_protocol);       /* 5 */
+	TFREE_STR(req->map_description);    /* 6 */
+	TFREE_STR(req->map_mapping_enabled); /* 7 */
+	TFREE_STR(req->map_remote_host);    /* 8 */
+	TFREE_STR(req->map_lease_duration); /* 9 */
+	TFREE_SIZE(req, sizeof(upnp_req_str_t));
 }
 
 static upnp_req_str_t *upnp_req_str_t_alloc(void)
@@ -100,9 +100,9 @@ err:
 			NULL, // path to minissdpd socket (or null defaults to /var/run/minissdpd.sock)
 			0, // source port to use (or zero defaults to port 1900)
 			0, // 0==IPv4, 1==IPv6
-#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
+						 #if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 			2, // TTL should default to 2
-#endif
+						 #endif
 			&error)); // error condition
 }
 
@@ -141,11 +141,11 @@ static int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
 		DE("Error on ports scanning: UPNPCOMMAND_INVALID_RESPONSE\n");
 		return (EBAD);
 		/* TODO: Find exact version where this change became */
-#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
+		#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 	case UPNPCOMMAND_MEM_ALLOC_ERROR:
 		DE("Error on ports scanning: UPNPCOMMAND_MEM_ALLOC_ERROR\n");
 		return (EBAD);
-#endif
+		#endif
 	default:
 		break;
 	}
@@ -155,12 +155,12 @@ static int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
 /* Discover router and get its root description, if not done yet */
 err_t mp_ports_router_root_discover(void)
 {
-	struct UPNPDev *upnp_dev = NULL;
+	struct UPNPDev  *upnp_dev = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int status = -1;
+	int             status    = -1;
 
-	control_t *ctl = ctl_get();
+	control_t       *ctl      = ctl_get();
 	if (NULL != ctl->rootdescurl) {
 		return (EOK);
 	}
@@ -183,15 +183,15 @@ err_t mp_ports_router_root_discover(void)
    to "internal_port" on this machine */
 static err_t mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
-	int error = 0;
-	char *lan_address = NULL;
+	int             error        = 0;
+	char            *lan_address = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	char s_ext[PORT_STR_LEN];
-	char s_int[PORT_STR_LEN];
-	int status = -1;
+	char            s_ext[PORT_STR_LEN];
+	char            s_int[PORT_STR_LEN];
+	int             status       = -1;
 
-	control_t *ctl = ctl_get();
+	control_t       *ctl         = ctl_get();
 
 	TESTP(protocol, EBAD);
 
@@ -233,7 +233,7 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 			NULL, // remote (peer) host address or nullptr for no restriction
 			"0"); // port map lease duration (in seconds) or zero for "as long as possible"
 
-	TFREE(lan_address);
+	TFREE_SIZE(lan_address, IP_STR_LEN);
 	FreeUPNPUrls(&upnp_urls);
 
 	if (0 != error) return (EBAD);
@@ -247,9 +247,9 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 {
 	char *reservedPort = NULL;
 	//char reservedPort[PORT_STR_LEN];
-	int i = 0;
-	j_t *resp = NULL;
-	int rc;
+	int  i             = 0;
+	j_t  *resp         = NULL;
+	int  rc;
 
 	for (i = 0; i < 3; i++) {
 		int e_port = mp_os_random_in_range(1024, 65535);
@@ -273,7 +273,7 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", e_port);
 			if (rc < 0) {
 				DE("Can't transform port from integer to string\n");
-				TFREE(reservedPort);
+				TFREE_SIZE(reservedPort, PORT_STR_LEN);
 				return (NULL);
 			}
 			DD("Mapped port: %s -> %s\n", reservedPort, internal_port);
@@ -295,18 +295,18 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, internal_port");
 	rc = j_add_str(resp, JK_PROTOCOL, protocol);
 	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
-	TFREE(reservedPort);
+	TFREE_SIZE(reservedPort, PORT_STR_LEN);
 	return (resp);
 }
 
 err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
-	int error = 0;
+	int             error     = 0;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int status;
-	int rc;
-	control_t *ctl = ctl_get();
+	int             status;
+	int             rc;
+	control_t       *ctl      = ctl_get();
 
 	TESTP(internal_port, EBAD);
 	TESTP(external_port, EBAD);
@@ -370,13 +370,13 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char s_ext[PORT_STR_LEN];
-	int status;
-	/*@temp@*/j_t *mapping = NULL;
-	upnp_req_str_t *req = NULL;
-	size_t index = 0;
-	int rc;
-	control_t *ctl = ctl_get();
+	char            s_ext[PORT_STR_LEN];
+	int             status;
+	/*@temp@*/j_t *mapping    = NULL;
+	upnp_req_str_t  *req      = NULL;
+	size_t          index     = 0;
+	int             rc;
+	control_t       *ctl      = ctl_get();
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
 	if (EOK != rc) {
@@ -417,9 +417,9 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 
 		/*@ignore@*/
 
-#ifndef S_SPLINT_S
+		#ifndef S_SPLINT_S
 		snprintf(req->s_index, PORT_STR_LEN, "%zu", index);
-#endif
+		#endif
 		/*@end@*/
 		error = upnp_get_generic_port_mapping_entry(&upnp_urls, &upnp_data, req);
 
@@ -471,13 +471,13 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char *wan_address = NULL;
-	int status;
-	j_t *mapping = NULL;
-	upnp_req_str_t *req = NULL;
-	size_t index = 0;
-	int rc;
-	control_t *ctl = ctl_get();
+	char            *wan_address = NULL;
+	int             status;
+	j_t             *mapping     = NULL;
+	upnp_req_str_t  *req         = NULL;
+	size_t          index        = 0;
+	int             rc;
+	control_t       *ctl         = ctl_get();
 
 	DD("ctl->rootdescurl: %s\n", ctl->rootdescurl);
 
@@ -500,7 +500,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
 
 	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
-	TFREE(wan_address);
+	TFREE_SIZE(wan_address, IP_STR_LEN);
 
 	if (0 != rc) {
 		DE("UPNP_GetExternalIPAddress failed\n");
@@ -567,9 +567,9 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char *wan_address = NULL;
-	int status = -1;
-	control_t *ctl = ctl_get();
+	char            *wan_address = NULL;
+	int             status       = -1;
+	control_t       *ctl         = ctl_get();
 
 	if (EOK != mp_ports_router_root_discover()) {
 		DE("Can't discover router\n");
@@ -599,20 +599,20 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	return (wan_address);
 }
 
-/*** Local port manipulation ****/
+/*** Local port manipulation ***/
 
 /* Find ip and port for ssh connection to UID */
 /*@null@*/ j_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
 {
-	j_t *root = NULL;
-	j_t *host = NULL;
+	j_t        *root = NULL;
+	j_t        *host = NULL;
 	const char *key;
-	/*@shared@*/control_t *ctl = ctl_get_locked();
+	/*@shared@*/control_t *ctl  = ctl_get_locked();
 
 	json_object_foreach(ctl->hosts, key, host) {
 		if (EOK == strcmp(key, uid)) {
-			j_t *ports = NULL;
-			j_t *port;
+			j_t    *ports = NULL;
+			j_t    *port;
 			size_t index;
 			/* Found host */
 			ports = j_find_j(host, "ports");
@@ -663,8 +663,8 @@ int main(int argi, char **argc)
 		return (-1);
 	}
 
-	i_ext = atoi(argc[1]);
-	i_int = atoi(argc[2]);
+	i_ext = atoi(argc[1] );
+	i_int = atoi(argc[2] );
 
 	rc = mp_ports_if_mapped(i_ext, i_int, NULL, "TCP");
 	if (rc < 0) {

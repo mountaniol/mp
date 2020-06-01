@@ -87,7 +87,7 @@
 
 	return (buf);
 err:
-	TFREE(jd);
+	TFREE_STR(jd);
 	if (buf) {
 		if (EOK != buf_free(buf)) {
 			DE("Can't remove buf_t: probably passed NULL pointer?\n");

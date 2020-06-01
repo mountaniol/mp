@@ -237,7 +237,7 @@ static void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 {
 	sem_wait(&tunnel->lock);
 	/* TODO: close fds and free buffer*/
-	TFREE(tunnel->buf);
+	TFREE_SIZE(tunnel->buf, tunnel->buf_size);
 	sem_destroy(&tunnel->lock);
 	memset(tunnel, 0, sizeof(tunnel_t));
 }
@@ -298,7 +298,7 @@ static int mp_tunnel_resize(tunnel_t *tunnel)
 	DD("Going to resize tunnel buffer from %ld to %ld\n\r", tunnel->buf_size, new_size);
 	DD("average left: %f average right: %f\n\r", average_left, average_right);
 	mp_tunnel_lock(tunnel);
-	TFREE(tunnel->buf);
+	TFREE_SIZE(tunnel->buf, tunnel->buf_size);
 	tunnel->buf = zmalloc_any(new_size, &tunnel->buf_size);
 	mp_tunnel_unlock(tunnel);
 	DD("Resized tunnel buffer to %ld\n\r", tunnel->buf_size);

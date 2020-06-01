@@ -1048,7 +1048,7 @@ static err_t mp_main_complete_me_init(void)
 		}
 
 		rc = j_add_str(ctl->me, JK_NAME, var);
-		TFREE(var);
+		TFREE_STR(var);
 		TESTI_MES(rc, EBAD, "Could not add string for 'name'\n");
 	}
 
@@ -1057,7 +1057,7 @@ static err_t mp_main_complete_me_init(void)
 		TESTP_MES(var, EBAD, "Can't generate UID\n");
 
 		ctl_uid_set(var);
-		TFREE(var);
+		TFREE_STR(var);
 		var = NULL;
 	}
 
@@ -1171,7 +1171,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 		}
 	}
 
-	TFREE(cert);
+	TFREE_STR(cert);
 	cli_destoy();
 	return (rc);
 }

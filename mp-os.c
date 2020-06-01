@@ -135,9 +135,9 @@ int mp_os_random_in_range(int lower, int upper)
 		abort();
 	}
 err:
-	TFREE(part1);
-	TFREE(part2);
-	TFREE(part3);
+	TFREE_SIZE(part1, 4);
+	TFREE_SIZE(part2, 4);
+	TFREE_SIZE(part3, 4);
 	return (str);
 }
 

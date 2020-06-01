@@ -56,7 +56,7 @@ err_t cli_destoy()
 	j_rm(g_ctl->tickets_out);
 	j_rm(g_ctl->buffers);
 	j_rm(g_ctl->buf_missed);
-	TFREE(g_ctl->rootdescurl);
+	TFREE_STR(g_ctl->rootdescurl);
 	free(g_ctl);
 	g_ctl = NULL;
 	return (EOK);
