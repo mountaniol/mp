@@ -13,7 +13,7 @@
 struct buf_t_struct
 {
 	uint32_t room;      /* Allocated size */
-	uint32_t len;       /* Used size */
+	uint32_t used;       /* Used size */
 	uint8_t tp;        /* Buffer type. Optional. We may use it as we wish. */
 	/*@temp@*/char *data;       /* Pointer to data */
 };
@@ -27,7 +27,7 @@ typedef struct buf_t_struct buf_t;
 #define BUF_T_STRUCT_NET_SIZE (sizeof(buf_t) - sizeof(char*))
 
 /* How much bytes will be transmitted to send buf_t + its actual data */
-#define BUF_T_NET_SEND_SIZE(b) (BUF_T_STRUCT_NET_SIZE + b->len)
+#define BUF_T_NET_SEND_SIZE(b) (BUF_T_STRUCT_NET_SIZE + b->used)
 
 /**
  * @author Sebastian Mountaniol (01/06/2020)

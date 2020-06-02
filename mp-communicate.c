@@ -23,7 +23,7 @@
 		buf_free(buf);
 		return (NULL);
 	}
-	buf->len = rc;
+	buf->used = rc;
 	buf_pack(buf);
 	return (buf);
 }
@@ -40,7 +40,7 @@
 		buf_free(topic);
 		return (NULL);
 	}
-	topic->len = rc;
+	topic->used = rc;
 	buf_pack(topic);
 	return (topic);
 }
@@ -50,15 +50,15 @@
 	const char *user  = ctl_user_get();
 	const char *uid   = ctl_uid_get();
 	int        rc;
-	buf_t       *topic = buf_new(NULL, TOPIC_MAX_LEN);
+	buf_t      *topic = buf_new(NULL, TOPIC_MAX_LEN);
 	TESTP(topic, NULL);
 	rc = snprintf(topic->data, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
 	if (rc < 0) {
 		DE("Can't create topic\n");
-		TFREE_SIZE(topic, TOPIC_MAX_LEN);
+		buf_free(topic);
 		return (NULL);
 	}
-	topic->len = rc;
+	topic->used = rc;
 	buf_pack(topic);
 	return (topic);
 }
@@ -239,7 +239,7 @@ static err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@te
 	int rc2;
 	int counter = -1;
 	/*@shared@*/control_t *ctl = ctl_get();
-	rc = mosquitto_publish(ctl->mosq, &counter, topic, (int)buf->len, buf->data, 0, false);
+	rc = mosquitto_publish(ctl->mosq, &counter, topic, (int)buf->used, buf->data, 0, false);
 	rc2 = mp_communicate_save_buf_t_to_ctl(buf, counter);
 	if (EOK != rc2) {
 		DE("Can't save buf_t to ctl\n");
@@ -343,6 +343,7 @@ err_t mp_communicate_send_request(const j_t *root)
 	buf_t *forum_topic;
 
 	forum_topic = mp_communicate_forum_topic();
+	TESTP(forum_topic, EBAD);
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
@@ -390,6 +391,7 @@ err_t send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, ch
 	TESTP(protocol, EBAD);
 
 	forum_topic = mp_communicate_forum_topic();
+	TESTP(forum_topic, EBAD);
 
 	DDD("Going to build request\n");
 	buf = mp_requests_open_port(target_uid, port, protocol);
@@ -447,6 +449,7 @@ err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 	ctl = ctl_get();
 
 	forum_topic = mp_communicate_forum_topic();
+	TESTP(forum_topic, EBAD);
 
 	ctl_lock();
 	if (j_count(ctl->tickets_out) == 1) {
@@ -460,7 +463,7 @@ err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 
 	resp = j_arr();
 	if (NULL == resp) {
-		TFREE_SIZE(forum_topic->data, TOPIC_MAX_LEN);
+		buf_free(forum_topic);
 		return (EBAD);
 	}
 

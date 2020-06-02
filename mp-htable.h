@@ -23,7 +23,7 @@ typedef struct htable_struct {
 } htable_t;
 
 /* accepts: trable_t, hash */
-#define HTABLE_SLOT(htbl, hsh) (hsh % (htbl->len))
+#define HTABLE_SLOT(htbl, hsh) (hsh % (htbl->used))
 
 // #define htab_each(htable_t *htab, int index, hnode_t *node)
 #define htable_each(htab, index, hnode) \

@@ -83,7 +83,7 @@
 	buf = buf_new(jd, strlen(jd));
 	TESTP_MES_GO(jd, err, "Can't allocate buf_t");
 
-	buf->len = buf->room;
+	buf->used = buf->room;
 
 	return (buf);
 err:

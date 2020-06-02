@@ -53,7 +53,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	buf = j_2buf(root);
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
-	rc = send(sd, buf->data, buf->len, 0);
+	rc = send(sd, buf->data, buf->used, 0);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}

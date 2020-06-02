@@ -39,7 +39,7 @@ static buf_t *mp_config_get_config_dir(void)
 		buf_free(dirname);
 		return (NULL);
 	}
-	dirname->len = rc;
+	dirname->used = rc;
 	buf_pack(dirname);
 	return (dirname);
 }
@@ -202,13 +202,13 @@ err_t mp_config_save()
 	}
 
 	buf = j_2buf(ctl->config);
-	if (NULL == buf || 0 == buf->len) {
+	if (NULL == buf || 0 == buf->used) {
 		DE("Can't encode config file\n");
 		rc = -1;
 		goto err;
 	}
 
-	written = fwrite(buf->data, 1, buf->len, fd);
+	written = fwrite(buf->data, 1, buf->used, fd);
 	rc = fclose(fd);
 	if (0 != rc) {
 		DE("Can't close file\n");
@@ -216,7 +216,7 @@ err_t mp_config_save()
 	}
 	fd = NULL;
 
-	if (written != buf->len) {
+	if (written != buf->used) {
 		rc = EBAD;
 		goto err;
 	}

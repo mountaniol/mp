@@ -818,7 +818,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
-	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf->len, buf->data, 1, false);
+	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf->used, buf->data, 1, false);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}

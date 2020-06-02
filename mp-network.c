@@ -181,7 +181,7 @@ int main()
 {
 	char *ip = mp_network_get_internal_ip();
 	D("Found IP of WAN interface: %s\n", ip);
-	TFREE(ip);
+	TFREE_STR(ip);
 	//linux_find_wan_interface();
 	return (0);
 }

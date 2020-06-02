@@ -29,7 +29,7 @@
 		TESTP_ASSERT(buf->data, "Can't allocate buf->data");
 	}
 	buf->room = size;
-	buf->len = 0;
+	buf->used = 0;
 
 	return (buf);
 }
@@ -40,7 +40,7 @@ err_t buf_set_data(/*@null@*/buf_t *buf, /*@null@*/char *data, size_t size, size
 	TESTP(data, EBAD);
 	buf->data = data;
 	buf->room = size;
-	buf->len = len;
+	buf->used = len;
 	return (EOK);
 }
 
@@ -51,7 +51,7 @@ err_t buf_set_data(/*@null@*/buf_t *buf, /*@null@*/char *data, size_t size, size
 	data = buf->data;
 	buf->data = NULL;
 	buf->room = 0;
-	buf->len = 0;
+	buf->used = 0;
 	return (data);
 }
 
@@ -102,7 +102,7 @@ err_t buf_test_room(/*@null@*/buf_t *buf, size_t expect)
 		return (EBAD);
 	}
 
-	if (buf->len + expect <= buf->room) {
+	if (buf->used + expect <= buf->room) {
 		return (EOK);
 	}
 
@@ -117,7 +117,7 @@ err_t buf_free_room(/*@only@*//*@null@*/buf_t *buf)
 		memset(buf->data, 0, buf->room);
 		free(buf->data);
 	}
-	buf->len = buf->room = 0;
+	buf->used = buf->room = 0;
 	buf->tp = 0;
 	return (EOK);
 }
@@ -144,8 +144,8 @@ err_t buf_add(/*@null@*/buf_t *buf, /*@null@*/const char *new_data, const size_t
 		return (EBAD);
 	}
 
-	memcpy(buf->data + buf->len, new_data, size);
-	buf->len += size;
+	memcpy(buf->data + buf->used, new_data, size);
+	buf->used += size;
 	return (EOK);
 }
 
@@ -158,13 +158,13 @@ err_t buf_add_null(/*@null@*/buf_t *buf)
 		return (EBAD);
 	}
 
-	if (0 != buf_test_room(buf, buf->len + 1)) {
+	if (0 != buf_test_room(buf, buf->used + 1)) {
 		DE("Can't add room into buf_t\n");
 		return (EBAD);
 	}
 
-	memset(buf->data + buf->len, '\0', 1);
-	buf->len++;
+	memset(buf->data + buf->used, '\0', 1);
+	buf->used++;
 	return (EOK);
 }
 
@@ -174,24 +174,24 @@ err_t buf_pack(/*@null@*/buf_t *buf)
 	if (NULL == buf->data) {
 
 		/* Sanity check */
-		if (buf->len > 0 || buf->room > 0) {
+		if (buf->used > 0 || buf->room > 0) {
 			DE("WARNING! buf->data == NULL, buf room or len not: len = %u, room = %u\n",
-			   buf->len, buf->room);
-			buf->len = buf->room = 0;
+			   buf->used, buf->room);
+			buf->used = buf->room = 0;
 		}
 		return (EOK);
 	}
 
 	/* Sanity check */
-	if (buf->len > buf->room) {
-		DE("ERROR! buf->len (%u) > buf->room (%u)\n", buf->len, buf->room);
+	if (buf->used > buf->room) {
+		DE("ERROR! buf->len (%u) > buf->room (%u)\n", buf->used, buf->room);
 		return (EBAD);
 	}
 
 	/* Here we should dhring the buffer */
-	if (buf->len < buf->room) {
-		DD("Packing buf_t: %u -> %u\n", buf->room, buf->len);
-		void *tmp = realloc(buf->data, buf->len);
+	if (buf->used < buf->room) {
+		DD("Packing buf_t: %u -> %u\n", buf->room, buf->used);
+		void *tmp = realloc(buf->data, buf->used);
 
 		/* Case 1: realloc can't reallocate */
 		if (NULL == tmp) {
@@ -205,7 +205,7 @@ err_t buf_pack(/*@null@*/buf_t *buf)
 			buf->data = tmp;
 		}
 
-		buf->room = buf->len;
+		buf->room = buf->used;
 		return (EOK);
 	}
 
