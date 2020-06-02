@@ -228,7 +228,7 @@ err_t buf_str_concat(buf_t *buf, ...){
 }
 #endif
 
-buf_t *buf_sprintf(char *format, ...)
+buf_t *buf_sprintf(const char *format, ...)
 {
 	va_list args;
 	buf_t   *buf = NULL;
@@ -236,30 +236,19 @@ buf_t *buf_sprintf(char *format, ...)
 	TESTP(format, NULL);
 
 	/* Create buf_t with reserved room for the string */
-	buf = buf_new(NULL, 16);
+	buf = buf_new(NULL, 4);
 	TESTP(buf, NULL);
 
 	va_start(args, format);
-	/* Printf string into the buf_t */
-	/* Even if there not enough space in the buffer, this function returns length of full string. So
-	   if rc > buf->room means that the buffer is too small for this string */
-	rc = vsnprintf(buf->data, buf->room - 1, format, args);
+	/* Measure string lengh */
+	rc = vsnprintf(NULL, 0, format, args);
 	va_end(args);
 
-
-	if (rc > MP_LIMIT_BUF_STRING_LEN - 1) {
-		DE("The string too long - can't print\n");
-		buf_free(buf);
-		return (NULL);
-	}
-
-	if ((uint32_t)rc > buf->room - 1) {
-		rc = buf_add_room(buf, rc - buf->room + 1);
-		va_start(args, format);
-		/* Printf string into the buf_t */
-		rc = vsnprintf(buf->data, buf->room - 1, format, args);
-		va_end(args);
-	}
+	/* Allocate buffer: we need +1 for final '\0' */
+	rc = buf_add_room(buf, rc + 1);
+	va_start(args, format);
+	rc = vsnprintf(buf->data, buf->room, format, args);
+	va_end(args);
 
 	if (rc < 0) {
 		DE("Can't print string\n");
@@ -267,8 +256,6 @@ buf_t *buf_sprintf(char *format, ...)
 		return (NULL);
 	}
 
-	buf->used = rc + 1;
-	buf_pack(buf);
-	DD("Returning string: |%s|\n", buf->data);
+	buf->used = buf->room;
 	return (buf);
 }

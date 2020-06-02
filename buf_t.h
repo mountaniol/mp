@@ -1,6 +1,104 @@
 #ifndef _BUF_T_H_
 #define _BUF_T_H_
 
+/*
+ * buf_t is an implementation of abstract buffer.
+ * This buffer keeps data and its size.
+ * buf->data - data.
+ * buf->room - allocated memory
+ * buf->used - size of used memory
+ * 
+ * A set of function help to manipulate the buffer: allocate / delete / add data and more.
+ * Here is several examples:
+ * 
+ * ==== Example 1 ====
+ * // Allocate buffer
+ * buf_t *buf = buf_new(NULL, 0);
+ * 
+ * // Add data to the buffer
+ * buf_add(buf, "Aloha", 5);
+ * buf_add(buf, "/", 1);
+ * buf_add(buf, "Shalom", 6);
+ * 
+ * // Now buffer contains string "Aloha/Shalom" without null terminator.
+ * // The buf->room == 12
+ * // The buf->used == 12
+ * 
+ * // Destroy buffer
+ * buf_free(buf);
+ * 
+ * // The buffer and its memory securely destroyed: all data filled with 0 before it releaased.
+ * // The 'buf' structure as well filled with '0' before destroyed.
+ * 
+ * ==== Example 2 ====
+ * 
+ * // Allocate buffer with memory == 32 bytes
+ * buf_t = buf_new(NULL, 32);
+ * // buf->data is buffer 32 bytes filled with '0'
+ * 
+ * // Add data
+ * buf_add(buf, "Aloha", 5);
+ * // buf->data contains "Aloha"
+ * // buf->used == 5
+ * // buf->room == 32
+ * 
+ * // Shrink memory to size of used area
+ * buf_pack(buf)
+ * // buf->data contains "Aloha"
+ * // buf->used == 5
+ * // buf->room == 5
+ * 
+ * buf_free(buf);
+ * 
+ * ==== Example 3 ====
+ * 
+ * // print string into buf_t
+ * buf_t *buf = buf_sprintf("%s %s %s", "Lemon", "is", "yellow"); // buf_t allocated; // string
+ * length measured and buf->data allocated, including terminating '\0'
+ * 
+ * 
+ * // Now buf->data contains "Lemon is yellow\0"
+ * // buf->used == 16
+ * // buf->room == 16
+ * // The used length contains terminating \0
+ * 
+ * // Print this string
+ * printf("buf->data == %s; buf->used = %u\n", buf->data, buf->used);
+ * 
+ * // Release buffer
+ * buf_free(buf);
+ * 
+ * ==== Example 4 ====
+ * 
+ * // print string into buf_t
+ * buf_t *buf = buf_sprintf("%s %s %s", "Lemon", "is", "yellow"); // buf_t allocated; // string
+ * length measured and buf->data allocated, including terminating '\0'
+ * 
+ * 
+ * // Now buf->data contains "Lemon is yellow\0"
+ * // buf->used == 16
+ * // buf->room == 16
+ * // The used length contains terminating \0
+ * 
+ * // Steal string from buffer
+ * char *str = buf_steal_data(buf);
+ * // Now str == "Lemon is yellow\0"
+ * // buf->used == 0
+ * // buf->room == 0
+ * // buf->data == NULL
+ * 
+ * // Print this string
+ * printf("string == %s\n", str);
+ * 
+ * // Release buffer
+ * buf_free(buf);
+ * 
+ * // Release string
+ * free(str);
+ * 
+ */
+
+
 /* For uint32_t / uint8_t */
 //#include <linux/types.h>
 /*@-skipposixheaders@*/
@@ -205,5 +303,5 @@ err_t buf_pack(/*@null@*/buf_t *buf);
  * @details
  *
  */
-buf_t *buf_sprintf(char *format, ...);
+buf_t *buf_sprintf(const char *format, ...);
 #endif /* _BUF_T_H_ */

@@ -47,10 +47,8 @@ static buf_t *mp_config_get_config_dir(void)
 /* Construct config file full path */
 static buf_t *mp_config_get_config_name(void)
 {
-	int           rc       = -1;
 	struct passwd *pw      = NULL;
 	const char    *homedir = NULL;
-	buf_t         *buf     = NULL;
 
 	pw = getpwuid(getuid());
 	TESTP(pw, NULL);
@@ -58,34 +56,7 @@ static buf_t *mp_config_get_config_name(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	buf = buf_new(NULL, 0);
-	TESTP(buf, NULL);
-	/* Allocate room preliminary */
-	if (EOK != buf_add_room(buf, 1024)) {
-		DE("Can't add room to the buffer\n");
-		buf_free(buf);
-		return (NULL);
-	}
-
-	rc = buf_add(buf, homedir, strlen(homedir));
-	TESTI(rc, NULL);
-	rc = buf_add(buf, "/", 1);
-	TESTI(rc, NULL);
-	rc = buf_add(buf, CONFIG_DIR_NAME, CONFIG_DIR_NAME_LEN);
-	TESTI(rc, NULL);
-	rc = buf_add(buf, "/", 1);
-	TESTI(rc, NULL);
-	rc = buf_add(buf, CONFIG_FILE_NAME, CONFIG_FILE_NAME_LEN);
-	TESTI(rc, NULL);
-	rc = buf_add_null(buf);
-	TESTI(rc, NULL);
-
-	rc = buf_pack(buf);
-	if (EOK != rc) {
-		DE("Error on buffer packing\n");
-	}
-
-	return (buf);
+	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, CONFIG_FILE_NAME));
 }
 
 /* Read config file, transform to json obgect and return to caller */
