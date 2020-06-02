@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdarg.h>
 #include <jansson.h>
 
 #include "mosquitto.h"
@@ -14,53 +16,23 @@
 {
 	const char *user = ctl_user_get();
 	const char *uid  = ctl_uid_get();
-	buf_t      *buf  = buf_new(NULL, TOPIC_MAX_LEN);
-	int        rc;
-	TESTP(buf, NULL);
-	rc = snprintf(buf->data, TOPIC_MAX_LEN, "users/%s/forum/%s", user, uid);
-	if (rc < 0) {
-		DE("Can't create topic\n");
-		buf_free(buf);
-		return (NULL);
-	}
-	buf->used = rc;
-	buf_pack(buf);
-	return (buf);
+
+	return (buf_sprintf("users/%s/forum/%s", user, uid));
 }
 
 /*@null@*/ buf_t *mp_communicate_forum_topic_all()
 {
 	const char *user  = ctl_user_get();
-	buf_t      *topic = buf_new(NULL, TOPIC_MAX_LEN);
-	int        rc;
-	TESTP(topic, NULL);
-	rc = snprintf(topic->data, TOPIC_MAX_LEN, "users/%s/forum/#", user);
-	if (rc < 0) {
-		DE("Can't create topic\n");
-		buf_free(topic);
-		return (NULL);
-	}
-	topic->used = rc;
-	buf_pack(topic);
-	return (topic);
+
+	return (buf_sprintf("users/%s/forum/#", user));
 }
 
 /*@null@*/ buf_t *mp_communicate_private_topic()
 {
-	const char *user  = ctl_user_get();
-	const char *uid   = ctl_uid_get();
-	int        rc;
-	buf_t      *topic = buf_new(NULL, TOPIC_MAX_LEN);
-	TESTP(topic, NULL);
-	rc = snprintf(topic->data, TOPIC_MAX_LEN, "users/%s/personal/%s", user, uid);
-	if (rc < 0) {
-		DE("Can't create topic\n");
-		buf_free(topic);
-		return (NULL);
-	}
-	topic->used = rc;
-	buf_pack(topic);
-	return (topic);
+	const char *user = ctl_user_get();
+	const char *uid  = ctl_uid_get();
+
+	return (buf_sprintf("users/%s/personal/%s", user, uid));
 }
 
 #if 0 /* SEB DEADCODE 14/05/2020 21:33  */
@@ -136,10 +108,11 @@ err_t mp_communicate_clean_missed_counters(void)
 /* Find a buffer in ctl->buffers by counter 'counter' */
 /*@null@*/ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter)
 {
-	/*@shared@*/buf_t *buf_p;
+	/*@shared@*/buf_t *buf_p = NULL;
 	size_t ret;
-	/*@only@*/char *buf_counter_s;
-	/*@shared@*/control_t *ctl;
+	/*@only@*/char *buf_counter_s               = NULL;
+	size_t buf_counter_s_len;
+	/*@shared@*/control_t *ctl = NULL;
 	int    rc;
 
 	if (counter < 0) {
@@ -147,14 +120,23 @@ err_t mp_communicate_clean_missed_counters(void)
 		return (NULL);
 	}
 
-	buf_counter_s = (char *)zmalloc(32);
+	/* Calculate buffer len */
+	rc = snprintf(NULL, 0, "%d", counter);
+	if (rc < 0) {
+		DE("Can't calculate buffer len\n");
+		return (NULL);
+	}
+
+	buf_counter_s_len = rc + 1;
+
+	buf_counter_s = (char *)zmalloc(buf_counter_s_len);
 	TESTP(buf_counter_s, NULL);
 
 	/* Transform counter to key (string) */
-	rc = snprintf(buf_counter_s, 32, "%d", counter);
+	rc = snprintf(buf_counter_s, buf_counter_s_len, "%d", counter);
 	if (rc < 0) {
 		DE("Can't transform buffer counter to string\n");
-		TFREE_SIZE(buf_counter_s, 32);
+		TFREE_SIZE(buf_counter_s, buf_counter_s_len);
 		return (NULL);
 	}
 
@@ -173,7 +155,7 @@ err_t mp_communicate_clean_missed_counters(void)
 		ctl_lock();
 		rc = j_add_int(ctl->buf_missed, buf_counter_s, counter);
 		ctl_unlock();
-		TFREE_SIZE(buf_counter_s, 32);
+		TFREE_SIZE(buf_counter_s, buf_counter_s_len);
 		if (EOK != rc) {
 			DE("Can't add counter into ctl->buf_missed\n");
 		}
@@ -191,7 +173,7 @@ err_t mp_communicate_clean_missed_counters(void)
 	if (EOK != rc) {
 		DE("Can't remove key from json: ctl->buffers, buf_counter_s");
 	}
-	TFREE_SIZE(buf_counter_s, 32);
+	TFREE_SIZE(buf_counter_s, buf_counter_s_len);
 	return (buf_p);
 }
 
@@ -458,8 +440,6 @@ err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 		return (EOK);
 	}
 	ctl_unlock();
-
-	//rc = snprintf(forum_topic, TOPIC_MAX_LEN, "users/%s/forum/%s", ctl_user_get(), ctl_uid_get());
 
 	resp = j_arr();
 	if (NULL == resp) {

@@ -1,4 +1,6 @@
 /*@-skipposixheaders@*/
+#define _XOPEN_SOURCE500
+//#define _POSIX_C_SOURCE
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <string.h>

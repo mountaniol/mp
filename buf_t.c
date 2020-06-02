@@ -1,10 +1,14 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include "buf_t.h"
 #include "mp-common.h"
 #include "mp-debug.h"
 #include "mp-memory.h"
+#include "mp-limits.h"
+
 
 /*@null@*/ buf_t *buf_new(/*@null@*/char *data, size_t size)
 {
@@ -211,4 +215,60 @@ err_t buf_pack(/*@null@*/buf_t *buf)
 
 	/* Here we are if buf->len == buf->room */
 	return (EOK);
+}
+
+
+#if 0
+err_t buf_str_concat(buf_t *buf, ...){
+	va_list p_str;
+	va_start(p_str, nHowMany);
+	for (int i = 0; i < nHowMany; i++) nSum += va_arg(p_str, char *);
+	va_end(intArgumentPointer);
+
+}
+#endif
+
+buf_t *buf_sprintf(char *format, ...)
+{
+	va_list args;
+	buf_t   *buf = NULL;
+	int     rc   = -1;
+	TESTP(format, NULL);
+
+	/* Create buf_t with reserved room for the string */
+	buf = buf_new(NULL, 16);
+	TESTP(buf, NULL);
+
+	va_start(args, format);
+	/* Printf string into the buf_t */
+	/* Even if there not enough space in the buffer, this function returns length of full string. So
+	   if rc > buf->room means that the buffer is too small for this string */
+	rc = vsnprintf(buf->data, buf->room - 1, format, args);
+	va_end(args);
+
+
+	if (rc > MP_LIMIT_BUF_STRING_LEN - 1) {
+		DE("The string too long - can't print\n");
+		buf_free(buf);
+		return (NULL);
+	}
+
+	if ((uint32_t)rc > buf->room - 1) {
+		rc = buf_add_room(buf, rc - buf->room + 1);
+		va_start(args, format);
+		/* Printf string into the buf_t */
+		rc = vsnprintf(buf->data, buf->room - 1, format, args);
+		va_end(args);
+	}
+
+	if (rc < 0) {
+		DE("Can't print string\n");
+		buf_free(buf);
+		return (NULL);
+	}
+
+	buf->used = rc + 1;
+	buf_pack(buf);
+	DD("Returning string: |%s|\n", buf->data);
+	return (buf);
 }

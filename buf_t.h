@@ -193,4 +193,17 @@ err_t buf_add_null(/*@null@*/buf_t *buf);
  *
  */
 err_t buf_pack(/*@null@*/buf_t *buf);
+
+/**
+ * @author Sebastian Mountaniol (02/06/2020)
+ * @func buf_t* buf_sprintf(char *format, ...)
+ * @brief sprintf into buf_t
+ *
+ * @param char * format Format (like in printf first argument )
+ *
+ * @return buf_t*
+ * @details
+ *
+ */
+buf_t *buf_sprintf(char *format, ...);
 #endif /* _BUF_T_H_ */

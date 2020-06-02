@@ -9,6 +9,10 @@
 /* Max buffer size for tcp channel */
 #define MP_LIMIT_TUNNEL_BUF_SIZE (4096*128)
 
+/* Maximal topic string length */
 #define TOPIC_MAX_LEN 1024
+
+/* Maximal length of string in buf_sprintf() function */
+#define MP_LIMIT_BUF_STRING_LEN (4096*16) 
 
 #endif /* MP_LIMITS_H */

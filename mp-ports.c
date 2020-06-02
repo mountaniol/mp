@@ -1,7 +1,13 @@
 #ifndef S_SPLINT_S
-	#include <limits.h>
-	#include <string.h>
+#define _POSIX_C_SOURCE 200809L
+#define __USE_POSIX
+#include <limits.h>
+#include <string.h>
 #define STATICLIB
+#endif
+
+#ifndef _POSIX_HOST_NAME_MAX
+	#define _POSIX_HOST_NAME_MAX	255
 #endif
 
 #include <miniupnpc/miniupnpc.h>
@@ -174,7 +180,7 @@ err_t mp_ports_router_root_discover(void)
 		return (EBAD);
 	}
 
-	ctl->rootdescurl = strdup(upnp_urls.rootdescURL);
+	ctl->rootdescurl = strndup(upnp_urls.rootdescURL, 4096);
 	FreeUPNPUrls(&upnp_urls);
 	return (EOK);
 }
@@ -599,7 +605,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	return (wan_address);
 }
 
-/*** Local port manipulation ***/
+/*** Local port manipulation */
 
 /* Find ip and port for ssh connection to UID */
 /*@null@*/ j_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
