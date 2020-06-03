@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <netdb.h>
 
 #include "buf_t.h"
 #include "mp-common.h"
@@ -246,6 +247,11 @@ buf_t *buf_sprintf(const char *format, ...)
 
 	/* Allocate buffer: we need +1 for final '\0' */
 	rc = buf_add_room(buf, rc + 1);
+	if (EOK != rc) {
+		DE("Can't add room to buf\n");
+		buf_free(buf);
+		return (NULL);
+	}
 	va_start(args, format);
 	rc = vsnprintf(buf->data, buf->room, format, args);
 	va_end(args);
@@ -258,4 +264,16 @@ buf_t *buf_sprintf(const char *format, ...)
 
 	buf->used = buf->room;
 	return (buf);
+}
+
+int buf_recv(buf_t *buf, int socket, size_t expected)
+{
+	int rc;
+	/* Test that we have enough room in the buffer */
+	rc = buf_test_room(buf, expected);
+	if (EOK != rc) {
+		DE("Can't allocate enough room in buf\n");
+		return (EBAD);
+	}
+	return recv(socket, buf->data + buf->used, expected, 0);
 }

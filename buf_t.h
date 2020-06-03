@@ -163,12 +163,12 @@ err_t buf_set_data(/*@null@*/buf_t *buf, /*@null@*/char *data, size_t size, size
  * @author Sebastian Mountaniol (01/06/2020)
  * @func void* buf_steal_data(buf_t *buf)
  * @brief 'Steal' data from buffer. After this operation the internal buffer 'data' returned to
- * 	 caller. After this function buf->data set to NULL, buf->len = 0, buf->size = 0
+ * 	caller. After this function buf->data set to NULL, buf->len = 0, buf->size = 0
  *
  * @param buf_t * buf Buffer to extract data buffer
  *
  * @return void* Data buffer pointer on success, NULL on error. Warning: if the but_t did not have a
- *  	   buffer (i.e. buf->data was NULL) the NULL will be returned.
+ * 			 buffer (i.e. buf->data was NULL) the NULL will be returned.
  * @details
  *
  */
@@ -178,13 +178,13 @@ err_t buf_set_data(/*@null@*/buf_t *buf, /*@null@*/char *data, size_t size, size
  * @author Sebastian Mountaniol (01/06/2020)
  * @func void* buf_2_data(buf_t *buf)
  * @brief Return data buffer from the buffer and release the buffer. After this operation the buf_t
- *  	  structure will be completly destroyed. WARNING: disregarding to the return value the buf_t
- *  	  will be destoyed!
+ * 	 structure will be completly destroyed. WARNING: disregarding to the return value the buf_t
+ * 	 will be destoyed!
  *
  * @param buf_t * buf Buffer to extract data
  *
  * @return void* Pointer to buffer on success (buf if the buffer is empty NULL will be returned),
- *  	   NULL on error (and the 'buf' destroyed).
+ * 			 NULL on error (and the 'buf' destroyed).
  * @details
  *
  */
@@ -281,12 +281,12 @@ err_t buf_add_null(/*@null@*/buf_t *buf);
  * @author Sebastian Mountaniol (01/06/2020)
  * @func err_t buf_pack(buf_t *buf)
  * @brief Shrink buf->data to buf->len. We may use this function when we finished with the buf_t and
- *  	  its size won't change. We release unused memory with this function.
+ * 	 its size won't change. We release unused memory with this function.
  *
  * @param buf_t * buf Buffer to pack
  *
  * @return err_t EOK on success, EBAD on a failure. If EBAD returned the buf->data is untouched, we
- *  	   may use it.
+ * 			 may use it.
  * @details
  *
  */

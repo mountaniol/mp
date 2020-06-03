@@ -40,7 +40,7 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 		received += rc;
 	} while (received < BUF_T_STRUCT_NET_SIZE);
 
-	/* Now we have buf_t structure. We expect to receive its buf->le size data */
+	/* Now we have buf_t structure. We expect to receive its buf->used data */
 	rc = buf_add_room(buf, buf->used + 1);
 	if (EOK != rc) {
 		DE("Can't add room to buffer\n");
