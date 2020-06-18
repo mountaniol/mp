@@ -39,8 +39,11 @@
 /* Extra debug */
 	#define DDD(x,...) do{}while(0)
 #endif // DEBUG3
+
+/* Debug print */
 #define DE _D_PRINT_ERR
 
+/* Extended (noisy) debug print */
 #ifdef DERROR3
 	#define DDE _D_PRINT_ERR
 #else

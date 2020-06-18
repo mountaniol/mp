@@ -1,7 +1,10 @@
 /*@-skipposixheaders@*/
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <netdb.h>
+#include <sys/types.h>
+#include <fcntl.h>
 /*@=skipposixheaders@*/
 
 #include "mp-common.h"
@@ -12,13 +15,13 @@
 /*@null@*/ char *mp_os_get_hostname()
 {
 	struct addrinfo hints, *info;
-	int gai_result = -1;
+	int             gai_result = -1;
 
-	char hostname[1024];
+	char            hostname[1024];
 	hostname[1023] = '\0';
 	char *ret = NULL;
 
-	int rc = gethostname(hostname, 1023);
+	int  rc   = gethostname(hostname, 1023);
 	if (0 != rc) {
 		DE("Failed: gethostname\n");
 		perror("Failed: gethostname\n");
@@ -43,14 +46,14 @@
 	return (ret);
 }
 const char charset_alpha[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK0123456789";
-const char charset_num[] = "0123456789";
+const char charset_num[]   = "0123456789";
 
 /*@null@*/ static char *_rand_string(size_t size, const char charset[], size_t charset_size)
 {
-	FILE *fd = NULL;
-	char *str = NULL;
-	size_t n = 0;
-	int rc = -1;
+	FILE   *fd  = NULL;
+	char   *str = NULL;
+	size_t n    = 0;
+	int    rc   = -1;
 
 	if (0 == size) return (NULL);
 
@@ -63,7 +66,7 @@ const char charset_num[] = "0123456789";
 		fd = fopen("/dev/random", "r");
 	}
 	TESTP_MES(fd, NULL, "Can't open either /dev/urandom nor /dev/randomn");
-	
+
 	rc = fread(str, 1, size, fd);
 	if (0 != fclose(fd)) {
 		DE("Can't close /dev/urandom\n");
@@ -79,7 +82,7 @@ const char charset_num[] = "0123456789";
 	--size;
 
 	for (n = 0; n < size; n++) {
-		unsigned int key = (((unsigned int)str[n]) % (charset_size - 1));
+		unsigned int key = (((unsigned int)str[n] ) % (charset_size - 1));
 		str[n] = charset[key];
 	}
 
@@ -105,11 +108,11 @@ int mp_os_random_in_range(int lower, int upper)
 
 /*@null@*/ char *mp_os_generate_uid(const char *name)
 {
-	char *str = NULL;
+	char *str   = NULL;
 	char *part1 = NULL;
 	char *part2 = NULL;
 	char *part3 = NULL;
-	int rc;
+	int  rc;
 
 	TESTP(name, NULL);
 	size_t len = 0;
@@ -152,4 +155,73 @@ err_t mp_os_usleep(int milliseconds) // cross-platform sleep function
 	}
 
 	return (EOK);
+}
+
+/* Test that given file is a regular file, OK if yes */
+static err_t mp_os_test_file(const char *file)
+{
+	struct stat st;
+
+	if (0 != lstat(file, &st)) {
+		DE("lstat failed, probably no such file\n");
+		perror("lstat");
+		return (EBAD);
+	}
+
+	/* Is this file a regular file? If not, report it and return with error */
+	if (S_IFREG != (st.st_mode & S_IFMT)) {
+		DE("Error on file [%s] opening: not a regular file, but ", file);
+		switch (st.st_mode & S_IFMT) {
+		case S_IFSOCK:
+			printf("socket\n");
+			break;
+		case S_IFLNK:
+			printf("symbolic link\n");
+			break;
+		case S_IFBLK:
+			printf("block device\n");
+			break;
+		case S_IFDIR:
+			printf("directory\n");
+			break;
+		case S_IFCHR:
+			printf("character device\n");
+			break;
+		case S_IFIFO:
+			printf("FIFO\n");
+			break;
+		}
+
+		return (EBAD);
+	}
+	return (EOK);
+}
+
+int mp_os_open(const char *file, int flags, mode_t mode)
+{
+	if (EOK != mp_os_test_file(file)) {
+		DE("Wrong file\n");
+		return (EBAD);
+	}
+
+	if (mode > 0) {
+		return (open(file, flags, mode));
+	} else {
+		return (open(file, flags));
+	}
+
+	/* We should never be here */
+	TESTP_ASSERT(NULL, "We should never be here!");
+	/* To calm down compiled warnings */
+	return (EBAD);
+}
+
+FILE *mp_os_fopen(const char *file, const char *mode)
+{
+	if (EOK != mp_os_test_file(file)) {
+		DE("Wrong file\n");
+		return (NULL);
+	}
+
+	return (fopen(file, mode));
 }

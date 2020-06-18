@@ -3,7 +3,7 @@ GCC=gcc
 CFLAGS=-Wall -Wextra -rdynamic -O2
 DEBUG=-DDEBUG3
 DEBUG += -DDERROR3
-CFLAGS += -fanalyzer
+#CFLAGS += -fanalyzer
 
 #GCCVERSION=$(shell gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$/&00/')
 
@@ -11,7 +11,7 @@ CFLAGS += -fanalyzer
 #	CFLAGS += --fanalyzer
 #endif
 
-#DEBUG=-DDEBUG3
+DEBUG=-DDEBUG3
 
 # client daemon
 
@@ -20,7 +20,8 @@ MINI_ARCH=/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o buf_t.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
-		mp-requests.o mp-communicate.o mp-os.o mp-ssh.o mp-net-utils.o
+		mp-requests.o mp-communicate.o mp-os.o mp-net-utils.o \
+		mp-security.o
 
 MOSQ_C=mp-main.c mp-jansson.c buf_t.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
@@ -49,7 +50,7 @@ all: m cli
 
 m: $(MOSQ_O)
 	@echo "|>> Linking mserver"
-	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lssh2
+	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl
 	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread -lssh2
 
 cli: $(CLI_O)
@@ -69,6 +70,10 @@ eth:
 
 tunnel:
 	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c buf_t.c mp-jansson.c mp-memory.c $(J_ARCH) -o tunnel.standalone -lutil -lpthread -lpam
+
+btest:
+	$(GCC) $(CFLAGS) -ggdb -DSTANDALONE $(DEBUG) buf_t.c buf_t_test.c mp-memory.c -o buf_t_test.out
+
 clean:
 	rm -f $(MOSQ_T) $(MOSQ_O) $(MOSQ_CLI_O) $(MOSQ_CLI_T) *.o 
 

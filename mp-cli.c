@@ -20,10 +20,10 @@
 
 err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 {
-	int sd = -1;
-	ssize_t rc = -1;
+	int                sd         = -1;
+	ssize_t            rc         = -1;
 	struct sockaddr_un serveraddr;
-	buf_t *buf = NULL;
+	buf_t              *buf       = NULL;
 
 	DDD("start");
 
@@ -53,7 +53,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	buf = j_2buf(root);
 	TESTP_MES(buf, EBAD, "Can't encode JSON object\n");
 
-	rc = send(sd, buf->data, buf->used, 0);
+	rc = send(sd, buf->data, buf_used(buf), 0);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
@@ -87,7 +87,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 
 /*@null@*/ static j_t *mp_cli_get_received_tickets_l(/*@temp@*/j_t *root)
 {
-	int rc = -1;
+	int    rc    = -1;
 	/*@temp@*/control_t *ctl;
 	/*@temp@*/j_t *arr = NULL;
 	/*@temp@*/j_t *val = NULL;
@@ -195,8 +195,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (resp);
 }
 
-/*@null@*/ static j_t *mp_cli_ssh_forward(/*@temp@*/j_t *root)
-{
+#if 0
+/*@null@*/ static j_t *mp_cli_ssh_forward(/*@temp@*/j_t *root){
 	//control_t *ctl = NULL;
 	int rc = EBAD;
 	/*@temp@*/j_t *resp = NULL;
@@ -264,6 +264,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 
 	return (resp);
 }
+#endif
 
 /*@null@*/ static j_t *mp_cli_execute_req(/*@temp@*/j_t *root)
 {
@@ -332,10 +333,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 		return (mp_cli_get_ports_l());
 	}
 
+	#if 0
 	/* This is local request, we open a port on remote machine and connect */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_SSH)) {
 		return (mp_cli_ssh_forward(root));
 	}
+	#endif
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		return (mp_cli_send_ticket_req(root));
@@ -353,10 +356,10 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
    Only one client a time */
 /*@null@*/ void *mp_cli_pthread(/*@unused@*/void *arg __attribute__((unused)))
 {
-	int fd_socket = -1;
+	int                fd_socket = -1;
 	struct sockaddr_un cli_addr;
-	ssize_t rc = -1;
-	control_t *ctl;
+	ssize_t            rc        = -1;
+	control_t          *ctl;
 
 	DDD("CLI thread started\n");
 
@@ -458,4 +461,3 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 
 	return (NULL);
 }
-

@@ -25,15 +25,17 @@
 	fd = fopen("/proc/net/route", "r");
 	TESTP_MES(fd, NULL, "Can't open /proc/net/route\n");
 
-	buft = buf_new(NULL, BUF_INTERFACE);
+	buft = buf_string(BUF_INTERFACE);
 	TESTP_GO(buft, err);
+
+	BUF_DUMP(buft);
 
 	do {
 		char *interface = NULL;
 		char *dest      = NULL;
 
 		/* Read the next string from /proc/net/route*/
-		rc = fgets(buft->data, buft->room, fd);
+		rc = fgets(buft->data, buf_room(buft), fd);
 		if (NULL == rc) {
 			break;
 		}
@@ -61,7 +63,7 @@
 		if (0 == strncmp(dest, "00000000", 8)) {
 			size_t len  = strlen(interface);
 			char   *ret = strndup(interface, len);
-			buf_free_room(buft);
+			buf_clean(buft);
 			buf_set_data(buft, ret, len + 1, len);
 
 			//D("Found default WAN interface: %s\n", interface);
@@ -91,16 +93,14 @@ err:
 }
 
 /* Find interface connected to WAN and return its IP */
-/*@null@*/ static char *mp_network_get_internal_ip(void)
+/*@null@*/ static buf_t *mp_network_get_internal_ip(void)
 {
 	struct ifaddrs *ifaddr        = NULL;
 	struct ifaddrs *ifa           = NULL;
 	int            s;
 	char           host[NI_MAXHOST];
 
-	//char           *wan_interface = mp_network_find_wan_interface();
 	buf_t          *wan_interface = mp_network_find_wan_interface();
-
 	TESTP_MES(wan_interface, NULL, "No WAN connected inteface");
 
 	if (getifaddrs(&ifaddr) == -1) {
@@ -116,7 +116,6 @@ err:
 		s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
 
 		if ((0 == strcmp(ifa->ifa_name, wan_interface->data)) && (ifa->ifa_addr->sa_family == AF_INET)) {
-			char *ret;
 			if (s != 0) {
 				printf("getnameinfo() failed: %s\n", gai_strerror(s));
 				buf_free(wan_interface);
@@ -125,10 +124,8 @@ err:
 
 			DDD("Interface: %s\n", ifa->ifa_name);
 			DDD("Address: %s\n", host);
-			ret = strdup(host);
-			buf_free(wan_interface);
 			freeifaddrs(ifaddr);
-			return (ret);
+			return (wan_interface);
 		}
 	}
 
@@ -141,18 +138,21 @@ err:
 err_t mp_network_init_network_l()
 {
 	/*@shared@*/control_t *ctl = ctl_get();
-	char *var = NULL;
+	buf_t *bvar = NULL;
 
 	/* Try to read external IP from Upnp */
 	/* We don't even try if no router found */
 	if (NULL != ctl->rootdescurl) {
-		var = mp_ports_get_external_ip();
+		bvar = mp_ports_get_external_ip();
 	}
 
 	/* If can't read from Upnp assign it to 0.0.0.0 - means "can't use Upnp" */
-	if (NULL == var) {
+	if (NULL == bvar) {
 		DE("Can't get my IP\n");
-		var = strdup("0.0.0.0");
+		bvar = buf_string(8);
+		TESTP(bvar, EBAD);
+		BUF_DUMP(bvar);
+		buf_add(bvar, "0.0.0.0", 7);
 		/* If we can't find out external address,
 		   it means we ca't communicate with the router
 		   and open ports. So, we neither target nor bridge */
@@ -161,20 +161,20 @@ err_t mp_network_init_network_l()
 	}
 
 	ctl_lock();
-	if (EOK != j_add_str(ctl->me, JK_IP_EXT, var)) DE("Can't add 'JK_IP_EXT'\n");
+	if (EOK != j_add_str(ctl->me, JK_IP_EXT, bvar->data)) DE("Can't add 'JK_IP_EXT'\n");
 	ctl_unlock();
-	TFREE_STR(var);
+	buf_free(bvar);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
 	if (EOK != j_add_str(ctl->me, JK_PORT_EXT, JV_NO_PORT)) DE("Can't add 'JK_PORT_EXT'\n");
 
-	var = mp_network_get_internal_ip();
-	TESTP(var, EBAD);
+	bvar = mp_network_get_internal_ip();
+	TESTP(bvar, EBAD);
 	ctl_lock();
-	if (EOK != j_add_str(ctl->me, JK_IP_INT, var)) DE("Can't add 'JK_IP_INT'\n");
+	if (EOK != j_add_str(ctl->me, JK_IP_INT, bvar->data)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock();
-	TFREE_STR(var);
+	buf_free(bvar); 
 	return (EOK);
 }
 

@@ -1,11 +1,14 @@
 /*@-skipposixheaders@*/
-#include <string.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <pwd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 /*@=skipposixheaders@*/
 #include "mp-debug.h"
 #include "buf_t.h"
@@ -14,16 +17,19 @@
 #include "mp-dict.h"
 #include "mp-memory.h"
 #include "mp-ctl.h"
+#include "mp-os.h"
 
 /* Construct config file directory full path */
 static buf_t *mp_config_get_config_dir(void)
 {
-	buf_t         *dirname = buf_new(NULL, 4096);
-	int           rc       = -1;
+	buf_t         *dirname = NULL; // buf_string(4096);
+	//int           rc       = -1;
 	struct passwd *pw      = NULL;
 	const char    *homedir = NULL;
 
-	TESTP(dirname, NULL);
+	BUF_DUMP(dirname);
+
+	//TESTP(dirname, NULL);
 
 	pw = getpwuid(getuid());
 	TESTP(pw, NULL);
@@ -31,7 +37,9 @@ static buf_t *mp_config_get_config_dir(void)
 	homedir = pw->pw_dir;
 	TESTP(homedir, NULL);
 
-	rc = snprintf(dirname->data, dirname->room, "%s/%s", homedir, CONFIG_DIR_NAME);
+	//rc = snprintf(dirname->data, buf_room(dirname), "%s/%s", homedir, CONFIG_DIR_NAME);
+	dirname = buf_sprintf("%s/%s", homedir, CONFIG_DIR_NAME);
+	#if 0
 
 	/* It must print len + slash */
 	if (rc < 0) {
@@ -41,6 +49,7 @@ static buf_t *mp_config_get_config_dir(void)
 	}
 	dirname->used = rc;
 	buf_pack(dirname);
+	#endif
 	return (dirname);
 }
 
@@ -59,6 +68,92 @@ static buf_t *mp_config_get_config_name(void)
 	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, CONFIG_FILE_NAME));
 }
 
+/* Change permition of config file and dir to READ / WRITE  */
+static err_t mp_config_file_unlock()
+{
+	int   rc         = -1;
+	buf_t *conf_dir  = mp_config_get_config_dir();
+	buf_t *conf_file = mp_config_get_config_name();
+
+
+	TESTP_MES(conf_dir, EBAD, "Can't construct config dir name");
+	TESTP_MES(conf_file, EBAD, "Can't construct config file name");
+
+	DDD("conf dir  [%s] room [%d] used [%d]\n", conf_dir->data, conf_dir->room, conf_dir->used);
+	DDD("conf file [%s] room [%d] used [%d]\n", conf_file->data, conf_file->room, conf_file->used);
+
+	/* 1. Change config directory to Read Write mode */
+	rc = chmod(conf_dir->data, S_IRUSR | S_IWUSR | S_IXUSR);
+	if (0 != rc) {
+		DE("Can't change config dir permition\n");
+		goto err;
+	}
+
+	/* 2. Change config file to Read Write mode */
+	rc = chmod(conf_file->data, S_IRUSR | S_IWUSR);
+	if (0 != rc) {
+		DE("Can't change config file [%s] permition\n", conf_file->data);
+		goto err;
+	}
+	buf_free(conf_file);
+	buf_free(conf_dir);
+	return (EOK);
+err:
+	rc = chmod(conf_file->data, S_IRUSR);
+	if (0 != rc) {
+		DE("Error on changing config file permition to RO\n");
+	}
+
+	rc = chmod(conf_dir->data, S_IRUSR);
+	if (0 != rc) {
+		DE("Error on changing cindif dire permition to RO\n");
+	}
+
+	buf_free(conf_file);
+	buf_free(conf_dir);
+	return (EBAD);
+}
+
+/* Change permition of config file and dir to READ only  */
+static err_t mp_config_file_lock(void)
+{
+	int   ret        = EBAD;
+	int   rc         = -1;
+	buf_t *conf_dir  = mp_config_get_config_dir();
+	buf_t *conf_file = mp_config_get_config_name();
+
+	TESTP_MES(conf_dir, EBAD, "Can't construct config dir name");
+	TESTP_MES(conf_file, EBAD, "Can't construct config file name");
+
+	/* We need unlock the directory - in case it is locked (happens) */
+	rc = chmod(conf_dir->data, S_IRUSR | S_IWUSR | S_IXUSR);
+	if (0 != rc) {
+		DE("Can't change config dir permition\n");
+		goto err;
+	}
+
+	/* 2. Change config file to "Owner only Read" mode */
+	rc = chmod(conf_file->data, S_IRUSR);
+	if (0 != rc) {
+		DE("Can't change config file permition\n");
+		perror("chmod err:");
+		goto err;
+	}
+
+	/* 1. Change config directory to "Owner Only Read and Exec" mode */
+	rc = chmod(conf_dir->data, S_IRUSR | S_IXUSR);
+	if (0 != rc) {
+		DE("Can't change config dir permition\n");
+		goto err;
+	}
+	ret = EOK;
+err:
+
+	buf_free(conf_file);
+	buf_free(conf_dir);
+	return (ret);
+}
+
 /* Read config file, transform to json obgect and return to caller */
 static json_t *mp_config_read(void)
 {
@@ -70,11 +165,17 @@ static json_t *mp_config_read(void)
 	size_t      buf_len;
 	int         rc        = EBAD;
 
+	rc = mp_config_file_unlock();
+	if (EOK != rc) {
+		DE("Can't unlock config file\n");
+		return (NULL);
+	}
+
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, NULL, "Can't create config file name");
 
 	if (0 != stat(filename->data, &statbuf)) {
-		DDD("Can't stat config file: %s\n", filename->data);
+		DE("Can't stat config file: %s\n", filename->data);
 		goto err;
 	}
 
@@ -83,8 +184,10 @@ static json_t *mp_config_read(void)
 		goto err;
 	}
 
-	fd = fopen(filename->data, "r");
+	fd = mp_os_fopen(filename->data, "r");
 	if (NULL == fd) {
+		DE("Can't open config file\n");
+		perror("Open file error:");
 		goto err;
 	}
 
@@ -117,7 +220,62 @@ err:
 			perror("Can't close file");
 		}
 	}
+
+	/* Lock config file and dir */
+	rc = mp_config_file_lock();
+	if (EOK != rc) {
+		DE("Can't unlock config file\n");
+	}
+	
 	return (root);
+}
+
+/* Save JSON config object into config file  */
+static err_t mp_config_write(j_t *j_config)
+{
+	int   ret   = EBAD;
+	int   rc    = -1;
+	int   fd    = -1;
+	buf_t *conf = NULL;
+
+
+	rc = mp_config_file_unlock();
+	if (EOK != rc) {
+		DE("Can't unlock config file\n");
+		return (EBAD);
+	}
+
+	/* Transform from JSON to text form */
+	conf = j_buf2j(j_config);
+
+	/* TODO: encrypt */
+
+	TESTP_MES(conf, EBAD, "Can't transform config from JSON to buf_t");
+	/* Open condif file */
+	fd = open(conf->data, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+		DE("Can't open config file\n");
+		goto err;
+	}
+
+	/* 4. Write config */
+	rc = write(fd, conf->data, buf_used(conf));
+
+	/* Finished. Close and release everything */
+	/* Set return status as success */
+	ret = EOK;
+err:
+	if (fd > 0) {
+		close(fd);
+	}
+
+	rc = mp_config_file_lock();
+	if (EOK != rc) {
+		DE("Can't lock config file / dir\n");
+	}
+
+	buf_free(conf);
+	return (ret);
 }
 
 /* Write config object to config file */
@@ -165,7 +323,7 @@ err_t mp_config_save()
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, -1, "Can't create config file name");
 
-	fd = fopen(filename->data, "w+");
+	fd = mp_os_fopen(filename->data, "w+");
 	buf_free(filename);
 	if (NULL == fd) {
 		rc = -1;
@@ -173,13 +331,13 @@ err_t mp_config_save()
 	}
 
 	buf = j_2buf(ctl->config);
-	if (NULL == buf || 0 == buf->used) {
+	if (NULL == buf || 0 == buf_used(buf)) {
 		DE("Can't encode config file\n");
 		rc = -1;
 		goto err;
 	}
 
-	written = fwrite(buf->data, 1, buf->used, fd);
+	written = fwrite(buf->data, 1, buf_used(buf), fd);
 	rc = fclose(fd);
 	if (0 != rc) {
 		DE("Can't close file\n");
@@ -187,7 +345,7 @@ err_t mp_config_save()
 	}
 	fd = NULL;
 
-	if (written != buf->used) {
+	if (written != buf_used(buf)) {
 		rc = EBAD;
 		goto err;
 	}
@@ -267,10 +425,21 @@ err_t mp_config_load()
 	return (rc);
 }
 
-/* Add new pait 'key' = 'val' into ctl->config and also into config file.
+/* Add new pair 'key' = 'val' into ctl->config and also into config file.
    If such a key exists - replace 'val' */
-#if 0 /* SEB 06/05/2020 16:56  */
-int mp_config_set(void *_ctl, const char *key, const char *val){
-	return EBAD;
+err_t mp_config_set(const char *key, const char *val)
+{
+	control_t *ctl    = ctl_get();
+	j_t       *j_conf = ctl->config;
+
+	if (NULL == j_conf) {
+		DE("Looks like config is empty\n");
+		return (EBAD);
+	}
+
+	j_add_str(j_conf, key, val);
+
+	/* Now save config to the file */
+
+	return (mp_config_write(j_conf));
 }
-#endif /* SEB 06/05/2020 16:56 */

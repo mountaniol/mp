@@ -251,11 +251,10 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
    to any external port on the router */
 /*@null@*/ j_t *mp_ports_remap_any(/*@temp@*/const j_t *req, /*@temp@*/const char *internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
-	char *reservedPort = NULL;
-	//char reservedPort[PORT_STR_LEN];
-	int  i             = 0;
-	j_t  *resp         = NULL;
-	int  rc;
+	buf_t *reservedPort = NULL;
+	int   i             = 0;
+	j_t   *resp         = NULL;
+	int   rc;
 
 	for (i = 0; i < 3; i++) {
 		int e_port = mp_os_random_in_range(1024, 65535);
@@ -274,17 +273,11 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 		rc = mp_ports_remap_port(e_port, i_port, protocol);
 
 		if (EOK == rc) {
-			reservedPort = zmalloc(PORT_STR_LEN);
+			reservedPort = buf_sprintf("%d", e_port);
 			TESTP(reservedPort, NULL);
-			rc = snprintf(reservedPort, PORT_STR_LEN, "%d", e_port);
-			if (rc < 0) {
-				DE("Can't transform port from integer to string\n");
-				TFREE_SIZE(reservedPort, PORT_STR_LEN);
-				return (NULL);
-			}
-			DD("Mapped port: %s -> %s\n", reservedPort, internal_port);
+			DD("Mapped port: %s -> %s\n", reservedPort->data, internal_port);
 			rc = EOK;
-			break;
+			goto end;
 		}
 	}
 
@@ -292,16 +285,24 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 		DE("Failed to map port\n");
 		return (NULL);
 	}
+
+	if (NULL == reservedPort) {
+		DE("Not found\n");
+		return (NULL);
+	}
+
+	end:
 	/* If there was an error we try to generate some random port and map it */
 	resp = j_new();
 	TESTP(resp, NULL);
-	rc = j_add_str(resp, JK_PORT_EXT, reservedPort);
+	rc = j_add_str(resp, JK_PORT_EXT, reservedPort->data);
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_EXT, reservedPort");
 	rc = j_add_str(resp, JK_PORT_INT, internal_port);
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_INT, internal_port");
 	rc = j_add_str(resp, JK_PROTOCOL, protocol);
 	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
-	TFREE_SIZE(reservedPort, PORT_STR_LEN);
+	//TFREE_SIZE(reservedPort, PORT_STR_LEN);
+	buf_free(reservedPort); 
 	return (resp);
 }
 
@@ -376,7 +377,6 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char            s_ext[PORT_STR_LEN];
 	int             status;
 	/*@temp@*/j_t *mapping    = NULL;
 	upnp_req_str_t  *req      = NULL;
@@ -404,8 +404,6 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	if (EOK != rc) {
 		DE("Can't send ticket\n");
 	}
-
-	memset(s_ext, 0, PORT_STR_LEN);
 
 	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
 	if (EOK != rc) {
@@ -471,15 +469,15 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	return (mapping);
 }
 
-/* Scan existing mappings to this machine and add them to the given array 'arr' */
+/* Scan existing mappings from router to this machine and add them to the given array 'arr' */
 err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char            *wan_address = NULL;
+	buf_t           *wan_address = NULL;
 	int             status;
-	j_t             *mapping     = NULL;
+	j_t             *j_mapping   = NULL;
 	upnp_req_str_t  *req         = NULL;
 	size_t          index        = 0;
 	int             rc;
@@ -502,11 +500,15 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 		return (EBAD);
 	}
 
-	wan_address = zmalloc(IP_STR_LEN);
+	//wan_address = zmalloc(IP_STR_LEN);
+	wan_address = buf_string(IP_STR_LEN);
 	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
 
-	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
-	TFREE_SIZE(wan_address, IP_STR_LEN);
+	BUF_DUMP(wan_address);
+
+	//rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, NULL);
+	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);
+	buf_free(wan_address);
 
 	if (0 != rc) {
 		DE("UPNP_GetExternalIPAddress failed\n");
@@ -540,23 +542,23 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 
 		/* A mapping found */
 		if (0 == strncmp(req->map_lan_address, local_host, strnlen(local_host, _POSIX_HOST_NAME_MAX))) {
-			D("Asked mapping is already exists: ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
+			D("Found mapping : ext port %s -> %s:%s\n", req->map_wan_port, req->map_lan_address, req->map_lan_port);
 
-			mapping = j_new();
-			if (NULL == mapping) {
+			j_mapping = j_new();
+			if (NULL == j_mapping) {
 				DE("Can't allocate port_map_t\n");
 				upnp_req_str_t_free(req);
 				FreeUPNPUrls(&upnp_urls);
 				return (EBAD);
 			}
 
-			rc = j_add_str(mapping, JK_PORT_INT, req->map_lan_port);
+			rc = j_add_str(j_mapping, JK_PORT_INT, req->map_lan_port);
 			TESTI_MES(rc, EBAD, "Can't add JK_PORT_INT, req->map_lan_port");
-			rc = j_add_str(mapping, JK_PORT_EXT, req->map_wan_port);
+			rc = j_add_str(j_mapping, JK_PORT_EXT, req->map_wan_port);
 			TESTI_MES(rc, EBAD, "Can't add JK_PORT_EXT, req->map_wan_port");
-			rc = j_add_str(mapping, JK_PROTOCOL, req->map_protocol);
+			rc = j_add_str(j_mapping, JK_PROTOCOL, req->map_protocol);
 			TESTI_MES(rc, EBAD, "Can't add JK_PROTOCOL, req->map_protocol");
-			rc = j_arr_add(arr, mapping);
+			rc = j_arr_add(arr, j_mapping);
 			TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
 		}
 	}
@@ -568,12 +570,12 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 
 /* Test if internal port already mapped.
    If it mapped, the external port returned */
-/*@null@*/ char *mp_ports_get_external_ip()
+/*@null@*/ buf_t *mp_ports_get_external_ip()
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 
-	char            *wan_address = NULL;
+	buf_t           *wan_address = NULL;
 	int             status       = -1;
 	control_t       *ctl         = ctl_get();
 
@@ -590,17 +592,24 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 		return (NULL);
 	}
 
-	wan_address = zmalloc(IP_STR_LEN);
-	if (NULL == wan_address) FreeUPNPUrls(&upnp_urls);
-	TESTP_MES(wan_address, NULL, "Can't allocate wan_address\n");
+	wan_address = buf_string(IP_STR_LEN);
+	if (NULL == wan_address) {
+		FreeUPNPUrls(&upnp_urls);
+		DE("Can't allocate wan_address\n");
+		return (NULL);
+	}
 
-	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address);
+	BUF_DUMP(wan_address);
+
+	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);
 	if (0 != status) {
 		DE("Error: can't get IP address\n");
 		FreeUPNPUrls(&upnp_urls);
+		buf_free(wan_address);
 		return (NULL);
 	}
-	DDD("Got my IP: %s\n", wan_address);
+
+	DDD("Got my IP: %s\n", wan_address->data);
 	FreeUPNPUrls(&upnp_urls);
 	return (wan_address);
 }

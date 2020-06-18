@@ -19,6 +19,7 @@
 #include "mp-network.h"
 #include "mp-requests.h"
 #include "mp-communicate.h"
+#include "mp-security.h"
 #include "mp-os.h"
 #include "mp-dict.h"
 #include "mp-limits.h"
@@ -337,7 +338,7 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 
 	/**
 	 *    3. Remote host sent 'disconnect' request.
-	 * 	It means the remote client disconnected.
+	 *    It means the remote client disconnected.
 	 *    We should remove its record from ctl->hosts
 	 *
 	 */
@@ -434,7 +435,7 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		 * we just send update to all listeners
 		 */
 
-		/*** */
+		/***/
 		if (EOK == rc) {
 			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
 			if (EOK != rrc) {
@@ -818,7 +819,7 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
-	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf->used, buf->data, 1, false);
+	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf_used(buf), buf->data, 1, false);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
@@ -1090,6 +1091,12 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 
 	int       rc             = EOK;
 
+	/* Set ABORT state: abort on error */
+	buf_set_abort();
+
+	/* Add CANARY to every buffer */
+	buf_default_flags(BUF_T_CANARY);
+
 	rc = ctl_allocate_init();
 	TESTI_MES(rc, EBAD, "Can't allocate and init control struct\n");
 
@@ -1102,6 +1109,10 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 
 	rc = mp_main_complete_me_init();
 	TESTI_MES(rc, EBAD, "Can't finish 'me' init\n");
+
+
+	buf_t *hash = mp_security_system_footprint();
+	buf_free(hash);
 
 	/* Start CLI thread as fast as we can */
 	rc = pthread_create(&cli_thread_id, NULL, mp_cli_pthread, NULL);

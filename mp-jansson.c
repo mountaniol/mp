@@ -80,8 +80,16 @@
 	jd = json_dumps(j_obj, (size_t)JSON_INDENT(4));
 	TESTP_MES(j_obj, NULL, "Can't transform JSON to string");
 
-	buf = buf_new(jd, strlen(jd));
-	TESTP_MES_GO(jd, err, "Can't allocate buf_t");
+	//buf = buf_new(jd, strlen(jd));
+	buf = buf_new(0);
+	TESTP_MES_GO(buf, err, "Can't allocate buf_t");
+
+	if (EOK != buf_set_data(buf, jd, strlen(jd), strlen(jd))) {
+		DE("Can't set data into buf\n");
+		goto err;
+	}
+	
+	BUF_DUMP(buf);
 
 	buf->used = buf->room;
 

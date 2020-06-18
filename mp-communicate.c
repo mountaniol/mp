@@ -221,7 +221,7 @@ static err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@te
 	int rc2;
 	int counter = -1;
 	/*@shared@*/control_t *ctl = ctl_get();
-	rc = mosquitto_publish(ctl->mosq, &counter, topic, (int)buf->used, buf->data, 0, false);
+	rc = mosquitto_publish(ctl->mosq, &counter, topic, (int) buf_used(buf), buf->data, 0, false);
 	rc2 = mp_communicate_save_buf_t_to_ctl(buf, counter);
 	if (EOK != rc2) {
 		DE("Can't save buf_t to ctl\n");
