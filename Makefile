@@ -1,7 +1,8 @@
-GCC=gcc
-#GCC=clang-10
+#GCC=gcc
+GCC=clang-10
 CFLAGS=-Wall -Wextra -rdynamic -O2
-DEBUG=-DDEBUG3
+#DEBUG=-DDEBUG3
+DEBUG=-DDEBUG2
 DEBUG += -DDERROR3
 #CFLAGS += -fanalyzer
 
@@ -11,23 +12,22 @@ DEBUG += -DDERROR3
 #	CFLAGS += --fanalyzer
 #endif
 
-DEBUG=-DDEBUG3
-
 # client daemon
 
+BUFT_A=buf_t/buf_t.a
 J_ARCH=/usr/lib/x86_64-linux-gnu/libjansson.a
 MINI_ARCH=/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 MOSQ_T=mpd
-MOSQ_O=mp-main.o mp-jansson.o buf_t.o mp-config.o\
+MOSQ_O=mp-main.o mp-jansson.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
 		mp-requests.o mp-communicate.o mp-os.o mp-net-utils.o \
 		mp-security.o
 
-MOSQ_C=mp-main.c mp-jansson.c buf_t.c mp-config.c\
+MOSQ_C=mp-main.c mp-jansson.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
 		mp-requests.c
 # client cli
-CLI_O=mp-shell.o mp-jansson.o mp-memory.o buf_t.o mp-ctl.o mp-os.o mp-net-utils.o libfort.a
+CLI_O=mp-shell.o mp-jansson.o mp-memory.o mp-ctl.o mp-os.o mp-net-utils.o libfort.a
 CLI_T=mp
 
 # Port mapper, standalone compilation
@@ -35,7 +35,7 @@ U_T=portmapper
 U_C=mp-ports.c sec-memory.c
 
 # Files to check with splint
-SPLINT_C=buf_t.c buf_t.h mp-cli.c mp-cli.h mp-common.h mp-communicate.c mp-communicate.h \
+SPLINT_C= mp-cli.c mp-cli.h mp-common.h mp-communicate.c mp-communicate.h \
 		mp-config.c mp-config.h mp-ctl.c mp-ctl.h mp-debug.h mp-dict.h mp-jansson.c \
 		mp-jansson.h mp-limits.h mp-main.c mp-main.h mp-memory.c mp-memory.h \
 		mp-net-utils.c mp-net-utils.h mp-network.c mp-network.h mp-os.c mp-os.h \
@@ -48,36 +48,39 @@ all: m cli
 	@echo "CFLAGS = $(CFLAGS)"
 	@echo "Compiler = $(GCC)"
 
-m: $(MOSQ_O)
+
+buft:
+	make -C ./buf_t/ all
+
+m: buft $(MOSQ_O)
 	@echo "|>> Linking mserver"
-	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl
+	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) $(BUFT_A) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl
 	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread -lssh2
 
-cli: $(CLI_O)
+cli: buft $(CLI_O)
 	@echo "|>> Linking mclient"
-	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(J_ARCH) -o $(CLI_T) -lpthread
+	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(J_ARCH) $(BUFT_A) -o $(CLI_T) -lpthread
 	#@$(GCC) $(CFLAGS) $(CLI_O) -o $(CLI_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread
 	
-u:
-	$(GCC) -DSTANDALONE $(CFLAGS) $(DEBUG) $(U_C) -o $(U_T) -lminiupnpc
+u: buft
+	$(GCC) -DSTANDALONE $(CFLAGS) $(DEBUG) $(U_C) $(BUFT_A) -o $(U_T) -lminiupnpc
 
-upnp:
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) libfort.a mp-ports.c mp-memory.c -o ports -lminiupnpc
+upnp: buft
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) $(BUFT_A) libfort.a mp-ports.c mp-memory.c -o ports -lminiupnpc
 
-eth:
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-network.c -o sec-eth
+eth: buft
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-network.c $(BUFT_A)  -o sec-eth
 #	/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 
-tunnel:
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c buf_t.c mp-jansson.c mp-memory.c $(J_ARCH) -o tunnel.standalone -lutil -lpthread -lpam
+tunnel: buft
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lpam
 
-btest:
-	$(GCC) $(CFLAGS) -ggdb -DSTANDALONE $(DEBUG) buf_t.c buf_t_test.c mp-memory.c -o buf_t_test.out
+btest: buft
+	$(GCC) $(CFLAGS) -ggdb -DSTANDALONE $(DEBUG) mp-memory.c $(BUFT_A) -o buf_t_test.out
 
 clean:
-	rm -f $(MOSQ_T) $(MOSQ_O) $(MOSQ_CLI_O) $(MOSQ_CLI_T) *.o 
-
-
+	rm -f $(MOSQ_T) $(MOSQ_O) $(MOSQ_CLI_O) $(MOSQ_CLI_T) *.o
+	make -C ./buf_t/ clean
 libfort.a:
 	mkdir -p libfort/build && cd libfort/build && cmake ../ && make
 	cp libfort/build/lib/libfort.a .

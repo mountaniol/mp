@@ -32,7 +32,7 @@
 #include "mp-limits.h"
 #include "mp-net-utils.h"
 
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 
 #define MAX_WINSIZE 512
 /* TODO: Make this configurable */

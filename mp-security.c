@@ -16,10 +16,11 @@
 #include "openssl/ssl.h"
 #include "openssl/err.h"
 
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-debug.h"
 #include "mp-common.h"
 #include "mp-security.h"
+#include "mp-ctl.h"
 
 /* OpenSSL connection functions */
 
@@ -43,7 +44,6 @@
 	(void)SSL_CTX_set_mode(ctx, (long int)(SSL_MODE_AUTO_RETRY | SSL_MODE_ENABLE_PARTIAL_WRITE));
 	return (ctx);
 }
-
 
 /* Load certificate + private key from files */
 /* TODO: we may need also function loading all this from memory (SSL_FILETYPE_ASN1) */
@@ -145,7 +145,7 @@ buf_t *mp_security_generate_rsa_pem_string(const int kbits)
 	SHA256_Update(&sha256, buf->data, buf_used(buf));
 	SHA256_Final(hash, &sha256);
 
-	ret = buf_string(64+1);
+	ret = buf_string(64 + 1);
 	TESTP(ret, NULL);
 
 	BUF_DUMP(ret);
@@ -181,13 +181,15 @@ buf_t *mp_security_generate_rsa_pem_string(const int kbits)
 	TESTP(buf_host, NULL);
 
 	BUF_DUMP(buf_host);
-	BUF_TEST(buf_host); 
+	BUF_TEST(buf_host);
 	rc = gethostname(buf_host->data, buf_room(buf_host - 4));
+	buf_detect_used(buf_host);
 
 	if (rc < 0) {
 		goto err;
 	}
 	buf = buf_sprintf("%s-%s-%d", buf_host->data, homedir, procs);
+	BUF_DUMP(buf);
 	buf_free(buf_host);
 
 	if (NULL == buf) {
@@ -205,4 +207,55 @@ err:
 	buf_free(buf_host);
 	buf_free(buf);
 	return (NULL);
+}
+
+
+// https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
+// http://www.opensource.apple.com/source/OpenSSL/OpenSSL-22/openssl/demos/x509/mkcert.c
+/*@null@*/X509 *mp_security_generate_x509(RSA *rsa)
+{
+	EVP_PKEY  *pkey = NULL;
+	X509      *x509 = NULL;
+	X509_NAME *name = NULL;
+
+	const char *user = NULL;
+	const char *uid = NULL;
+
+	pkey = EVP_PKEY_new();
+	EVP_PKEY_assign_RSA(pkey, rsa);
+
+	x509 = X509_new();
+	ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
+
+	/* Set certificate generation time */
+	X509_gmtime_adj(X509_get_notBefore(x509), 0);
+
+	/* Set experation time after 100 years */
+	X509_gmtime_adj(X509_get_notAfter(x509), 3153600000L);
+
+	/* Set public key to this certificate */
+	X509_set_pubkey(x509, pkey);
+
+	name = X509_get_subject_name(x509);
+
+	/* Set certificate properties */
+
+	/* TODO: Set country; for now it sets UK hardcoded */
+	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)"UK", -1, -1, 0);
+
+	/* Set company: We use user name as company name */
+	user = ctl_user_get();
+	X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)user, -1, -1, 0);
+	/* Set host: we use UID as the host name */
+	uid = ctl_uid_get();
+	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)uid, -1, -1, 0);
+
+	X509_set_issuer_name(x509, name);
+
+	/* Sign certificate */
+	X509_sign(x509, pkey, EVP_sha1());
+
+	/* Clean everything */
+
+	return (x509);
 }

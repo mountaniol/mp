@@ -6,10 +6,14 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
+
+#include "openssl/ssl.h"
+#include "openssl/err.h"
+
 #endif
 
 #include "mosquitto.h"
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-jansson.h"
@@ -297,7 +301,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	/**
 	 *   1. Remote host sent 'keepalive'.
 	 *    'keepalive' it is client's ctl->me structure.
-	 *
 	 */
 
 	/* This is "me" object sent from remote host */
@@ -323,7 +326,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	/**
 	 *  2. Remote host sent 'reveal' request.
 	 *    We reply with our ctl->me structure.
-	 *
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_REVEAL)) {
@@ -340,7 +342,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	 *    3. Remote host sent 'disconnect' request.
 	 *    It means the remote client disconnected.
 	 *    We should remove its record from ctl->hosts
-	 *
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_DISCONNECTED)) {
@@ -353,7 +354,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	/**
 	 *  All requests except above must be be dedicated to us.
 	 *  From this point we accept only messages for us.
-	 *
 	 */
 
 
@@ -367,7 +367,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	/**
 	 * 4. Request "openport" from remote client. The remote client
 	 *    wants us to close UPNP port.
-	 *
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
@@ -414,7 +413,6 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 	/**
 	 * 5. Request "closeport" from remote client. The remote client
 	 *    wants us to close UPNP port
-	 *
 	 */
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
@@ -435,7 +433,7 @@ static err_t mp_main_parse_message_l(const char *uid, j_t *root)
 		 * we just send update to all listeners
 		 */
 
-		/***/
+		/**/
 		if (EOK == rc) {
 			int rrc = mp_main_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
 			if (EOK != rrc) {
@@ -1000,6 +998,71 @@ static void mp_main_print_info_banner()
 	printf("=======================================\n");
 }
 
+static err_t mp_main_init_security()
+{
+	err_t     rc;
+	control_t *ctl = ctl_get();
+
+	rc = mp_config_probe_rsa_priv();
+	if (EOK == rc) {
+		ctl->rsa_priv = mp_config_load_rsa_priv();
+	}
+	
+	if (NULL == ctl->rsa_priv) {
+		void *rsa;
+		rsa = mp_security_generate_rsa_pem_RSA(2048);
+		if (NULL == rsa) {
+			DE("Can't generate RSA key\n");
+			return (EBAD);
+		}
+
+		rc = mp_config_save_rsa_keys(rsa);
+		if (EOK != rc) {
+			DE("Can't save RSA private and public key\n");
+			return (EBAD);
+		}
+
+		ctl->rsa_priv = mp_config_load_rsa_priv();
+		if (NULL == ctl->rsa_priv) {
+			DE("Error: generated RSA key but can't load private key");
+			return (EBAD);
+		}
+	}
+
+	ctl->rsa_pub = mp_config_load_rsa_pub();
+	if (NULL == ctl->rsa_pub) {
+		DE("Can't load RSA public key");
+		return (EBAD);
+	}
+
+	rc = mp_config_probe_x509();
+	if (EOK == rc) {
+		ctl->x509 = mp_config_load_X509();
+	}
+
+	if (NULL == ctl->x509) {
+		void *x509 = mp_security_generate_x509(ctl->rsa_priv);
+		if (NULL == x509) {
+			DE("Can't generate X509 cetrificate\n");
+			return (EBAD);
+		}
+
+		rc = mp_config_save_rsa_x509(x509);
+		if (EOK != rc) {
+			DE("Can't save X509 certificate\n");
+			return (EBAD);
+		}
+
+		ctl->x509 = mp_config_load_X509();
+		if (NULL == ctl->x509) {
+			DE("Error: generated and saved X509 certificate but can't load it\n");
+			return (EBAD);
+		}
+	}
+
+	return (EOK);
+}
+
 static void mp_main_signal_handler(int sig)
 {
 	/*@temp@*/control_t *ctl;
@@ -1163,6 +1226,11 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 		}
 	}
 
+	rc = mp_main_init_security();
+	if (EOK != rc) {
+		DE("Can't init security\n");
+		return (EBAD);
+	}
 	mp_main_print_info_banner();
 	rc = pthread_create(&mosq_thread_id, NULL, mp_main_mosq_threads_manager_pthread, cert);
 	if (0 != rc) {

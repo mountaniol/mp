@@ -15,7 +15,7 @@
 #include "mp-cli.h"
 #include "mp-os.h"
 #include "mp-dict.h"
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-memory.h"
 
 #ifndef S_SPLINT_S /* splint analyzer goes crazy if this included */

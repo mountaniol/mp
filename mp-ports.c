@@ -508,6 +508,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 
 	//rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, NULL);
 	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);
+	buf_detect_used(wan_address);
 	buf_free(wan_address);
 
 	if (0 != rc) {
@@ -592,13 +593,14 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 		return (NULL);
 	}
 
-	wan_address = buf_string(IP_STR_LEN);
+	wan_address = buf_string(IP_STR_LEN+1);
 	if (NULL == wan_address) {
 		FreeUPNPUrls(&upnp_urls);
 		DE("Can't allocate wan_address\n");
 		return (NULL);
 	}
 
+	buf_detect_used(wan_address);
 	BUF_DUMP(wan_address);
 
 	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);

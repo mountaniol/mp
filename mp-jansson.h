@@ -1,7 +1,8 @@
 #ifndef _SEC_SERVER_JANSSON_H_
 #define _SEC_SERVER_JANSSON_H_
 
-#include "buf_t.h"
+#include "mp-common.h"
+#include "buf_t/buf_t.h"
 
 /* Use it instead of json_int_t, to remove dependency of jansson.h */
 typedef long long int j_int_t;

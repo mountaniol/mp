@@ -1,7 +1,7 @@
 #ifndef MP_NET_UTILS_H
 #define MP_NET_UTILS_H
 
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-jansson.h"
 
 #define NET_REST(expected, received) (expected - received)

@@ -60,6 +60,9 @@ typedef struct control_struct {
 	void *buffers; /* Here we keep allocate buffers until they sent */
 	void *buf_missed; /* Here we keep buffer counters that we couldn't find on the first run */
 	char *rootdescurl; /* The router UPNP description, use it to speed up UPNP requests */
+	void *rsa_priv; /* RSA Private key */
+	void *rsa_pub; /* RSA public key */
+	void *x509; /* X509 certificate */
 } control_t;
 
 

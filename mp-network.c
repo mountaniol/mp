@@ -6,7 +6,7 @@
 #include <string.h>
 /*@=skipposixheaders@*/
 
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-memory.h"
@@ -40,6 +40,8 @@
 			break;
 		}
 
+		buf_detect_used(buft);
+
 		/* First string is a header, skip it */
 		if (0 == strncmp("Iface", buft->data, 5)) {
 			continue;
@@ -65,6 +67,7 @@
 			char   *ret = strndup(interface, len);
 			buf_clean(buft);
 			buf_set_data(buft, ret, len + 1, len);
+			buf_detect_used(buft);
 
 			//D("Found default WAN interface: %s\n", interface);
 			if (0 != fclose(fd)) {

@@ -17,6 +17,7 @@
 #include "mp-dict.h"
 #include "mp-ports.h"
 #include "mp-ssh.h"
+#include "buf_t/buf_t.h"
 
 err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 {

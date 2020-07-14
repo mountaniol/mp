@@ -26,4 +26,24 @@
  *
  */
 /*@null@*/buf_t *mp_security_system_footprint();
+
+/**
+ * @author Sebastian Mountaniol (14/07/2020)
+ * @func RSA* mp_security_generate_rsa_pem_RSA(const int kbits)
+ * @brief Generate RDA key of 'kbits' lengh
+ * @param const int kbits
+ * @return RSA*
+ * @details
+ */
+RSA *mp_security_generate_rsa_pem_RSA(const int kbits);
+
+/**
+ * @author Sebastian Mountaniol (14/07/2020)
+ * @func X509* mp_security_generate_x509(RSA *rsa)
+ * @brief Generate X509 certificate using RSA private key
+ * @param RSA * rsa
+ * @return X509*
+ * @details
+ */
+/*@null@*/X509 *mp_security_generate_x509(RSA *rsa);
 #endif /* MP_SECURITY_H */

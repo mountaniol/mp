@@ -15,7 +15,7 @@
 #include <jansson.h>
 
 #include "mp-common.h"
-#include "buf_t.h"
+#include "buf_t/buf_t.h"
 #include "mp-debug.h"
 #include "mp-jansson.h"
 #include "mp-memory.h"
