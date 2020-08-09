@@ -1,20 +1,12 @@
+/*@-skipposixheaders@*/
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <sys/prctl.h>
 #include <libssh2.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
-
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/select.h>
-
+/*@=skipposixheaders@*/
 #include "mp-debug.h"
-#include "mp-common.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
 
@@ -33,7 +25,7 @@
 //const char *local_listenip = "127.0.0.1";
 //unsigned int local_listenport = 2222;
 
-//const char *remote_desthost = "localhost"; /* resolved by the server */
+//const char *remote_desthost = "localhost"; resolved by the server */
 //unsigned int remote_destport = 2244;
 
 enum {
@@ -56,9 +48,9 @@ enum {
    const char *password - password, in out case just "", we use public key auth
    */
 int mp_ssh_direct_forward(const char *server_ip,
-						  unsigned int remote_destport,
+						  int remote_destport,
 						  const char *local_listenip,
-						  unsigned int local_listenport,
+						  int local_listenport,
 						  const char *pub_key_name,
 						  const char *priv_key_name,
 						  const char *username,
@@ -74,7 +66,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 	LIBSSH2_SESSION *session = NULL;
 	LIBSSH2_CHANNEL *channel = NULL;
 	const char *shost = NULL;
-	unsigned int sport = 0;
+	int sport = 0;
 	fd_set fds;
 	struct timeval tv;
 	ssize_t len = 0;
@@ -271,8 +263,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 				perror("read");
 				goto shutdown;
 			} else if (0 == len) {
-				DE("The client at %s:%d disconnected!\n", shost,
-				   sport);
+				DE("The client at %s:%d disconnected!\n", shost, sport);
 				goto shutdown;
 			}
 			wr = 0;
@@ -308,8 +299,7 @@ int mp_ssh_direct_forward(const char *server_ip,
 			}
 			if (libssh2_channel_eof(channel)) {
 
-				DE("The server at %s:%d disconnected!\n",
-				   remote_desthost, remote_destport);
+				DE("The server at %s:%d disconnected!\n", remote_desthost, remote_destport);
 				goto shutdown;
 			}
 		}
@@ -330,24 +320,37 @@ shutdown:
 	return (0);
 }
 
-void *ssh_thread(void *arg)
+/*@null@*/ void *ssh_tunnel_pthread(void *arg)
 {
-	json_t *root = arg;
+	j_t *root = arg;
 	int rc = EBAD;
 
-	char *local_listenip = "127.0.0.1";
-	char *server_ip = NULL;
-	char *remote_destport_src = NULL;
-	unsigned int remote_destport = 0;
-	char *local_listenport_str = NULL;
-	unsigned int local_listenport = 0;
-	char *pub_key_name = NULL;
-	char *priv_key_name = NULL;
-	char *username = NULL;
-	char *password = NULL;
+	const char *local_listenip = "127.0.0.1";
+	const char *server_ip = NULL;
+	const char *remote_destport_src = NULL;
+	int remote_destport = 0;
+	const char *local_listenport_str = NULL;
+	int local_listenport = 0;
+	const char *pub_key_name = NULL;
+	const char *priv_key_name = NULL;
+	const char *username = NULL;
+	const char *password = NULL;
 
 	TESTP(root, NULL);
 	DDD("root = %p\n", root);
+
+	rc = pthread_detach(pthread_self());
+	if (0 != rc) {
+		DE("Thread: can't detach myself\n");
+		perror("Thread: can't detach myself");
+		abort();
+	}
+
+	//rc = pthread_setname_np(pthread_self(), "ssh_thread");
+	rc = prctl(PR_SET_NAME, "ssh_thread");
+	if (0 != rc) {
+		DE("Can't set pthread name\n");
+	}
 
 	/* 
 	   Connect to remote host and create forwarding port on this machine.
@@ -362,7 +365,7 @@ void *ssh_thread(void *arg)
 	   const char *password - password, in out case just "", we use public key auth
 	   */
 
-	j_print(root, "In ssh_thread: arguments are: ");
+	//j_print(root, "In ssh_thread: arguments are: ");
 	server_ip = j_find_ref(root, JK_SSH_SERVER);
 	TESTP(server_ip, NULL);
 	remote_destport_src = j_find_ref(root, JK_SSH_DESTPORT);
@@ -393,13 +396,13 @@ void *ssh_thread(void *arg)
 	return (NULL);
 }
 
-int ssh_thread_start(json_t *root)
+int ssh_thread_start(/*@temp@*/j_t *root)
 {
 	pthread_t ssh_thread_id;
 	TESTP(root, EBAD);
 	DDD("root = %p\n", root);
-	j_print(root, "ssh_thread_start: params are: ");
+	//j_print(root, "ssh_thread_start: params are: ");
 
-	pthread_create(&ssh_thread_id, NULL, ssh_thread, root);
+	pthread_create(&ssh_thread_id, NULL, ssh_tunnel_pthread, root);
 	return (EOK);
 }

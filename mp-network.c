@@ -1,46 +1,54 @@
+/*@-skipposixheaders@*/
+#define _XOPEN_SOURCE500
+//#define _POSIX_C_SOURCE
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <string.h>
-#include "mp-common.h"
-#include "buf_t.h"
+/*@=skipposixheaders@*/
+
+#include "buf_t/buf_t.h"
 #include "mp-debug.h"
 #include "mp-ctl.h"
 #include "mp-memory.h"
-#include "mp-network.h"
 #include "mp-jansson.h"
 #include "mp-ports.h"
 #include "mp-dict.h"
 
-static char *mp_network_find_wan_interface(void)
+#define BUF_INTERFACE (1024)
+/*@null@*/ static buf_t *mp_network_find_wan_interface(void)
 {
-	FILE *fd = NULL;
-	char *buf = NULL;
-	char *rc = NULL;
-	char *ptr = NULL;
+	FILE  *fd   = NULL;
+	char  *rc   = NULL;
+	char  *ptr  = NULL;
+	buf_t *buft;
 
 	fd = fopen("/proc/net/route", "r");
 	TESTP_MES(fd, NULL, "Can't open /proc/net/route\n");
 
-	buf = zmalloc(1024);
-	TESTP_GO(buf, err);
+	buft = buf_string(BUF_INTERFACE);
+	TESTP_GO(buft, err);
+
+	BUF_DUMP(buft);
 
 	do {
 		char *interface = NULL;
-		char *dest = NULL;
+		char *dest      = NULL;
 
 		/* Read the next string from /proc/net/route*/
-		rc = fgets(buf, 1024, fd);
+		rc = fgets(buft->data, buf_room(buft), fd);
 		if (NULL == rc) {
 			break;
 		}
 
+		buf_detect_used(buft);
+
 		/* First string is a header, skip it */
-		if (0 == strncmp("Iface", buf, 5)) {
+		if (0 == strncmp("Iface", buft->data, 5)) {
 			continue;
 		}
 
 		/* Fields are separated by tabulation. The first field is the interface name */
-		interface = strtok_r(buf, "\t", &ptr);
+		interface = strtok_r(buft->data, "\t", &ptr);
 		if (NULL == interface) {
 			break;
 		}
@@ -55,11 +63,23 @@ static char *mp_network_find_wan_interface(void)
 
 		/* If the default route is all nulls this should be the WAN interface */
 		if (0 == strncmp(dest, "00000000", 8)) {
-			char *ret = strdup(interface);
+			size_t len  = strlen(interface);
+			char   *ret = strndup(interface, len);
+			buf_clean(buft);
+			buf_set_data(buft, ret, len + 1, len);
+			//buf_detect_used(buft);
+			//buft->used = len -1;
+
 			//D("Found default WAN interface: %s\n", interface);
-			free(buf);
-			fclose(fd);
-			return (ret);
+			if (0 != fclose(fd)) {
+				DE("Can't close file!");
+				perror("Can't close file");
+				abort();
+			}
+
+			BUF_DUMP(buft);
+			DD("Found wan interface: %s\n", buft->data);
+			return (buft);
 		}
 
 		/* Read lines until NULL */
@@ -67,27 +87,32 @@ static char *mp_network_find_wan_interface(void)
 
 	/* If we here it means nothing is found. Probably we don't have any inteface connected to WAN */
 err:
-	TFREE(buf);
-	if (fd) fclose(fd);
+	buf_free(buft);
+	if (fd) {
+		if (0 != fclose(fd)) {
+			DE("Can't close file!");
+			perror("Can't close file");
+			abort();
+		}
+	}
 	return (NULL);
 }
 
 /* Find interface connected to WAN and return its IP */
-static char *mp_network_get_internal_ip(void)
+/*@null@*/ static buf_t *mp_network_get_internal_ip(void)
 {
-	struct ifaddrs *ifaddr = NULL;
-	struct ifaddrs *ifa = NULL;
-	int s;
-	char host[NI_MAXHOST];
+	struct ifaddrs *ifaddr        = NULL;
+	struct ifaddrs *ifa           = NULL;
+	int            s;
+	char           host[NI_MAXHOST];
 
-	char *wan_interface = mp_network_find_wan_interface();
-
+	buf_t          *wan_interface = mp_network_find_wan_interface();
 	TESTP_MES(wan_interface, NULL, "No WAN connected inteface");
 
 	if (getifaddrs(&ifaddr) == -1) {
 		DE("Failed: getifaddrs\n");
 		perror("getifaddrs");
-		free(wan_interface);
+		buf_free(wan_interface);
 		return (NULL);
 	}
 
@@ -96,56 +121,67 @@ static char *mp_network_get_internal_ip(void)
 
 		s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
 
-		if ((0 == strcmp(ifa->ifa_name, wan_interface)) && (ifa->ifa_addr->sa_family == AF_INET)) {
-			char *ret;
+		if ((0 == strcmp(ifa->ifa_name, wan_interface->data)) && (ifa->ifa_addr->sa_family == AF_INET)) {
 			if (s != 0) {
 				printf("getnameinfo() failed: %s\n", gai_strerror(s));
-				free(wan_interface);
+				buf_free(wan_interface);
 				return (NULL);
 			}
 
 			DDD("Interface: %s\n", ifa->ifa_name);
 			DDD("Address: %s\n", host);
-			ret = strdup(host);
-			free(wan_interface);
 			freeifaddrs(ifaddr);
-			return (ret);
+			return (wan_interface);
 		}
 	}
 
-	free(wan_interface);
+	buf_free(wan_interface);
 	freeifaddrs(ifaddr);
 	return (NULL);
 }
 
 /* Probe network and write all values to global ctl structure */
-int mp_network_init_network_l()
+err_t mp_network_init_network_l()
 {
-	control_t *ctl = ctl_get_locked();
-	char *var;
+	/*@shared@*/control_t *ctl = ctl_get();
+	buf_t *bvar = NULL;
 
 	/* Try to read external IP from Upnp */
-	var = mp_ports_get_external_ip();
-
-	/* If can't read from Upnp assign it to 0.0.0.0 - means "can't use Upnp" */
-	if (NULL == var) {
-		DE("Can't get my IP\n");
-		var = strdup("0.0.0.0");
+	/* We don't even try if no router found */
+	if (NULL != ctl->rootdescurl) {
+		bvar = mp_ports_get_external_ip();
 	}
 
-	if (EOK != j_add_str(ctl->me, JK_IP_EXT, var)) DE("Can't add 'JK_IP_EXT'\n");
-	TFREE(var);
+	/* If can't read from Upnp assign it to 0.0.0.0 - means "can't use Upnp" */
+	if (NULL == bvar) {
+		DE("Can't get my IP\n");
+		bvar = buf_string(8);
+		TESTP(bvar, EBAD);
+		BUF_DUMP(bvar);
+		buf_add(bvar, "0.0.0.0", 7);
+		/* If we can't find out external address,
+		   it means we ca't communicate with the router
+		   and open ports. So, we neither target nor bridge */
+		j_add_str(ctl->me, JK_TARGET, JV_NO);
+		j_add_str(ctl->me, JK_BRIDGE, JV_NO);
+	}
+
+	ctl_lock();
+	if (EOK != j_add_str(ctl->me, JK_IP_EXT, bvar->data)) DE("Can't add 'JK_IP_EXT'\n");
+	ctl_unlock();
+	buf_free(bvar);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
 	if (EOK != j_add_str(ctl->me, JK_PORT_EXT, JV_NO_PORT)) DE("Can't add 'JK_PORT_EXT'\n");
 
-	var = mp_network_get_internal_ip();
-	TESTP(var, EBAD);
-	if (EOK != j_add_str(ctl->me, JK_IP_INT, var)) DE("Can't add 'JK_IP_INT'\n");
+	bvar = mp_network_get_internal_ip();
+	TESTP(bvar, EBAD);
+	ctl_lock();
+	if (EOK != j_add_str(ctl->me, JK_IP_INT, bvar->data)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
-	ctl_unlock(ctl);
-	TFREE(var);
-	return (0);
+	ctl_unlock();
+	buf_free(bvar); 
+	return (EOK);
 }
 
 #ifdef STANDALONE
@@ -153,7 +189,7 @@ int main()
 {
 	char *ip = mp_network_get_internal_ip();
 	D("Found IP of WAN interface: %s\n", ip);
-	TFREE(ip);
+	TFREE_STR(ip);
 	//linux_find_wan_interface();
 	return (0);
 }

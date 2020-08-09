@@ -1,3 +1,6 @@
 [submodule "libfort"]
 	path = libfort
 	url = git@github.com:seleznevae/libfort.git
+[submodule "buf_t"]
+	path = buf_t
+	url = git@github.com:mountaniol/buf_t.git

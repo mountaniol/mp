@@ -1,8 +1,38 @@
 #ifndef MP_OS_H
 #define MP_OS_H
 
-extern char *mp_os_get_hostname(void);
-extern char *mp_os_rand_string(size_t size);
+extern /*@null@*/ char *mp_os_get_hostname(void);
+extern /*@null@*/ char *mp_os_rand_string(size_t size);
 extern int mp_os_random_in_range(int lower, int upper);
-char *mp_os_generate_uid(const char *name);
+extern /*@null@*/ char *mp_os_generate_uid(const char *name);
+extern err_t mp_os_usleep(int milliseconds);
+
+/**
+ * @author Sebastian Mountaniol (09/06/2020)
+ * @func int mp_os_open(const char *file, int flags, mode_t mode)
+ * @brief Secure open regular file: test that it is not a link or whatever
+ *
+ * @param char   * file Filename
+ * @param int    flags Flags for open()
+ * @param mode_t mode Mode for open()
+ *
+ * @return int File descriptor on success, < 0 on an error 
+ * @details
+ *
+ */
+int mp_os_open(const char *file, int flags, mode_t mode);
+
+/**
+ * @author Sebastian Mountaniol (09/06/2020)
+ * @func FILE* mp_os_fopen(const char *file, const char *mode)
+ * @brief Secure open a regular file, and only regular file 
+ *
+ * @param char  * file Filename to open
+ * @param const char* mode Mode to pass to fopen()
+ *
+ * @return FILE* File descriptor pointer on success, NULL on failure
+ * @details
+ *
+ */
+FILE *mp_os_fopen(const char *file, const char *mode);
 #endif /* MP_OS_H */

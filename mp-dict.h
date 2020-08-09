@@ -11,7 +11,13 @@
 /*** Keys ***/
 
 /* Client UID */
-#define JK_UID "uid"
+//#define JK_UID "uid"
+/* My UID - used in ctl->me */
+#define JK_UID_ME "uid-me"
+/* Source UID - who sent this message */
+#define JK_UID_SRC "uid-src"
+/* Dest UID - who should receive this message */
+#define JK_UID_DST "uid-dst"
 /* Target UID: to whom this message dedicated*/
 #define JK_DEST "destination"
 /* Client user name, used to form topic name */
@@ -34,6 +40,9 @@
 #define JK_REASON "reason"
 /* JSON request / responce type. The key "type" is reserved for kansson internal usage */
 #define JK_TYPE "tp"
+
+/* Time value, used in tickets */
+#define JK_TIME "time-value"
 
 /*** Keys for SSH commands ***/
 #define JK_SSH_SERVER "ssh-remove-server"
@@ -72,6 +81,9 @@
 /* Ticket: how we define session between mp-shell and remote machine */
 #define JK_TICKET "ticket"
 
+#define JK_TOPIC "topic"
+#define JK_TAYLOAD "payload"
+
 /*** Values ***/
 
 #define JV_YES "1"
@@ -103,7 +115,7 @@
 #define JV_TYPE_ME "me"
 #define JV_TYPE_MY_PORTS "myports"
 #define JV_TYPE_CONNECT "connect"
-#define JV_TYPE_DISCONNECT "disconnect"
+#define JV_TYPE_DISCONNECTED "disconnected"
 #define JV_TYPE_REVEAL "reveal"
 #define JV_TYPE_SSH "ssh"
 #define JV_TYPE_SSH_DONE "ssh-done"
@@ -112,7 +124,9 @@
 #define JV_TYPE_OPENPORT "openport"
 #define JV_TYPE_CLOSEPORT "closeport"
 #define JV_TYPE_KEEPALIVE "keepelive"
-#define JV_TYPE_TICKET "ticket-type"
+/* Ask for tickets. Ticket ID is in JK_TICKET */
+#define JV_TYPE_TICKET_REQ  "ticket-type-req"
+#define JV_TYPE_TICKET_RESP "ticket-type-resp"
 
 /* These used between mp-shell and mp-cli */
 #define JV_COMMAND_LIST "list"	/* list remote hosts */

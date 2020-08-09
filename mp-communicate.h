@@ -1,9 +1,14 @@
 #ifndef MP_COMMUNICATE_H
 #define MP_COMMUNICATE_H
 
-extern int send_keepalive_l(struct mosquitto *mosq);
-extern int send_reveal_l(struct mosquitto *mosq);
-extern int send_request_to_open_port(struct mosquitto *mosq, json_t *root);
-extern int send_request_to_close_port(struct mosquitto *mosq, char *target_uid, char *port, char *protocol);
-
+extern err_t send_keepalive_l(void);
+extern err_t send_reveal_l(void);
+extern err_t mp_communicate_send_request(/*@temp@*/const j_t *root);
+extern /*@null@*/ buf_t *mp_communicate_forum_topic(void);
+extern /*@null@*/ buf_t *mp_communicate_forum_topic_all(void);
+extern /*@null@*/ buf_t *mp_communicate_private_topic(void);
+extern err_t mp_communicate_clean_missed_counters(void);
+extern /*@null@*/ buf_t *mp_communicate_get_buf_t_from_ctl_l(int counter);
+extern err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/j_t *root);
+extern err_t send_request_return_tickets_l(/*@temp@*/j_t *root);
 #endif /* MP_COMMUNICATE_H */

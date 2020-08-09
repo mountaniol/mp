@@ -57,7 +57,7 @@ uint32_t murmur3_32(const uint8_t *key, size_t len)
 }
 
 /* Allocate new hash table node */
-static hnode_t *hnode_alloc()
+/*@null@*/ static hnode_t *hnode_alloc()
 {
 	hnode_t *node = zmalloc(sizeof(hnode_t));
 	TESTP_MES(node, NULL, "Can't alloc");
@@ -65,7 +65,7 @@ static hnode_t *hnode_alloc()
 }
 
 /* Allocate new hash table */
-htable_t *htable_alloc(size_t size)
+/*@null@*/ htable_t *htable_alloc(size_t size)
 {
 	htable_t *ht;
 
@@ -83,7 +83,7 @@ htable_t *htable_alloc(size_t size)
 	ht->nodes = zmalloc(sizeof(hnode_t *) * size);
 	if (NULL == ht->nodes) {
 		DE("Can't allocate array of pointers\n");
-		free(ht);
+		TFREE(ht);
 		return (NULL);
 	}
 
@@ -96,8 +96,8 @@ int htable_free(htable_t *ht)
 {
 	TESTP_MES(ht, -1, "Got NULL");
 	/* TODO */
-	free(ht->nodes);
-	free(ht);
+	TFREE(ht->nodes);
+	TFREE(ht);
 	return (0);
 }
 
@@ -158,7 +158,7 @@ int htable_insert(htable_t *ht, char *key, void *data)
 }
 
 /* remove data for the given key; the data returned */
-void *htable_delete(htable_t *ht, char *key)
+/*@null@*/ void *htable_delete(htable_t *ht, char *key)
 {
 	hnode_t *node;
 	hnode_t *node_p;
@@ -197,14 +197,14 @@ void *htable_delete(htable_t *ht, char *key)
 	data = node->data;
 
 	if (NULL == ht->nodes[slot]->next) {
-		free(node->key);
-		free(node);
+		TFREE(node->key);
+		TFREE(node);
 		ht->nodes[slot] = NULL;
 	} else {
 		/* SEB: TODO: Fix here */
 		node_p->next = node->next;
-		free(node->key);
-		free(node);
+		TFREE(node->key);
+		TFREE(node);
 	}
 
 	ht->members--;
@@ -221,7 +221,7 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 #endif
 
 /* find data for the given key */
-void *htable_find(htable_t *ht, char *key)
+/*@null@*/ void *htable_find(htable_t *ht, char *key)
 {
 	hnode_t *node;
 	uint32_t hash;
@@ -263,7 +263,7 @@ int htable_test_key(htable_t *ht, char *key){
 #endif
 
 /* remove first found key from hash table */
-void *htable_first_key(htable_t *ht)
+/*@null@*/ void *htable_first_key(htable_t *ht)
 {
 	hnode_t *node;
 	size_t i;
@@ -323,7 +323,7 @@ int htable_unsort(htable_t *ht)
 {
 	TESTP_MES(ht, -1, "Got NULL");
 	TESTP_MES(ht->misc, -1, "misc is NULL");
-	free(ht->misc);
+	TFREE(ht->misc);
 	return (0);
 }
 
@@ -415,7 +415,7 @@ static int hrable_test_number(int table_size){
 			return (-1);
 		}
 		DE("Found entry for key %s : %s\n", key, (char *)found);
-		free(found);
+		TFREE(found);
 	}
 
 	htable_free(ht);

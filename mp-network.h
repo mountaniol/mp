@@ -9,6 +9,6 @@ typedef struct port_struct {
 	char *proto;
 } port_t;
 
-extern int mp_network_init_network_l(void);
+extern err_t mp_network_init_network_l(void);
 
 #endif /* _SEC_SERVER_NETWORK_H_ */
