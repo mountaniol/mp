@@ -25,7 +25,7 @@
 /* Construct config file directory full path */
 static buf_t *mp_config_get_config_dir(void)
 {
-	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // buf_string(4096);
+	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // buf_string(4096);
 	struct passwd *pw      = NULL;
 	const char    *homedir = NULL;
 
@@ -56,6 +56,51 @@ static buf_t *mp_config_get_config_name(void)
 	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, CONFIG_FILE_NAME));
 }
 
+/* Construct RSA private key file name */
+static buf_t *mp_config_get_rsa_priv_name(void)
+{
+	struct passwd *pw      = NULL;
+	const char    *homedir = NULL;
+
+	pw = getpwuid(getuid());
+	TESTP(pw, NULL);
+
+	homedir = pw->pw_dir;
+	TESTP(homedir, NULL);
+
+	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, RSA_PRIVATE_NAME));
+}
+
+/* Construct RSA public key file name */
+static buf_t *mp_config_get_rsa_pub_name(void)
+{
+	struct passwd *pw      = NULL;
+	const char    *homedir = NULL;
+
+	pw = getpwuid(getuid());
+	TESTP(pw, NULL);
+
+	homedir = pw->pw_dir;
+	TESTP(homedir, NULL);
+
+	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, RSA_PUBLIC_NAME));
+}
+
+/* Construct X509 certificate file name */
+static buf_t *mp_config_get_x509_name(void)
+{
+	struct passwd *pw      = NULL;
+	const char    *homedir = NULL;
+
+	pw = getpwuid(getuid());
+	TESTP(pw, NULL);
+
+	homedir = pw->pw_dir;
+	TESTP(homedir, NULL);
+
+	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, X509_CERT_NAME));
+}
+
 static err_t mp_config_dir_unlock()
 {
 	int   rc        = EBAD;
@@ -64,17 +109,12 @@ static err_t mp_config_dir_unlock()
 	DDD("conf dir  [%s] room [%d] used [%d]\n", conf_dir->data, conf_dir->room, conf_dir->used);
 	/* 1. Change config directory to Read Write mode */
 	rc = chmod(conf_dir->data, S_IRUSR | S_IWUSR | S_IXUSR);
+	buf_free(conf_dir);
 	if (0 != rc) {
 		DE("Can't change config dir permition\n");
-		goto err;
+		return (EBAD);
 	}
-
 	return (EOK);
-
-err:
-	buf_free(conf_dir);
-	return (EBAD);
-
 }
 
 static err_t mp_config_dir_lock(void)
@@ -98,48 +138,36 @@ err:
 }
 
 /* Change permition of config file and dir to READ / WRITE  */
-static err_t mp_config_file_unlock()
+static err_t mp_config_file_unlock(buf_t *file)
 {
-	int   rc         = -1;
-	buf_t *conf_file = mp_config_get_config_name();
-
-	TESTP_MES(conf_file, EBAD, "Can't construct config file name");
-
-	DDD("conf file [%s] room [%d] used [%d]\n", conf_file->data, conf_file->room, conf_file->used);
+	int rc = -1;
+	TESTP(file, EBAD);
 
 	rc = mp_config_dir_unlock();
 	if (EOK != rc) {
 		DE("Can't unlock config dir\n");
-		goto err;
+		return (EBAD);
 	}
 
 	/* 2. Change config file to Read Write mode */
-	rc = chmod(conf_file->data, S_IRUSR | S_IWUSR);
+	rc = chmod(file->data, S_IRUSR | S_IWUSR);
 	if (0 != rc) {
-		DE("Can't change config file [%s] permition\n", conf_file->data);
+		DE("Can't change config file [%s] permition\n", file->data);
 		goto err;
 	}
-	buf_free(conf_file);
 	return (EOK);
 err:
-	rc = chmod(conf_file->data, S_IRUSR);
-	if (0 != rc) {
-		DE("Error on changing config file permition to RO\n");
-	}
-
-	buf_free(conf_file);
 	mp_config_dir_lock();
 	return (EBAD);
 }
 
 /* Change permition of config file and dir to READ only  */
-static err_t mp_config_file_lock(void)
+static err_t mp_config_file_lock(buf_t *file)
 {
-	int   ret        = EBAD;
-	int   rc         = -1;
-	buf_t *conf_file = mp_config_get_config_name();
+	int ret = EBAD;
+	int rc  = -1;
 
-	TESTP_MES(conf_file, EBAD, "Can't construct config file name");
+	TESTP(file, EBAD);
 
 	rc = mp_config_dir_unlock();
 	if (EOK != rc) {
@@ -148,7 +176,7 @@ static err_t mp_config_file_lock(void)
 	}
 
 	/* Change config file to "Owner only Read" mode */
-	rc = chmod(conf_file->data, S_IRUSR);
+	rc = chmod(file->data, S_IRUSR);
 	if (0 != rc) {
 		DE("Can't change config file permition\n");
 		perror("chmod err:");
@@ -157,7 +185,6 @@ static err_t mp_config_file_lock(void)
 
 	ret = mp_config_dir_lock();
 err:
-	buf_free(conf_file);
 	return (ret);
 }
 
@@ -172,14 +199,14 @@ static json_t *mp_config_read(void)
 	size_t      buf_len;
 	int         rc        = EBAD;
 
-	rc = mp_config_file_unlock();
+	filename = mp_config_get_config_name();
+	TESTP_MES(filename, NULL, "Can't create config file name");
+
+	rc = mp_config_file_unlock(filename);
 	if (EOK != rc) {
 		DE("Can't unlock config file\n");
 		return (NULL);
 	}
-
-	filename = mp_config_get_config_name();
-	TESTP_MES(filename, NULL, "Can't create config file name");
 
 	if (0 != stat(filename->data, &statbuf)) {
 		DE("Can't stat config file: %s\n", filename->data);
@@ -229,7 +256,7 @@ err:
 	}
 
 	/* Lock config file and dir */
-	rc = mp_config_file_lock();
+	rc = mp_config_file_lock(filename);
 	if (EOK != rc) {
 		DE("Can't unlock config file\n");
 	}
@@ -244,22 +271,23 @@ static err_t mp_config_write(j_t *j_config)
 	int   rc    = -1;
 	int   fd    = -1;
 	buf_t *conf = NULL;
+	buf_t *file;
 
+	/* Transform from JSON to text form */
+	conf = j_buf2j(j_config);
+	TESTP_MES(conf, EBAD, "Can't transform config from JSON to buf_t");
 
-	rc = mp_config_file_unlock();
+	file = mp_config_get_config_name();
+	TESTP(file, EBAD);
+
+	rc = mp_config_file_unlock(file);
 	if (EOK != rc) {
 		DE("Can't unlock config file\n");
 		return (EBAD);
 	}
 
-	/* Transform from JSON to text form */
-	conf = j_buf2j(j_config);
-
-	/* TODO: encrypt */
-
-	TESTP_MES(conf, EBAD, "Can't transform config from JSON to buf_t");
-	/* Open condif file */
-	fd = open(conf->data, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	/* Open config file */
+	fd = open(file->data, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		DE("Can't open config file\n");
 		goto err;
@@ -276,12 +304,13 @@ err:
 		close(fd);
 	}
 
-	rc = mp_config_file_lock();
+	rc = mp_config_file_lock(file);
 	if (EOK != rc) {
 		DE("Can't lock config file / dir\n");
 	}
 
 	buf_free(conf);
+	buf_free(file);
 	return (ret);
 }
 
@@ -353,7 +382,7 @@ err_t mp_config_save()
 	}
 	fd = NULL;
 
-	if (written != buf_used(buf)) {
+	if (written != (size_t)buf_used(buf)) {
 		rc = EBAD;
 		goto err;
 	}
@@ -457,242 +486,28 @@ err_t mp_config_set(const char *key, const char *val)
 // https://www.openssl.org/docs/man1.1.1/man3/PEM_write_bio_RSAPrivateKey.html
 // https://stackoverflow.com/questions/5927164/how-to-generate-rsa-private-key-using-openssl
 
-#if 0
-	#include <memory>
-using std::unique_ptr;
-
-	#include <openssl/bn.h>
-	#include <openssl/rsa.h>
-	#include <openssl/pem.h>
-	#include <openssl/bio.h>
-	#include <openssl/x509.h>
-
-	#include <cassert>
-	#define ASSERT assert
-
-using BN_ptr = std::unique_ptr<BIGNUM, decltype(&::BN_free)>;
-using RSA_ptr = std::unique_ptr<RSA, decltype(&::RSA_free)>;
-using EVP_KEY_ptr = std::unique_ptr<EVP_PKEY, decltype(&::EVP_PKEY_free)>;
-using BIO_FILE_ptr = std::unique_ptr<BIO, decltype(&::BIO_free)>;
-
-int main(int argc, char* argv[]){
-	int rc;
-
-	RSA_ptr rsa(RSA_new(), ::RSA_free);
-	BN_ptr bn(BN_new(), ::BN_free);
-
-	BIO_FILE_ptr pem1(BIO_new_file("rsa-public-1.pem", "w"), ::BIO_free);
-	BIO_FILE_ptr pem2(BIO_new_file("rsa-public-2.pem", "w"), ::BIO_free);
-	BIO_FILE_ptr pem3(BIO_new_file("rsa-private-1.pem", "w"), ::BIO_free);
-	BIO_FILE_ptr pem4(BIO_new_file("rsa-private-2.pem", "w"), ::BIO_free);
-	BIO_FILE_ptr pem5(BIO_new_file("rsa-private-3.pem", "w"), ::BIO_free);
-	BIO_FILE_ptr der1(BIO_new_file("rsa-public.der", "w"), ::BIO_free);
-	BIO_FILE_ptr der2(BIO_new_file("rsa-private.der", "w"), ::BIO_free);
-
-	rc = BN_set_word(bn.get(), RSA_F4);
-	ASSERT(rc == 1);
-
-	// Generate key
-	rc = RSA_generate_key_ex(rsa.get(), 2048, bn.get(), NULL);
-	ASSERT(rc == 1);
-
-	// Convert RSA to PKEY
-	EVP_KEY_ptr pkey(EVP_PKEY_new(), ::EVP_PKEY_free);
-	rc = EVP_PKEY_set1_RSA(pkey.get(), rsa.get());
-	ASSERT(rc == 1);
-
-	//////////
-
-	// Write public key in ASN.1/DER
-	rc = i2d_RSAPublicKey_bio(der1.get(), rsa.get());
-	ASSERT(rc == 1);
-
-	// Write public key in PKCS PEM
-	rc = PEM_write_bio_RSAPublicKey(pem1.get(), rsa.get());
-	ASSERT(rc == 1);
-
-	// Write public key in Traditional PEM
-	rc = PEM_write_bio_PUBKEY(pem2.get(), pkey.get());
-	ASSERT(rc == 1);
-
-	//////////
-
-	// Write private key in ASN.1/DER
-	rc = i2d_RSAPrivateKey_bio(der2.get(), rsa.get());
-	ASSERT(rc == 1);
-
-	// Write private key in PKCS PEM.
-	rc = PEM_write_bio_PrivateKey(pem3.get(), pkey.get(), NULL, NULL, 0, NULL, NULL);
-	ASSERT(rc == 1);
-
-	// Write private key in PKCS PEM
-	rc = PEM_write_bio_PKCS8PrivateKey(pem4.get(), pkey.get(), NULL, NULL, 0, NULL, NULL);
-	ASSERT(rc == 1);
-
-	// Write private key in Traditional PEM
-	rc = PEM_write_bio_RSAPrivateKey(pem5.get(), rsa.get(), NULL, NULL, 0, NULL, NULL);
-	ASSERT(rc == 1);
-
-	return 0;
-}
-#endif //0
-
-
-#if 0
-/* Save generated RSA key, encrypt it with pass */
-err_t mp_config_save_rsa_keys(RSA *rsa, buf_t *pass){
-	BIO *bio = NULL;
-	buf_t *priv_file = NULL;
-	buf_t *pub_file = NULL;
-	EVP_PKEY *evp;
-	int rc;
-
-	/* Private key file name */
-	priv_file = buf_sprintf("%s/%s", CONFIG_FILE_NAME, RSA_PRIVATE_NAME);
-	TESTP(priv_file, EBAD);
-
-	/* Public key file name */
-	pub_file = buf_sprintf("%s/%s", CONFIG_FILE_NAME, RSA_PUBLIC_NAME);
-	TESTP(pub_file, EBAD);
-
-	/* The C-string PEM form: */
-	//bio = BIO_new(BIO_s_mem());
-	bio = BIO_new_file(priv_file->data, "w");
-	TESTP(bio, EBAD);
-
-	evp = EVP_PKEY_new();
-	TESTP(evp, EBAD);
-
-	rc = EVP_PKEY_set1_RSA(RSA, rsa.get());
-
-
-	//EvpBox evp(keypair);
-	int ret = PEM_write_bio_PKCS8PrivateKey(bio.Bio(), evp.Key(),
-											EVP_aes_256_cbc(),
-											LoseStringConst(passphrase),
-											passphrase.size(), NULL, NULL);
-
-	if (!PEM_write_bio_PKCS8PrivateKey(bio, rsa, EVP_des_ede3_cbc(), NULL, 0, 0, pass->data)) {
-		/* Error */
-	}
-}
-#endif
-
-
-
-#if 0
-int mp_config_save_rsa_keys_2(RSA *rsa){
-	err_t ret = EBAD;
-	BIO *bio = NULL;
-	int rc = -1;
-	EVP_CIPHER *enc = NULL;
-	buf_t *file = NULL;
-	buf_t *buf_config_dir = NULL;
-
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-
-	TESTP(rsa, EBAD);
-
-	/* Part 1: write private key */
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PRIVATE_NAME);
-	TESTP(file, EBAD);
-
-	bio = BIO_new_file(file->data, "w");
-	TESTP(bio, EBAD);
-
-	/* Todo: password the key */
-	rc = PEM_write_bio_RSAPrivateKey(bio, rsa, enc, NULL, 0, NULL, NULL);
-	if (0 == rc) {
-		DE("Can't write private key\n");
-		goto err;
-	}
-
-	/* Flush the BIO to make sure it's all written. */
-	(void)BIO_flush(bio);
-
-	BIO_free_all(bio);
-	bio = NULL;
-
-	buf_free(file);
-
-	/* Part 2: save public key */
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PUBLIC_NAME);
-	TESTP(file, EBAD);
-
-	bio = BIO_new_file(file->data, "w");
-	TESTP(bio, EBAD);
-
-	//rc = PEM_write_bio_RSA_PUBKEY(bio, rsa);
-	rc = PEM_write_bio_RSAPublicKey(bio, rsa);
-
-	if (0 == rc) {
-		DE("Can't write public key");
-		goto err;
-	}
-
-	(void)BIO_flush(bio);
-
-	ret = EOK;
-
-	err:
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config dir\n");
-	}
-
-	buf_free(file);
-	buf_free(buf_config_dir);
-
-	if (bio) {
-		BIO_free_all(bio);
-	}
-
-	return (ret);
-}
-#endif
-
 int mp_config_save_rsa_keys(RSA *rsa)
 {
-	err_t      ret             = EBAD;
-	int        rc              = -1;
-	EVP_CIPHER *enc            = NULL;
-	buf_t      *file           = NULL;
-	buf_t      *buf_config_dir = NULL;
-	FILE       *fp             = NULL;
-
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-
-	TESTP(rsa, EBAD);
+	err_t      ret   = EBAD;
+	int        rc    = -1;
+	EVP_CIPHER *enc  = NULL;
+	buf_t      *file = NULL;
+	FILE       *fp   = NULL;
 
 	/* Part 1: write private key */
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PRIVATE_NAME);
+	file = mp_config_get_rsa_priv_name();
 	TESTP(file, EBAD);
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
+
 
 	fp = fopen(file->data, "wb");
 	TESTP(fp, EBAD);
-
 
 	/* Todo: password the key */
 	rc = PEM_write_RSAPrivateKey(fp, rsa, enc, NULL, 0, NULL, NULL);
 
 	fflush(fp);
-	fflush(fp);
-	fflush(fp);
-
 	fclose(fp);
 
 	if (0 == rc) {
@@ -700,20 +515,23 @@ int mp_config_save_rsa_keys(RSA *rsa)
 		goto err;
 	}
 
+	rc = mp_config_file_lock(file);
+	TESTI_GO(rc, err);
 	buf_free(file);
 
 	/* Part 2: save public key */
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PUBLIC_NAME);
+	file = mp_config_get_rsa_pub_name();
 	TESTP(file, EBAD);
 
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
+	
 	fp = fopen(file->data, "wb");
 	TESTP(fp, EBAD);
 
 	rc = PEM_write_RSAPublicKey(fp, rsa);
-	fflush(fp);
-	fflush(fp);
-	fflush(fp);
 
+	fflush(fp);
 	fclose(fp);
 
 	if (0 == rc) {
@@ -721,44 +539,28 @@ int mp_config_save_rsa_keys(RSA *rsa)
 		goto err;
 	}
 
+	rc = mp_config_file_lock(file);
+	TESTI_GO(rc, err);
+
 	ret = EOK;
 
 err:
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config dir\n");
-	}
-
 	buf_free(file);
-	buf_free(buf_config_dir);
-
 	return (ret);
 }
 
 err_t mp_config_save_rsa_x509(X509 *x509)
 {
-	err_t ret             = EBAD;
-	int   rc              = EBAD;
-	FILE  *fd             = NULL;
-	buf_t *file           = NULL;
-	buf_t *buf_config_dir = NULL;
+	err_t ret   = EBAD;
+	int   rc    = EBAD;
+	FILE  *fd   = NULL;
+	buf_t *file = NULL;
 
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-
-	TESTP(buf_config_dir, EBAD);
-
-	/* Construct file name */
-	file = buf_sprintf("%s/%s", buf_config_dir->data, X509_CERT_NAME);
-	buf_free(buf_config_dir);
-	buf_config_dir = NULL;
-
+	file = mp_config_get_x509_name();
 	TESTP(file, EBAD);
+
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
 
 	/* Open file for writing */
 	fd = fopen(file->data, "wb");
@@ -775,47 +577,26 @@ err_t mp_config_save_rsa_x509(X509 *x509)
 	}
 
 	fflush(fd);
-	fflush(fd);
-	fflush(fd);
-
 	ret = EOK;
 
 err:
+	rc = mp_config_file_lock(file);
 	buf_free(file);
-
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config directory\n");
-	}
-
 	return (ret);
 }
 
-
 X509 *mp_config_load_X509()
 {
-	int   rc              = EBAD;
-	buf_t *file           = NULL;
-	buf_t *buf_config_dir = NULL;
-	X509  *x509           = NULL;
-	FILE  *fp             = NULL;
+	int   rc    = EBAD;
+	buf_t *file = NULL;
+	X509  *x509 = NULL;
+	FILE  *fp   = NULL;
 
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-
-	TESTP_GO(buf_config_dir, err);
-
-	/* Construct file name */
-	file = buf_sprintf("%s/%s", buf_config_dir->data, X509_CERT_NAME);
-	buf_free(buf_config_dir);
-	buf_config_dir = NULL;
-
+	file = mp_config_get_x509_name();
 	TESTP_GO(file, err);
+
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
 
 	fp = fopen(file->data, "r");
 	TESTP_GO(fp, err);
@@ -824,90 +605,24 @@ X509 *mp_config_load_X509()
 	fclose(fp);
 
 err:
+	rc = mp_config_file_lock(file);
 	buf_free(file);
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config dir\n");
-	}
-
 	return (x509);
 }
-
-#if 0
-/* Load private key from pem file, decrypt the key with password pass */
-RSA *mp_config_load_rsa_pub(){
-	int rc = EBAD;
-	BIO *bio = NULL;
-	EVP_PKEY *pkey = NULL;
-	RSA *rsa = NULL;
-	buf_t *buf_config_dir = NULL;
-	buf_t *file = NULL;
-
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-	TESTP_GO(buf_config_dir, err);
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PUBLIC_NAME);
-
-	buf_free(buf_config_dir);
-	buf_config_dir = NULL;
-
-	TESTP_GO(file, err);
-
-	bio = BIO_new_file(file->data, "r");
-	TESTP_GO(bio, err);
-
-	pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
-	TESTP_GO(pkey, err);
-
-	rsa = EVP_PKEY_get1_RSA(pkey);
-	if (rsa) RSA_up_ref(rsa);
-	EVP_PKEY_free(pkey);
-
-	err:
-	buf_free(file);
-	if (bio) {
-		BIO_free_all(bio);
-	}
-
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config directory\n");
-	}
-
-	return (rsa);
-}
-#endif
 
 /* Load public key from pem file */
 RSA *mp_config_load_rsa_pub()
 {
-	int   rc              = EBAD;
-	RSA   *rsa            = NULL;
-	buf_t *buf_config_dir = NULL;
-	buf_t *file           = NULL;
-	FILE  *fp             = NULL;
+	int   rc    = EBAD;
+	RSA   *rsa  = NULL;
+	buf_t *file = NULL;
+	FILE  *fp   = NULL;
 
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-	TESTP_GO(buf_config_dir, err);
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PUBLIC_NAME);
-
-	buf_free(buf_config_dir);
-	buf_config_dir = NULL;
-
+	file = mp_config_get_rsa_pub_name();
 	TESTP_GO(file, err);
+
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
 
 	fp = fopen(file->data, "rb");
 	TESTP_GO(fp, err);
@@ -923,13 +638,8 @@ RSA *mp_config_load_rsa_pub()
 	}
 
 err:
+	rc = mp_config_file_lock(file);
 	buf_free(file);
-
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config directory\n");
-	}
-
 	return (rsa);
 }
 
@@ -937,8 +647,7 @@ err:
 err_t mp_config_probe_rsa_priv()
 {
 	int         rc;
-	buf_t       *buf_config_dir = NULL;
-	buf_t       *file           = NULL;
+	buf_t       *file = NULL;
 
 	struct stat st;
 
@@ -948,14 +657,10 @@ err_t mp_config_probe_rsa_priv()
 		return (EBAD);
 	}
 
-	buf_config_dir = mp_config_get_config_dir();
-	TESTP(buf_config_dir, EBAD);
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PRIVATE_NAME);
-	TESTP(file, EBAD); 
+	file = mp_config_get_rsa_priv_name();
+	TESTP(file, EBAD);
 
 	stat(file->data, &st);
-	buf_free(buf_config_dir);
 	buf_free(file);
 
 	rc = mp_config_dir_lock();
@@ -974,8 +679,7 @@ err_t mp_config_probe_rsa_priv()
 err_t mp_config_probe_x509()
 {
 	int         rc;
-	buf_t       *buf_config_dir = NULL;
-	buf_t       *file           = NULL;
+	buf_t       *file = NULL;
 
 	struct stat st;
 
@@ -985,14 +689,10 @@ err_t mp_config_probe_x509()
 		return (EBAD);
 	}
 
-	buf_config_dir = mp_config_get_config_dir();
-	TESTP(buf_config_dir, EBAD);
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, X509_CERT_NAME);
-	TESTP(file, EBAD); 
+	file = mp_config_get_x509_name();
+	TESTP(file, EBAD);
 
 	stat(file->data, &st);
-	buf_free(buf_config_dir);
 	buf_free(file);
 
 	rc = mp_config_dir_lock();
@@ -1003,45 +703,29 @@ err_t mp_config_probe_x509()
 	if (S_IFREG == (st.st_mode & S_IFMT)) {
 		return (EOK);
 	}
-
 	return (EBAD);
-
 }
-
 
 /* Load public key from pem file */
 RSA *mp_config_load_rsa_priv()
 {
-	int   rc              = EBAD;
-	RSA   *rsa            = NULL;
-	buf_t *buf_config_dir = NULL;
-	buf_t *file           = NULL;
-	FILE  *fp             = NULL;
+	int   rc    = EBAD;
+	RSA   *rsa  = NULL;
+	buf_t *file = NULL;
+	FILE  *fp   = NULL;
 
-	rc = mp_config_dir_unlock();
-	if (EOK != rc) {
-		DE("Can't unlock config dir\n");
-		goto err;
-	}
-
-	buf_config_dir = mp_config_get_config_dir();
-	TESTP_GO(buf_config_dir, err);
-
-	file = buf_sprintf("%s/%s", buf_config_dir->data, RSA_PRIVATE_NAME);
-
-	buf_free(buf_config_dir);
-	buf_config_dir = NULL;
-
+	file = mp_config_get_rsa_priv_name();
 	TESTP_GO(file, err);
+
+	rc = mp_config_file_unlock(file);
+	TESTI_GO(rc, err);
 
 	fp = fopen(file->data, "rb");
 	if (NULL == fp) {
 		DE("Can't open file %s\n", file->data);
 		perror("Can't open:");
 		goto err;
-		//abort();
 	}
-	//TESTP_GO(fp, err);
 
 	rsa = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
 	fclose(fp);
@@ -1054,12 +738,7 @@ RSA *mp_config_load_rsa_priv()
 	}
 
 err:
+	rc = mp_config_file_lock(file);
 	buf_free(file);
-
-	rc = mp_config_dir_lock();
-	if (EOK != rc) {
-		DE("Can't lock config directory\n");
-	}
-
 	return (rsa);
 }

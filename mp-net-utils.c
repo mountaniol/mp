@@ -42,6 +42,8 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 		received += rc;
 	} while (received < BUF_T_STRUCT_NET_SIZE);
 
+	buf->data = NULL;
+
 	/* Now we have buf_t structure. We expect to receive its buf->used data */
 	rc = buf_add_room(buf, buf_used(buf) + 1);
 	if (EOK != rc) {
@@ -64,7 +66,7 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 			return (NULL);
 		}
 		received += rc;
-	} while (received < buf_used(buf));
+	} while (received < (size_t) buf_used(buf));
 
 	rc = buf_pack(buf);
 	if (EOK != rc) {
@@ -112,7 +114,7 @@ err_t mp_net_utils_send_buf_t(int con, buf_t *buf)
 	}
 
 	/* Nown send the data */
-	DD("Going to send buffer data: con = %d, buf->data = %p, buf->len = %u\n", con, buf->data, buf_used(buf));
+	DD("Going to send buffer data: con = %d, buf->data = %p, buf->len = %zu\n", con, buf->data, buf_used(buf));
 	rc = send(con, buf->data, buf_used(buf), 0);
 	DD("Sent: %d\n", rc);
 	if (rc < 0) {
@@ -122,7 +124,7 @@ err_t mp_net_utils_send_buf_t(int con, buf_t *buf)
 	}
 
 	if ((uint32_t) rc != buf_used(buf)) {
-		DE("Wrong number of bytes sent: expected %u but sent %d\n", buf_used(buf), rc);
+		DE("Wrong number of bytes sent: expected %zu but sent %d\n", buf_used(buf), rc);
 		perror("send() failed");
 		return (EBAD);
 	}

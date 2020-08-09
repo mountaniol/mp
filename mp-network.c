@@ -67,7 +67,8 @@
 			char   *ret = strndup(interface, len);
 			buf_clean(buft);
 			buf_set_data(buft, ret, len + 1, len);
-			buf_detect_used(buft);
+			//buf_detect_used(buft);
+			//buft->used = len -1;
 
 			//D("Found default WAN interface: %s\n", interface);
 			if (0 != fclose(fd)) {
@@ -76,6 +77,8 @@
 				abort();
 			}
 
+			BUF_DUMP(buft);
+			DD("Found wan interface: %s\n", buft->data);
 			return (buft);
 		}
 

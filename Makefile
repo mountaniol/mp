@@ -1,6 +1,7 @@
-#GCC=gcc
-GCC=clang-10
+GCC=gcc
+#GCC=clang-10
 CFLAGS=-Wall -Wextra -rdynamic -O2
+#CFLAGS=-Wall -Wextra -O2
 #DEBUG=-DDEBUG3
 DEBUG=-DDEBUG2
 DEBUG += -DDERROR3
@@ -73,7 +74,7 @@ eth: buft
 #	/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 
 tunnel: buft
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lpam
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto #-lpam
 
 btest: buft
 	$(GCC) $(CFLAGS) -ggdb -DSTANDALONE $(DEBUG) mp-memory.c $(BUFT_A) -o buf_t_test.out

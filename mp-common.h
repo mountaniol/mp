@@ -50,7 +50,7 @@ typedef enum {
 
 #define TFREE(x) do { if(NULL != x) {free(x); x = NULL;} else {DE(">>>>>>>> Tried to free() NULL: %s\n", #x);} }while(0)
 /* Secure version of free: memset emory to 0 before it freed */
-#define TFREE_SIZE(x,sz) do { if(NULL != x) {memset(x,0,sz);free(x); x = NULL;} else {DE(">>>>>>>> Tried to free_size() NULL: %s\n", #x);} }while(0)
+#define TFREE_SIZE(x,sz) do { if(NULL != x) {memset(x,0,sz);free(x); x = NULL;} else {DE(">>>>>>>> Tried to free_size() NULL: %s (%s +%d)\n", #x, __func__, __LINE__);} }while(0)
 /* Secure version of string free: set string memory to 0 before release it */
 #define TFREE_STR(x) do { if(NULL != x) {memset(x,0,strlen(x));free(x); x = NULL;} else {DE(">>>>>>>> Tried to free_size() NULL: %s\n", #x);} }while(0)
 													   

@@ -7,7 +7,8 @@
 #define MP_LIMIT_UID_MAX (MP_LIMIT_USER_MAX + 12)
 
 /* Max buffer size for tcp channel */
-#define MP_LIMIT_TUNNEL_BUF_SIZE (4096*128)
+#define MP_LIMIT_TUNNEL_BUF_SIZE_MAX (4096*128)
+#define MP_LIMIT_TUNNEL_BUF_SIZE_MIN (16)
 
 /* Maximal topic string length */
 #define TOPIC_MAX_LEN 1024

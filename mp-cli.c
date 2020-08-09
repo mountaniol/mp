@@ -72,7 +72,6 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (EOK);
 }
 
-
 /* Get this machine info */
 /*@null@*/ static j_t *mp_cli_dup_self_info_l()
 {
@@ -440,7 +439,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 		/* Now let's parse the command and receive from the parser an answer */
 		root_resp = mp_cli_parse_command(root);
 
-		/* That's it, we don't need request object anymore */
+		/* That's it, we don't need the request object anymore */
 		j_rm(root);
 		TESTP(root_resp, NULL);
 

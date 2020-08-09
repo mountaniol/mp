@@ -63,6 +63,7 @@ typedef struct control_struct {
 	void *rsa_priv; /* RSA Private key */
 	void *rsa_pub; /* RSA public key */
 	void *x509; /* X509 certificate */
+	void *ctx;	/* SSL context object */
 } control_t;
 
 

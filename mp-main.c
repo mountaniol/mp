@@ -1060,6 +1060,12 @@ static err_t mp_main_init_security()
 		}
 	}
 
+	ctl->ctx = mp_security_init_server_tls_ctx();
+	if (NULL == ctl->ctx) {
+		DE("Can't create OpelSSL CTX object\n");
+		return (EBAD);
+	}
+	
 	return (EOK);
 }
 

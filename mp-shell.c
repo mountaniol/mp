@@ -679,6 +679,7 @@ static err_t mp_shell_get_remote_ports()
 
 	return (EOK);
 }
+
 static void mp_shell_usage(char *name)
 {
 	int rc;
