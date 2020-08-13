@@ -303,7 +303,6 @@ shutdown:
 
 int main()
 {
-
 	start_ssh_forward_thread(NULL);
 	return (0);
 }

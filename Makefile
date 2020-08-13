@@ -1,6 +1,8 @@
-GCC=gcc
-#GCC=clang-10
-CFLAGS=-Wall -Wextra -rdynamic -O2
+#GCC=gcc
+#CFLAGS=-Wall -Wextra -rdynamic -O2
+
+GCC=clang-10
+CFLAGS=-Wall -Wextra -O2 -ggdb
 #CFLAGS=-Wall -Wextra -O2
 #DEBUG=-DDEBUG3
 DEBUG=-DDEBUG2
