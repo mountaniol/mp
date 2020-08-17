@@ -191,7 +191,7 @@ typedef struct tunnel_struct {
 	size_t cnt_session_write_total[TUN_MAX]; /* How many bytes passed to left fd after last buffer resize */
 	size_t num_session_writes[TUN_MAX];      /* How many write operation done after last buffer resize */
 	size_t all_cnt_session_max_hits[TUN_MAX];      /* How many times the max size buf_r2l used after last buffer resize */
-} tunnel_t;
+} tun_t;
 
 /*** API */
 
@@ -203,7 +203,7 @@ typedef struct tunnel_struct {
  * @return tunnel_t* Allocated and inited tunnel struct on success, NULL on error
  * @details
  */
-tunnel_t *mp_tunnel_tunnel_t_alloc(void);
+tun_t *mp_tun_t_alloc(void);
 
 /* Allocate new tunnel structure, init semaphone */
 /**
@@ -217,7 +217,7 @@ tunnel_t *mp_tunnel_tunnel_t_alloc(void);
  * allocated the structure manually you should init it
  * with this function
  */
-int mp_tunnel_tunnel_t_init(tunnel_t *tunnel);
+int mp_tun_t_init(tun_t *tunnel);
 /*
  * Close both descriptors, destroy semaphone, free memory
  * Attention: if there is no 'close' operation defined, the file descriptor must be closed and be < 0,
@@ -234,7 +234,7 @@ int mp_tunnel_tunnel_t_init(tunnel_t *tunnel);
  * defined, the file descriptor must be closed and be < 0,
  * else this function makes nothing and returns an error.
  */
-void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel);
+void mp_tun_t_destroy(tun_t *tunnel);
 
 #if 0
 /**
@@ -269,7 +269,7 @@ int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags);
  * @return uint32_t Flags
  * @details The error is possible if pointer of the tunnel struct is NULL
  */
-uint32_t mp_tun_get_flags_left(tunnel_t *t);
+uint32_t mp_tun_get_flags_left(tun_t *t);
 
 #if 0
 /**
@@ -293,10 +293,10 @@ uint32_t mp_tun_get_flags_right(tunnel_t *t);
  * @return err_t EOK on success, < 0 on error
  * @details
  */
-int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa);
+int mp_tun_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa);
 
 /* This function starts */
-void *mp_tunnel_tty_server_start_thread(void *v);
+void *mp_tun_tty_server_start_thread(void *v);
 
 typedef struct conn2_struct {
 	conn_t conn_in;
