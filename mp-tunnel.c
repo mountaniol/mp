@@ -182,7 +182,7 @@ int mp_tunnel_tunnel_t_init(tunnel_t *tunnel)
 	tunnel->right_fd = -1;
 	tunnel->left_fd = -1;
 
-	return (sem_init(&tunnel->right_buf_lock, 0, 1) + sem_init(&tunnel->left_buf_lock, 0, 1));
+	return (sem_init(&tunnel->buf_lock[TUN_RIGHT], 0, 1) + sem_init(&tunnel->buf_lock[TUN_LEFT], 0, 1));
 }
 
 /* Alloc and init the tunnel structure */
@@ -211,14 +211,14 @@ static void mp_tunnel_lock_right(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->right_buf_lock, &rc);
+	sem_getvalue(&tunnel->buf_lock[TUN_RIGHT], &rc);
 	if (rc > 1) {
 		DE("Semaphor (left) count is too high: %d > 1\n\r", rc);
 		abort();
 	}
 
 	DD("Gettin sem\n\r");
-	rc = sem_wait(&tunnel->right_buf_lock);
+	rc = sem_wait(&tunnel->buf_lock[TUN_RIGHT]);
 	if (0 != rc) {
 		DE("Can't wait on left semaphore; abort\n\r");
 		perror("Can't wait on left semaphore; abort");
@@ -238,14 +238,14 @@ static void mp_tunnel_lock_left(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->left_buf_lock, &rc);
+	sem_getvalue(&tunnel->buf_lock[TUN_LEFT], &rc);
 	if (rc > 1) {
 		DE("Semaphor (right) count is too high: %d > 1\n\r", rc);
 		abort();
 	}
 
 	DD("Gettin sem\n\r");
-	rc = sem_wait(&tunnel->left_buf_lock);
+	rc = sem_wait(&tunnel->buf_lock[TUN_LEFT]);
 	if (0 != rc) {
 		DE("Can't wait on right semaphore; abort\n\r");
 		perror("Can't wait on right semaphore; abort");
@@ -265,14 +265,14 @@ static void mp_tunnel_unlock_right(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->right_buf_lock, &rc);
+	sem_getvalue(&tunnel->buf_lock[TUN_RIGHT], &rc);
 	if (rc > 0) {
 		DE("Tried to unlock not locked left semaphor\n\r");
 		abort();
 	}
 
 	DD("Putting sem\n\r");
-	rc = sem_post(&tunnel->right_buf_lock);
+	rc = sem_post(&tunnel->buf_lock[TUN_RIGHT]);
 	if (0 != rc) {
 		DE("Can't unlock ctl->left_lock\n\r");
 		perror("Can't unlock ctl->left_lock: abort");
@@ -292,14 +292,14 @@ static void mp_tunnel_unlock_left(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->left_buf_lock, &rc);
+	sem_getvalue(&tunnel->buf_lock[TUN_LEFT], &rc);
 	if (rc > 0) {
 		DE("Tried to unlock not locked right semaphor\n\r");
 		abort();
 	}
 
 	DD("Putting sem\n\n");
-	rc = sem_post(&tunnel->left_buf_lock);
+	rc = sem_post(&tunnel->buf_lock[TUN_LEFT]);
 	if (0 != rc) {
 		DE("Can't unlock ctl->right_lock\n\r");
 		perror("Can't unlock ctl->right_lock: abort");
@@ -319,14 +319,14 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 
 	DE("Destroying tunnel\n");
 
-	sem_wait(&tunnel->left_buf_lock);
-	TFREE_SIZE(tunnel->left_buf, tunnel->left_buf_size);
-	sem_destroy(&tunnel->left_buf_lock);
+	sem_wait(&tunnel->buf_lock[TUN_LEFT]);
+	TFREE_SIZE(tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
+	sem_destroy(&tunnel->buf_lock[TUN_LEFT]);
 	DE("Destroied left lock\n");
 
-	sem_wait(&tunnel->right_buf_lock);
-	TFREE_SIZE(tunnel->right_buf, tunnel->right_buf_size);
-	sem_destroy(&tunnel->right_buf_lock);
+	sem_wait(&tunnel->buf_lock[TUN_RIGHT]);
+	TFREE_SIZE(tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
+	sem_destroy(&tunnel->buf_lock[TUN_RIGHT]);
 	DE("Destroied right lock\n");
 
 	DE("Destroied locks\n");
@@ -357,12 +357,12 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 		free(tunnel->right_server);
 	}
 
-	if (NULL != tunnel->right_buf) {
-		free(tunnel->right_buf);
+	if (NULL != tunnel->buf[TUN_RIGHT]) {
+		free(tunnel->buf[TUN_RIGHT]);
 	}
 
-	if (NULL != tunnel->left_buf) {
-		free(tunnel->left_buf);
+	if (NULL != tunnel->buf[TUN_LEFT]) {
+		free(tunnel->buf[TUN_LEFT]);
 	}
 
 	memset(tunnel, 0, sizeof(tunnel_t));
@@ -393,7 +393,7 @@ int mp_tun_get_set_buf_size_left(tunnel_t *t, size_t size)
 {
 	TESTP(t, -1);
 	/* TODO: lock left buf when set size */
-	t->left_buf_size = size;
+	t->buf_size[TUN_LEFT] = size;
 	return (EOK);
 }
 
@@ -406,7 +406,7 @@ int mp_tun_get_set_buf_size_right(tunnel_t *t, size_t size)
 {
 	TESTP(t, -1);
 	/* TODO: lock left buf when set size */
-	t->right_buf_size = size;
+	t->buf_size[TUN_RIGHT] = size;
 	return (EOK);
 }
 
@@ -601,12 +601,12 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 
 	/* In 80%+ of writes the full buffer used. Triple  it*/
 	if (tunnel->left_all_cnt_session_max_hits > tunnel->left_num_session_writes * 0.8) {
-		new_size = tunnel->right_buf_size * 3;
+		new_size = tunnel->buf_size[TUN_RIGHT] * 3;
 
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
 	if (tunnel->left_all_cnt_session_max_hits > tunnel->left_num_session_writes * 0.5) {
-		new_size = tunnel->right_buf_size * 2;
+		new_size = tunnel->buf_size[TUN_RIGHT] * 2;
 		/* In < 50% of writes the full buffer used. Double it*/
 	} else {
 		/* In this case size may be reduced */
@@ -621,19 +621,19 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MIN;
 	}
 
-	if (new_size == tunnel->right_buf_size) {
+	if (new_size == tunnel->buf_size[TUN_RIGHT]) {
 		goto end;
 	}
 
-	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->right_buf_size, new_size);
+	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_RIGHT], new_size);
 	DD("average left: %f\n\r", average_left);
 
 	mp_tunnel_lock_right(tunnel);
-	TFREE_SIZE(tunnel->right_buf, tunnel->right_buf_size);
-	tunnel->right_buf = zmalloc_any(new_size, &tunnel->right_buf_size);
+	TFREE_SIZE(tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
+	tunnel->buf[TUN_RIGHT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_RIGHT]);
 	mp_tunnel_unlock_right(tunnel);
 
-	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->right_buf_size);
+	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_RIGHT]);
 
 end:
 	/* Save total write for statistics */
@@ -672,11 +672,11 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 
 	/* In 80%+ of writes the full buffer used. Triple  it*/
 	if (tunnel->right_all_cnt_session_max_hits > tunnel->right_num_session_writes * 0.8) {
-		new_size = tunnel->left_buf_size * 3;
+		new_size = tunnel->buf_size[TUN_LEFT] * 3;
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
 	if (tunnel->right_all_cnt_session_max_hits > tunnel->right_num_session_writes * 0.5) {
-		new_size = tunnel->left_buf_size * 2;
+		new_size = tunnel->buf_size[TUN_LEFT] * 2;
 		/* In < 50% of writes the full buffer used. Double it*/
 	} else {
 		/* In this case size may be reduced */
@@ -692,18 +692,18 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MIN;
 	}
 
-	if (new_size == tunnel->right_buf_size) {
+	if (new_size == tunnel->buf_size[TUN_RIGHT]) {
 		goto end;
 	}
 
 
-	DD("Going to resize l2r tunnel buffer from %ld to %ld\n\r", tunnel->left_buf_size, new_size);
+	DD("Going to resize l2r tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_LEFT], new_size);
 	DD("average left: %f\n\r", average_right);
 	mp_tunnel_lock_left(tunnel);
-	TFREE_SIZE(tunnel->left_buf, tunnel->left_buf_size);
-	tunnel->left_buf = zmalloc_any(new_size, &tunnel->left_buf_size);
+	TFREE_SIZE(tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
+	tunnel->buf[TUN_LEFT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_LEFT]);
 	mp_tunnel_unlock_left(tunnel);
-	DD("Resized l2r tunnel buffer to %ld\n\r", tunnel->left_buf_size);
+	DD("Resized l2r tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_LEFT]);
 
 end:
 	/* Save total write for statistics */
@@ -735,12 +735,12 @@ static int mp_tunnel_should_resize_l2r(tunnel_t *tunnel)
 	float average_right = (float)tunnel->right_cnt_session_write_total / (float)tunnel->right_num_session_writes;
 
 	/* If average transfer > 80% of the current buffer size */
-	if ((float)average_right >= (float)tunnel->left_buf_size * 0.8) {
+	if ((float)average_right >= (float)tunnel->buf_size[TUN_LEFT] * 0.8) {
 		return (1);
 	}
 
 	/* If average transfer < 50% of the current buffer size */
-	if (((float)average_right <= (float)tunnel->left_buf_size * 0.5) &&
+	if (((float)average_right <= (float)tunnel->buf_size[TUN_LEFT] * 0.5) &&
 		average_right >= MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
 		return (1);
 	}
@@ -766,12 +766,12 @@ static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
 	float average_left = (float)tunnel->left_cnt_session_write_total / (float)tunnel->left_num_session_writes;
 
 	/* If average transfer > 80% of the current buffer size */
-	if ((float)average_left >= (float)tunnel->right_buf_size * 0.8) {
+	if ((float)average_left >= (float)tunnel->buf_size[TUN_RIGHT] * 0.8) {
 		return (1);
 	}
 
 	/* If average transfer < 50% of the current buffer size */
-	if (((float)average_left <= (float)tunnel->right_buf_size * 0.5) &&
+	if (((float)average_left <= (float)tunnel->buf_size[TUN_RIGHT] * 0.5) &&
 		average_left >= MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
 		return (1);
 	}
@@ -818,7 +818,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		int read_blocked = 0;
 		int ssl_error    = 0;
 
-		rr = SSL_read(tunnel->ssl[TUN_LEFT] , tunnel->left_buf, tunnel->left_buf_size);
+		rr = SSL_read(tunnel->ssl[TUN_LEFT] , tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
 
 		/*** TODO: We should handle here SSL errors */
 		//check SSL errors
@@ -844,7 +844,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	}  /* End of the SSL handler */
 	else {
 		assert(NULL != tunnel->left_read);
-		rr = tunnel->left_read(tunnel->left_fd, tunnel->left_buf, tunnel->left_buf_size);
+		rr = tunnel->left_read(tunnel->left_fd, tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
 	}
 
 	if (rr < 0) {
@@ -860,11 +860,11 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	}
 
 	if (NULL != tunnel->ssl[TUN_RIGHT]) {
-		rs = SSL_write(tunnel->ssl[TUN_RIGHT], tunnel->left_buf, rr);
+		rs = SSL_write(tunnel->ssl[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
 		/*** TODO: We should handle here SSL errors */
 	} else {
 		assert(NULL != tunnel->right_write);
-		rs = tunnel->right_write(tunnel->right_fd, tunnel->left_buf, rr);
+		rs = tunnel->right_write(tunnel->right_fd, tunnel->buf[TUN_LEFT], rr);
 	}
 
 	mp_tunnel_unlock_left(tunnel);
@@ -886,7 +886,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	/* Count total number of read from left */
 	tunnel->right_cnt_session_write_total += rs;
 
-	if ((size_t)rr == tunnel->left_buf_size) {
+	if ((size_t)rr == tunnel->buf_size[TUN_LEFT]) {
 		tunnel->left_all_cnt_session_max_hits++;
 	}
 
@@ -905,7 +905,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	if (NULL != tunnel->ssl[TUN_RIGHT]) {
 		int ssl_error    = 0;
 		int read_blocked = 0;
-		rr = SSL_read(tunnel->ssl[TUN_RIGHT], tunnel->right_buf, tunnel->right_buf_size);
+		rr = SSL_read(tunnel->ssl[TUN_RIGHT], tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
 		/*** TODO: Handle SSL errors */
 		//check SSL errors
 		switch (ssl_error = SSL_get_error(tunnel->ssl[TUN_RIGHT] , rr)) {
@@ -930,7 +930,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	} /* End of SSL handler */
 	else {
 		assert(NULL != tunnel->right_read);
-		rr = tunnel->right_read(tunnel->right_fd, tunnel->right_buf, tunnel->right_buf_size);
+		rr = tunnel->right_read(tunnel->right_fd, tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
 	}
 
 	if (rr < 0) {
@@ -947,12 +947,12 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 
 	/* If 'left_ssl' is not NULL - use SSL operation */
 	if (NULL != tunnel->ssl[TUN_LEFT] ) {
-		rs = SSL_write(tunnel->ssl[TUN_LEFT] , tunnel->right_buf, rr);
+		rs = SSL_write(tunnel->ssl[TUN_LEFT] , tunnel->buf[TUN_RIGHT], rr);
 		tunnel->left_num_writes++;
 		/*** TODO: Handle SSL errors */
 	} else {
 		assert(NULL != tunnel->left_write);
-		rs = tunnel->left_write(tunnel->left_fd, tunnel->right_buf, rr);
+		rs = tunnel->left_write(tunnel->left_fd, tunnel->buf[TUN_RIGHT], rr);
 	}
 
 	mp_tunnel_unlock_right(tunnel);
@@ -975,7 +975,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	/* Count total number of read from left */
 	tunnel->left_cnt_session_write_total += rs;
 
-	if ((size_t)rr == tunnel->left_buf_size) {
+	if ((size_t)rr == tunnel->buf_size[TUN_LEFT]) {
 		tunnel->left_all_cnt_session_max_hits++;
 	}
 
@@ -993,14 +993,14 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
 	mp_tunnel_lock_left(tunnel);
-	tunnel->left_buf = zmalloc_any(READ_BUF, &tunnel->left_buf_size);
+	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT]);
 	mp_tunnel_unlock_left(tunnel);
-	TESTP(tunnel->left_buf, EBAD);
+	TESTP(tunnel->buf[TUN_LEFT], EBAD);
 
 	mp_tunnel_lock_right(tunnel);
-	tunnel->right_buf = zmalloc_any(READ_BUF, &tunnel->right_buf_size);
+	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT]);
 	mp_tunnel_unlock_right(tunnel);
-	TESTP(tunnel->right_buf, EBAD);
+	TESTP(tunnel->buf[TUN_RIGHT], EBAD);
 
 	while (1) {
 		int    rc;
@@ -1039,11 +1039,11 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 			if (EOK != rc) goto end;
 		}
 
-		if (tunnel->left_buf_size < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
 			mp_tunnel_resize_left_buf(tunnel);
 		}
 
-		if (tunnel->right_buf_size < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
 			mp_tunnel_resize_right_buf(tunnel);
 		}
 	}
@@ -1056,11 +1056,11 @@ static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 {
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 	mp_tunnel_lock_left(tunnel);
-	tunnel->left_buf = zmalloc_any(READ_BUF, &tunnel->left_buf_size);
+	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT]);
 	mp_tunnel_unlock_left(tunnel);
 
 	mp_tunnel_lock_right(tunnel);
-	tunnel->right_buf = zmalloc_any(READ_BUF, &tunnel->right_buf_size);
+	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT]);
 	mp_tunnel_unlock_right(tunnel);
 
 	while (1) {
@@ -1101,11 +1101,11 @@ static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 			if (EOK != rc) goto end;
 		}
 
-		if (tunnel->left_buf_size < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
 			mp_tunnel_resize_left_buf(tunnel);
 		}
 
-		if (tunnel->right_buf_size < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
 			mp_tunnel_resize_right_buf(tunnel);
 		}
 	}
@@ -1123,7 +1123,7 @@ static void mp_tunnel_print_stat(tunnel_t *tunnel)
 	DD("%s -> %s total bytes: %ld\n\r", tunnel->right_name, tunnel->left_name, tunnel->left_cnt_write_total);
 	DD("%s -> %s average write: %f\n\r", tunnel->right_name, tunnel->left_name, (float)tunnel->left_cnt_write_total / tunnel->left_num_writes);
 
-	DD("Buffer size: %ld\n\r", tunnel->left_buf_size);
+	DD("Buffer size: %ld\n\r", tunnel->buf_size[TUN_LEFT]);
 }
 
 
