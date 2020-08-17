@@ -165,11 +165,7 @@ typedef struct tunnel_struct {
 	conn_read_t do_read[TUN_MAX];          /* (Must) Read from fd */
 	conn_write_t do_write[TUN_MAX];     /* (Must) Write to fd */
 	conn_close_t do_close[TUN_MAX];     /* (Optional) Close fd */
-	
 
-	/* Left socket operations */
-
-	const char *left_name;          /* Name of the left fd - for debug */
 
 	/*** SSL RELATED */
 
@@ -178,40 +174,23 @@ typedef struct tunnel_struct {
 	void *x509[TUN_MAX];                /* (Optional) In case SSL used this won't be NULL; */
 	void *ssl[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 
-	/* TODO: replace it with buf_t */
-	const char *right_name;         /* Name of the right fd - for debug */
+	char *name[TUN_MAX];                /* Name of fd - for debug and statistics printing */
+
+	/* If server + port are given, the tunnel will resolve it */
+
+	char *server[TUN_MAX];
+	int port[TUN_MAX];
+
 
 	/*** Staticstics */
 
-	/*** LEFT (EXTERNAL) STATS */
+	size_t cnt_write_total[TUN_MAX];            /* How many bytes passed to left fd in total */
+	size_t num_writes[TUN_MAX];              /* How many write operation done to the left */
+	size_t num_writes_ssl[TUN_MAX];              /* How many write operation done to the left */
 
-	size_t left_cnt_write_total;            /* How many bytes passed to left fd in total */
-	size_t left_num_writes;                 /* How many write operation done to the left */
-	size_t left_num_writes_ssl;                 /* How many write operation done to the left */
-
-	size_t left_cnt_session_write_total;    /* How many bytes passed to left fd after last buffer resize */
-	size_t left_num_session_writes;         /* How many write operation done after last buffer resize */
-	size_t left_all_cnt_session_max_hits;         /* How many times the max size buf_r2l used after last buffer resize */
-
-
-	/*** RIGHT (INTERNAL) STATS */
-
-	size_t right_cnt_write_total;           /* How many bytes passed to left fd in total */
-	size_t right_num_writes;                /* How many write operation done to the right */
-	size_t right_num_writes_ssl;            /* How many write operation done to the right */
-
-	size_t right_cnt_session_write_total;   /* How many bytes passed to left fd after last buffer resize */
-	size_t right_num_session_writes;        /* How many write operation done to the right after last buffer resize */
-	size_t right_all_cnt_session_max_hits;        /* How many times the max size buf_l2r used after last buffer resize */
-
-	/*** Optional params */
-	/* If given the server + port, the tunnel will resolve it */
-
-	char *left_server;
-	int left_port;
-	char *right_server;
-	int right_port;
-
+	size_t cnt_session_write_total[TUN_MAX]; /* How many bytes passed to left fd after last buffer resize */
+	size_t num_session_writes[TUN_MAX];      /* How many write operation done after last buffer resize */
+	size_t all_cnt_session_max_hits[TUN_MAX];      /* How many times the max size buf_r2l used after last buffer resize */
 } tunnel_t;
 
 /*** API */

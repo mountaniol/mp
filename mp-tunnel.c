@@ -349,12 +349,12 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 		}
 	}
 
-	if (NULL != tunnel->left_server) {
-		free(tunnel->left_server);
+	if (NULL != tunnel->server[TUN_LEFT]) {
+		free(tunnel->server[TUN_LEFT]);
 	}
 
-	if (NULL != tunnel->right_server) {
-		free(tunnel->right_server);
+	if (NULL != tunnel->server[TUN_RIGHT]) {
+		free(tunnel->server[TUN_RIGHT]);
 	}
 
 	if (NULL != tunnel->buf[TUN_RIGHT]) {
@@ -449,29 +449,29 @@ int mp_tun_get_get_fd_right(tunnel_t *t)
 int mp_tun_get_set_name_left(tunnel_t *t, const char *name, size_t name_len)
 {
 	TESTP(t, -1);
-	t->left_name = strndup(name, name_len);
+	t->name[TUN_LEFT] = strndup(name, name_len);
 	return (EOK);
 }
 
 char *mp_tun_get_get_name_left(tunnel_t *t)
 {
 	TESTP(t, NULL);
-	TESTP(t->right_name, NULL);
-	return (strdup(t->left_name));
+	TESTP(t->name[TUN_RIGHT], NULL);
+	return (strdup(t->name[TUN_LEFT]));
 }
 
 int mp_tun_get_set_name_right(tunnel_t *t, const char *name, size_t name_len)
 {
 	TESTP(t, -1);
-	t->right_name = strndup(name, name_len);
+	t->name[TUN_RIGHT] = strndup(name, name_len);
 	return (EOK);
 }
 
 char *mp_tun_get_get_name_right(tunnel_t *t)
 {
 	TESTP(t, NULL);
-	TESTP(t->right_name, NULL);
-	return (strdup(t->right_name));
+	TESTP(t->name[TUN_RIGHT], NULL);
+	return (strdup(t->name[TUN_RIGHT]));
 }
 
 /*** Set / get right / left X509 and private RSA key */
@@ -490,15 +490,15 @@ int mp_tun_set_server_port_left(tunnel_t *t, const char *server, int port)
 {
 	TESTP(t, -1);
 
-	if (NULL != t->left_server) {
-		free(t->left_server);
-		t->left_server = NULL;
+	if (NULL != t->server[TUN_LEFT]) {
+		free(t->server[TUN_LEFT]);
+		t->server[TUN_LEFT] = NULL;
 	}
 	if (NULL != server) {
-		t->left_server = strdup(server);
+		t->server[TUN_LEFT] = strdup(server);
 	}
 
-	t->left_port = port;
+	t->port[TUN_LEFT] = port;
 	return (EOK);
 }
 
@@ -507,8 +507,8 @@ char *mp_tun_get_server_left(tunnel_t *t)
 	char *ret = NULL;
 	TESTP(t, NULL);
 
-	if (NULL != t->left_server) {
-		ret = strdup(t->left_server);
+	if (NULL != t->server[TUN_LEFT]) {
+		ret = strdup(t->server[TUN_LEFT]);
 	}
 	return (ret);
 }
@@ -516,7 +516,7 @@ char *mp_tun_get_server_left(tunnel_t *t)
 int mp_tun_get_port_left(tunnel_t *t)
 {
 	TESTP(t, -1);
-	return (t->left_port);
+	return (t->port[TUN_LEFT]);
 }
 
 
@@ -524,15 +524,15 @@ int mp_tun_set_server_port_right(tunnel_t *t, const char *server, int port)
 {
 	TESTP(t, -1);
 
-	if (NULL != t->right_server) {
-		free(t->right_server);
-		t->right_server = NULL;
+	if (NULL != t->server[TUN_RIGHT]) {
+		free(t->server[TUN_RIGHT]);
+		t->server[TUN_RIGHT] = NULL;
 	}
 	if (NULL != server) {
-		t->right_server = strdup(server);
+		t->server[TUN_RIGHT] = strdup(server);
 	}
 
-	t->right_port = port;
+	t->port[TUN_RIGHT] = port;
 	return (EOK);
 }
 
@@ -541,8 +541,8 @@ char *mp_tun_get_server_right(tunnel_t *t)
 	char *ret = NULL;
 	TESTP(t, NULL);
 
-	if (NULL != t->right_server) {
-		ret = strdup(t->right_server);
+	if (NULL != t->server[TUN_RIGHT]) {
+		ret = strdup(t->server[TUN_RIGHT]);
 	}
 	return (ret);
 }
@@ -550,7 +550,7 @@ char *mp_tun_get_server_right(tunnel_t *t)
 int mp_tun_get_port_right(tunnel_t *t)
 {
 	TESTP(t, -1);
-	return (t->right_port);
+	return (t->port[TUN_RIGHT]);
 }
 
 /*** TUN2: Set / get right / left X509 and private RSA key */
@@ -586,8 +586,8 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
 	/* What is max average? */
-	if (tunnel->left_cnt_session_write_total > 0 && tunnel->left_num_session_writes > 0) {
-		average_left = (float)tunnel->left_cnt_session_write_total / (float)tunnel->left_num_session_writes;
+	if (tunnel->cnt_session_write_total[TUN_LEFT] > 0 && tunnel->num_session_writes[TUN_LEFT] > 0) {
+		average_left = (float)tunnel->cnt_session_write_total[TUN_LEFT] / (float)tunnel->num_session_writes[TUN_LEFT];
 	}
 
 	/* Now it is a trick. How fast should we resize the buffer?
@@ -600,12 +600,12 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 	   descriptore */
 
 	/* In 80%+ of writes the full buffer used. Triple  it*/
-	if (tunnel->left_all_cnt_session_max_hits > tunnel->left_num_session_writes * 0.8) {
+	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.8) {
 		new_size = tunnel->buf_size[TUN_RIGHT] * 3;
 
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
-	if (tunnel->left_all_cnt_session_max_hits > tunnel->left_num_session_writes * 0.5) {
+	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.5) {
 		new_size = tunnel->buf_size[TUN_RIGHT] * 2;
 		/* In < 50% of writes the full buffer used. Double it*/
 	} else {
@@ -637,11 +637,11 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 
 end:
 	/* Save total write for statistics */
-	tunnel->left_cnt_write_total += tunnel->left_cnt_session_write_total;
-	tunnel->left_num_session_writes = 0;
-	tunnel->left_cnt_session_write_total = 0;
+	tunnel->cnt_write_total[TUN_LEFT] += tunnel->cnt_session_write_total[TUN_LEFT];
+	tunnel->num_session_writes[TUN_LEFT] = 0;
+	tunnel->cnt_session_write_total[TUN_LEFT] = 0;
 
-	tunnel->left_all_cnt_session_max_hits = 0;
+	tunnel->all_cnt_session_max_hits[TUN_LEFT] = 0;
 	return (EOK);
 }
 
@@ -657,8 +657,8 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
 	/* What is max average? */
-	if (tunnel->right_cnt_session_write_total > 0 && tunnel->right_num_session_writes > 0) {
-		average_right = (float)tunnel->right_cnt_session_write_total / (float)tunnel->right_num_session_writes;
+	if (tunnel->cnt_session_write_total[TUN_RIGHT] > 0 && tunnel->num_session_writes[TUN_RIGHT] > 0) {
+		average_right = (float)tunnel->cnt_session_write_total[TUN_RIGHT] / (float)tunnel->num_session_writes[TUN_RIGHT];
 	}
 
 	/* Now it is a trick. How fast should we resize the buffer?
@@ -671,11 +671,11 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 	   descriptore */
 
 	/* In 80%+ of writes the full buffer used. Triple  it*/
-	if (tunnel->right_all_cnt_session_max_hits > tunnel->right_num_session_writes * 0.8) {
+	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.8) {
 		new_size = tunnel->buf_size[TUN_LEFT] * 3;
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
-	if (tunnel->right_all_cnt_session_max_hits > tunnel->right_num_session_writes * 0.5) {
+	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.5) {
 		new_size = tunnel->buf_size[TUN_LEFT] * 2;
 		/* In < 50% of writes the full buffer used. Double it*/
 	} else {
@@ -707,11 +707,11 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 
 end:
 	/* Save total write for statistics */
-	tunnel->right_cnt_write_total += tunnel->right_cnt_session_write_total;
-	tunnel->right_num_session_writes = 0;
-	tunnel->right_cnt_session_write_total = 0;
+	tunnel->cnt_write_total[TUN_RIGHT] += tunnel->cnt_session_write_total[TUN_RIGHT];
+	tunnel->num_session_writes[TUN_RIGHT] = 0;
+	tunnel->cnt_session_write_total[TUN_RIGHT] = 0;
 
-	tunnel->right_all_cnt_session_max_hits = 0;
+	tunnel->all_cnt_session_max_hits[TUN_RIGHT] = 0;
 	return (EOK);
 }
 
@@ -721,18 +721,18 @@ static int mp_tunnel_should_resize_l2r(tunnel_t *tunnel)
 {
 	TESTP_MES(tunnel, 0, "tunnel is NULL");
 	/* Recalculate it after 16 operation done at least */
-	if (tunnel->right_num_session_writes < 64) {
+	if (tunnel->num_session_writes[TUN_RIGHT] < 64) {
 		return (0);
 	}
 
 	/* If from the last resize the 100% of buffer size used in >=
 	   50% of writes - resize it */
-	if (tunnel->right_all_cnt_session_max_hits > tunnel->right_num_session_writes * 0.5) {
+	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.5) {
 		return (1);
 	}
 
 	/* Find the max average for both directions */
-	float average_right = (float)tunnel->right_cnt_session_write_total / (float)tunnel->right_num_session_writes;
+	float average_right = (float)tunnel->cnt_session_write_total[TUN_RIGHT] / (float)tunnel->num_session_writes[TUN_RIGHT];
 
 	/* If average transfer > 80% of the current buffer size */
 	if ((float)average_right >= (float)tunnel->buf_size[TUN_LEFT] * 0.8) {
@@ -752,18 +752,18 @@ static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
 {
 	TESTP_MES(tunnel, 0, "tunnel is NULL");
 	/* Recalculate it after 16 operation done at least */
-	if (tunnel->left_num_session_writes < 64) {
+	if (tunnel->num_session_writes[TUN_LEFT] < 64) {
 		return (0);
 	}
 
 	/* If from the last resize the 100% of buffer size used in >=
 	   50% of writes - resize it */
-	if (tunnel->left_all_cnt_session_max_hits > tunnel->left_num_session_writes * 0.5) {
+	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.5) {
 		return (1);
 	}
 
 	/* Find the max average for both directions */
-	float average_left = (float)tunnel->left_cnt_session_write_total / (float)tunnel->left_num_session_writes;
+	float average_left = (float)tunnel->cnt_session_write_total[TUN_LEFT] / (float)tunnel->num_session_writes[TUN_LEFT];
 
 	/* If average transfer > 80% of the current buffer size */
 	if ((float)average_left >= (float)tunnel->buf_size[TUN_RIGHT] * 0.8) {
@@ -779,22 +779,22 @@ static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
 	return (0);
 }
 
-static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *left_name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
+static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
 {
 	TESTP(tunnel, EBAD);
 	tunnel->fd[TUN_LEFT] = fd;
-	tunnel->left_name = left_name;
+	tunnel->name[TUN_LEFT] = name;
 	tunnel->do_read[TUN_LEFT] = do_read;
 	tunnel->do_write[TUN_LEFT] = do_write;
 	tunnel->do_close[TUN_LEFT] = do_close;
 	return (EOK);
 }
 
-static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *right_name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
+static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
 {
 	TESTP(tunnel, EBAD);
 	tunnel->fd[TUN_RIGHT] = fd;
-	tunnel->right_name = right_name;
+	tunnel->name[TUN_RIGHT] = name;
 	tunnel->do_read[TUN_RIGHT] = do_read;
 	tunnel->do_write[TUN_RIGHT] = do_write;
 	tunnel->do_close[TUN_RIGHT] = do_close;
@@ -840,7 +840,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 			return (EBAD);
 			break;
 		} while (SSL_pending(tunnel->ssl[TUN_LEFT] ) && !read_blocked);
-		tunnel->right_num_writes_ssl++;
+		tunnel->num_writes_ssl[TUN_RIGHT]++;
 	}  /* End of the SSL handler */
 	else {
 		assert(NULL != tunnel->do_read[TUN_LEFT]);
@@ -848,13 +848,13 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	}
 
 	if (rr < 0) {
-		DE("Error on reading from %s\n\r", tunnel->left_name ? tunnel->left_name : "Left fd");
+		DE("Error on reading from %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
 		mp_tunnel_unlock_left(tunnel);
 		return (EBAD);
 	}
 
 	if (0 == rr) {
-		DE("Probably closed: %s\n\r", tunnel->left_name ? tunnel->left_name : "Left fd");
+		DE("Probably closed: %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
 		mp_tunnel_unlock_left(tunnel);
 		return (EBAD);
 	}
@@ -870,24 +870,24 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	mp_tunnel_unlock_left(tunnel);
 
 	if (rs < 0) {
-		DE("Error on writing to %s\n\r", tunnel->right_name ? tunnel->right_name : "Right fd");
+		DE("Error on writing to %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
 		return (EBAD);
 	}
 
 	if (0 == rs) {
-		DE("Probably file descriptor is closed: %s\n\r", tunnel->right_name ? tunnel->right_name : "Right fd");
+		DE("Probably file descriptor is closed: %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
 		return (EBAD);
 	}
 
 	/* One more read done */
-	tunnel->right_num_writes++;
-	tunnel->right_num_session_writes++;
+	tunnel->num_writes[TUN_RIGHT]++;
+	tunnel->num_session_writes[TUN_RIGHT]++;
 
 	/* Count total number of read from left */
-	tunnel->right_cnt_session_write_total += rs;
+	tunnel->cnt_session_write_total[TUN_RIGHT] += rs;
 
 	if ((size_t)rr == tunnel->buf_size[TUN_LEFT]) {
-		tunnel->left_all_cnt_session_max_hits++;
+		tunnel->all_cnt_session_max_hits[TUN_LEFT]++;
 	}
 
 	return (EOK);
@@ -934,13 +934,13 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	}
 
 	if (rr < 0) {
-		DE("Error on reading from %s\n\r", tunnel->right_name ? tunnel->right_name : "Right fd");
+		DE("Error on reading from %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
 		mp_tunnel_unlock_right(tunnel);
 		return (EBAD);
 	}
 
 	if (0 == rr) {
-		DE("Probably closed: %s\n\r", tunnel->right_name ? tunnel->right_name : "Right fd");
+		DE("Probably closed: %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
 		return (EBAD);
 		mp_tunnel_unlock_right(tunnel);
 	}
@@ -948,7 +948,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	/* If 'left_ssl' is not NULL - use SSL operation */
 	if (NULL != tunnel->ssl[TUN_LEFT] ) {
 		rs = SSL_write(tunnel->ssl[TUN_LEFT] , tunnel->buf[TUN_RIGHT], rr);
-		tunnel->left_num_writes++;
+		tunnel->num_writes[TUN_LEFT]++;
 		/*** TODO: Handle SSL errors */
 	} else {
 		assert(NULL != tunnel->do_write[TUN_LEFT]);
@@ -958,25 +958,25 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	mp_tunnel_unlock_right(tunnel);
 
 	if (rs < 0) {
-		DE("Error on writing to %s\n\r", tunnel->left_name ? tunnel->left_name : "Left fd");
+		DE("Error on writing to %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
 
 		return (EBAD);
 	}
 
 	if (0 == rs) {
-		DE("Probably file descriptor is closed: %s\n\r", tunnel->left_name ? tunnel->left_name : "Left fd");
+		DE("Probably file descriptor is closed: %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
 		return (EBAD);
 	}
 
 	/* One more read done */
-	tunnel->left_num_writes++;
-	tunnel->left_num_session_writes++;
+	tunnel->num_writes[TUN_LEFT]++;
+	tunnel->num_session_writes[TUN_LEFT]++;
 
 	/* Count total number of read from left */
-	tunnel->left_cnt_session_write_total += rs;
+	tunnel->cnt_session_write_total[TUN_LEFT] += rs;
 
 	if ((size_t)rr == tunnel->buf_size[TUN_LEFT]) {
-		tunnel->left_all_cnt_session_max_hits++;
+		tunnel->all_cnt_session_max_hits[TUN_LEFT]++;
 	}
 
 	return (EOK);
@@ -1115,13 +1115,13 @@ end:
 
 static void mp_tunnel_print_stat(tunnel_t *tunnel)
 {
-	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->left_name, tunnel->right_name, tunnel->right_num_writes, tunnel->right_num_writes_ssl);
-	DD("%s -> %s total bytes: %ld\n\r", tunnel->left_name, tunnel->right_name, tunnel->right_cnt_write_total);
-	DD("%s -> %s average write: %f\n\r", tunnel->left_name, tunnel->right_name, (float)tunnel->right_cnt_write_total / tunnel->right_num_writes);
+	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->name[TUN_LEFT], tunnel->name[TUN_RIGHT], tunnel->num_writes[TUN_RIGHT], tunnel->num_writes_ssl[TUN_RIGHT]);
+	DD("%s -> %s total bytes: %ld\n\r", tunnel->name[TUN_LEFT], tunnel->name[TUN_RIGHT], tunnel->cnt_write_total[TUN_RIGHT]);
+	DD("%s -> %s average write: %f\n\r", tunnel->name[TUN_LEFT], tunnel->name[TUN_RIGHT], (float)tunnel->cnt_write_total[TUN_RIGHT] / tunnel->num_writes[TUN_RIGHT]);
 
-	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->right_name, tunnel->left_name, tunnel->left_num_writes, tunnel->left_num_writes_ssl);
-	DD("%s -> %s total bytes: %ld\n\r", tunnel->right_name, tunnel->left_name, tunnel->left_cnt_write_total);
-	DD("%s -> %s average write: %f\n\r", tunnel->right_name, tunnel->left_name, (float)tunnel->left_cnt_write_total / tunnel->left_num_writes);
+	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->name[TUN_RIGHT], tunnel->name[TUN_LEFT], tunnel->num_writes[TUN_LEFT], tunnel->num_writes_ssl[TUN_LEFT]);
+	DD("%s -> %s total bytes: %ld\n\r", tunnel->name[TUN_RIGHT], tunnel->name[TUN_LEFT], tunnel->cnt_write_total[TUN_LEFT]);
+	DD("%s -> %s average write: %f\n\r", tunnel->name[TUN_RIGHT], tunnel->name[TUN_LEFT], (float)tunnel->cnt_write_total[TUN_LEFT] / tunnel->num_writes[TUN_LEFT]);
 
 	DD("Buffer size: %ld\n\r", tunnel->buf_size[TUN_LEFT]);
 }
@@ -1519,8 +1519,8 @@ void *mp_tunnel_tty_server_start_thread(void *v)
 
 	/* TODO: check here the mode, the ssl, the fd */
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(t->left_port);
-	serv_addr.sin_addr.s_addr = inet_addr(t->left_server);
+	serv_addr.sin_port = htons(t->port[TUN_LEFT]);
+	serv_addr.sin_addr.s_addr = inet_addr(t->server[TUN_LEFT]);
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("server socket()");
@@ -1573,8 +1573,8 @@ void *mp_tunnel_tty_server_start_thread_(void *v)
 
 	/* TODO: check here the mode, the ssl, the fd */
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(t->left_port);
-	serv_addr.sin_addr.s_addr = inet_addr(t->left_server);
+	serv_addr.sin_port = htons(t->port[TUN_LEFT]);
+	serv_addr.sin_addr.s_addr = inet_addr(t->server[TUN_LEFT]);
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("server socket()");
@@ -1639,8 +1639,8 @@ void *mp_tunnel_tty_client_start_thread(void *v)
 	/* Open the socket */
 
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(tunnel->left_port);
-	serv_addr.sin_addr.s_addr = inet_addr(tunnel->left_server);
+	serv_addr.sin_port = htons(tunnel->port[TUN_LEFT]);
+	serv_addr.sin_addr.s_addr = inet_addr(tunnel->server[TUN_LEFT]);
 
 	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
