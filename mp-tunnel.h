@@ -153,14 +153,13 @@ typedef struct tunnel_struct {
 
 	uint32_t flags[TUN_MAX];
 	
-	/* BUFFERS */
+	/*** BUFFERS */
 	char *buf[TUN_MAX];                  /* Buffer used for read / write from left fd to right fd */
 	size_t buf_size[TUN_MAX];            /* Size of the l2r (left to right)buffer */
 	sem_t buf_lock[TUN_MAX];             /* The buffer lock */
 
-
-	/*** LEFT (EXTERNAL) FD */
-	int left_fd;                     /* (Must) File descriptor for read / write */
+	/*** File descriptors */
+	int fd[TUN_MAX];
 
 	/* Left socket operations */
 	conn_read_t left_read;          /* (Must) Read from fd */
@@ -174,9 +173,6 @@ typedef struct tunnel_struct {
 	void *rsa[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 	void *x509[TUN_MAX];                /* (Optional) In case SSL used this won't be NULL; */
 	void *ssl[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
-
-	/*** RIGHT (INTERNAL) FD */
-	int right_fd;                   /* (Must) File descriptor for read / write */
 
 	/* Right socket operations */
 	conn_read_t right_read;         /* (Must) Read from fd */

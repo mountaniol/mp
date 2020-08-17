@@ -179,8 +179,8 @@ static int conn_read_from_std(int fd, char *buf, size_t sz)
 int mp_tunnel_tunnel_t_init(tunnel_t *tunnel)
 {
 	memset(tunnel, 0, sizeof(tunnel_t));
-	tunnel->right_fd = -1;
-	tunnel->left_fd = -1;
+	tunnel->fd[TUN_RIGHT] = -1;
+	tunnel->fd[TUN_LEFT] = -1;
 
 	return (sem_init(&tunnel->buf_lock[TUN_RIGHT], 0, 1) + sem_init(&tunnel->buf_lock[TUN_LEFT], 0, 1));
 }
@@ -421,27 +421,27 @@ int mp_tun_get_set_buf_size_intern(tunnel_t *t, size_t size)
 int mp_tun_get_set_fd_left(tunnel_t *t, int fd)
 {
 	TESTP(t, -1);
-	t->left_fd = fd;
+	t->fd[TUN_LEFT] = fd;
 	return (EOK);
 }
 
 int mp_tun_get_set_fd_right(tunnel_t *t, int fd)
 {
 	TESTP(t, -1);
-	t->right_fd = fd;
+	t->fd[TUN_RIGHT] = fd;
 	return (EOK);
 }
 
 int mp_tun_get_get_fd_left(tunnel_t *t)
 {
 	TESTP(t, -1);
-	return (t->left_fd);
+	return (t->fd[TUN_LEFT]);
 }
 
 int mp_tun_get_get_fd_right(tunnel_t *t)
 {
 	TESTP(t, -1);
-	return (t->right_fd);
+	return (t->fd[TUN_RIGHT]);
 }
 
 /*** Set / get right / left side name (used for debug and info) */
@@ -779,10 +779,10 @@ static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
 	return (0);
 }
 
-static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int left_fd, const char *left_name, conn_read_t left_read, conn_write_t left_write, conn_close_t left_close)
+static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *left_name, conn_read_t left_read, conn_write_t left_write, conn_close_t left_close)
 {
 	TESTP(tunnel, EBAD);
-	tunnel->left_fd = left_fd;
+	tunnel->fd[TUN_LEFT] = fd;
 	tunnel->left_name = left_name;
 	tunnel->left_read = left_read;
 	tunnel->left_write = left_write;
@@ -790,10 +790,10 @@ static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int left_fd, const char 
 	return (EOK);
 }
 
-static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int right_fd, const char *right_name, conn_read_t right_read, conn_write_t right_write, conn_close_t right_close)
+static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *right_name, conn_read_t right_read, conn_write_t right_write, conn_close_t right_close)
 {
 	TESTP(tunnel, EBAD);
-	tunnel->right_fd = right_fd;
+	tunnel->fd[TUN_RIGHT] = fd;
 	tunnel->right_name = right_name;
 	tunnel->right_read = right_read;
 	tunnel->right_write = right_write;
@@ -844,7 +844,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	}  /* End of the SSL handler */
 	else {
 		assert(NULL != tunnel->left_read);
-		rr = tunnel->left_read(tunnel->left_fd, tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
+		rr = tunnel->left_read(tunnel->fd[TUN_LEFT], tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
 	}
 
 	if (rr < 0) {
@@ -864,7 +864,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		/*** TODO: We should handle here SSL errors */
 	} else {
 		assert(NULL != tunnel->right_write);
-		rs = tunnel->right_write(tunnel->right_fd, tunnel->buf[TUN_LEFT], rr);
+		rs = tunnel->right_write(tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
 	}
 
 	mp_tunnel_unlock_left(tunnel);
@@ -930,7 +930,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	} /* End of SSL handler */
 	else {
 		assert(NULL != tunnel->right_read);
-		rr = tunnel->right_read(tunnel->right_fd, tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
+		rr = tunnel->right_read(tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
 	}
 
 	if (rr < 0) {
@@ -952,7 +952,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 		/*** TODO: Handle SSL errors */
 	} else {
 		assert(NULL != tunnel->left_write);
-		rs = tunnel->left_write(tunnel->left_fd, tunnel->buf[TUN_RIGHT], rr);
+		rs = tunnel->left_write(tunnel->fd[TUN_LEFT], tunnel->buf[TUN_RIGHT], rr);
 	}
 
 	mp_tunnel_unlock_right(tunnel);
@@ -1012,29 +1012,29 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 		FD_ZERO(&read_set);
 		FD_ZERO(&ex_set);
 
-		FD_SET(tunnel->right_fd, &read_set);
-		FD_SET(tunnel->left_fd, &read_set);
+		FD_SET(tunnel->fd[TUN_RIGHT], &read_set);
+		FD_SET(tunnel->fd[TUN_LEFT], &read_set);
 
-		FD_SET(tunnel->left_fd, &ex_set);
-		FD_SET(tunnel->right_fd, &ex_set);
+		FD_SET(tunnel->fd[TUN_LEFT], &ex_set);
+		FD_SET(tunnel->fd[TUN_RIGHT], &ex_set);
 
-		n = MAX(tunnel->left_fd, tunnel->right_fd) + 1;
+		n = MAX(tunnel->fd[TUN_LEFT], tunnel->fd[TUN_RIGHT]) + 1;
 
 		rc = select(n, &read_set, NULL, &ex_set, NULL);
 
 		/* Some exception happened */
-		if (FD_ISSET(tunnel->left_fd, &ex_set) || FD_ISSET(tunnel->right_fd, &ex_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_LEFT], &ex_set) || FD_ISSET(tunnel->fd[TUN_RIGHT], &ex_set)) {
 			DD("Some exception happened. Ending x_connect\n");
 			return (EBAD);
 		}
 
 		/* Data is ready on left file descriptor: read from conn1, write to conn2 */
-		if (FD_ISSET(tunnel->left_fd, &read_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_LEFT], &read_set)) {
 			rc = mp_tunnel_x_conn_execute_l2r(tunnel);
 			if (EOK != rc) goto end;
 		}
 		/* Data is ready on the right file descriptor: read from conn2, write to conn1 */
-		if (FD_ISSET(tunnel->right_fd, &read_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_RIGHT], &read_set)) {
 			rc = mp_tunnel_x_conn_execute_r2l(tunnel);
 			if (EOK != rc) goto end;
 		}
@@ -1073,30 +1073,30 @@ static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 		FD_ZERO(&read_set);
 		FD_ZERO(&ex_set);
 
-		FD_SET(tunnel->right_fd, &read_set);
-		FD_SET(tunnel->left_fd, &read_set);
+		FD_SET(tunnel->fd[TUN_RIGHT], &read_set);
+		FD_SET(tunnel->fd[TUN_LEFT], &read_set);
 
-		FD_SET(tunnel->left_fd, &ex_set);
-		FD_SET(tunnel->right_fd, &ex_set);
+		FD_SET(tunnel->fd[TUN_LEFT], &ex_set);
+		FD_SET(tunnel->fd[TUN_RIGHT], &ex_set);
 
-		n = MAX(tunnel->left_fd, tunnel->right_fd) + 1;
+		n = MAX(tunnel->fd[TUN_LEFT], tunnel->fd[TUN_RIGHT]) + 1;
 
 		rc = select(n, &read_set, NULL, &ex_set, NULL);
 
 		/* Some exception happened */
-		if (FD_ISSET(tunnel->left_fd, &ex_set) || FD_ISSET(tunnel->right_fd, &ex_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_LEFT], &ex_set) || FD_ISSET(tunnel->fd[TUN_RIGHT], &ex_set)) {
 			DD("Some exception happened. Ending x_connect\n");
 			return (EBAD);
 		}
 
 		/* Data is ready on connection 1: read from conn1, write to conn2 */
-		if (FD_ISSET(tunnel->left_fd, &read_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_LEFT], &read_set)) {
 			rc = mp_tunnel_x_conn_execute_l2r(tunnel);
 			if (EOK != rc) goto end;
 		}
 
 		/* Data is ready on connection 2: read from conn2, write to conn1 */
-		if (FD_ISSET(tunnel->right_fd, &read_set)) {
+		if (FD_ISSET(tunnel->fd[TUN_RIGHT], &read_set)) {
 			rc = mp_tunnel_x_conn_execute_r2l(tunnel);
 			if (EOK != rc) goto end;
 		}
@@ -1355,7 +1355,7 @@ static int mp_tunnel_start_ssl_conn_left(tunnel_t *t){
 		return (EBAD);
 	}
 
-	if (t->left_fd < 0) {
+	if (t->fd[TUN_LEFT] < 0) {
 		DE("Left fd is not a valid file descriptor\n");
 		return (EBAD);
 	}
@@ -1363,7 +1363,7 @@ static int mp_tunnel_start_ssl_conn_left(tunnel_t *t){
 	t->ssl[TUN_LEFT] = SSL_new(t->ctx[TUN_LEFT]);
 	TESTP_MES(t->ssl[TUN_LEFT] , EBAD, "Can't allocate left SSL");
 
-	if (1 != SSL_set_fd(t->ssl[TUN_LEFT] , t->left_fd)) {
+	if (1 != SSL_set_fd(t->ssl[TUN_LEFT] , t->fd[TUN_LEFT])) {
 		DE("Can't set left fd into *SSL");
 		SSL_free(t->ssl[TUN_LEFT] );
 		t->ssl[TUN_LEFT] = NULL;
@@ -1381,7 +1381,7 @@ static int mp_tunnel_start_ssl_conn_right(tunnel_t *t)
 		return (EBAD);
 	}
 
-	if (t->right_fd < 0) {
+	if (t->fd[TUN_RIGHT] < 0) {
 		DE("Right fd is not a valid file descriptor\n");
 		return (EBAD);
 	}
@@ -1389,7 +1389,7 @@ static int mp_tunnel_start_ssl_conn_right(tunnel_t *t)
 	t->ssl[TUN_RIGHT] = SSL_new(t->ctx[TUN_RIGHT]);
 	TESTP_MES(t->ssl[TUN_RIGHT], EBAD, "Can't allocate right SSL");
 
-	if (1 != SSL_set_fd(t->ssl[TUN_RIGHT], t->right_fd)) {
+	if (1 != SSL_set_fd(t->ssl[TUN_RIGHT], t->fd[TUN_RIGHT])) {
 		DE("Can't set right fd into *SSL");
 		SSL_free(t->ssl[TUN_RIGHT]);
 		t->ssl[TUN_RIGHT] = NULL;
@@ -1418,7 +1418,7 @@ static void *mp_tunnel_tty_server_go(void *v)
 		abort();
 	}
 
-	if (tunnel->left_fd < 0) {
+	if (tunnel->fd[TUN_LEFT] < 0) {
 		DE("Can't accept connection\n");
 		/* TODO: What should we do here? New iteration? Break? */
 		pthread_exit(0);
@@ -1428,19 +1428,19 @@ static void *mp_tunnel_tty_server_go(void *v)
 
 	/* Should receive termios setting from the client*/
 
-	rc = recv(tunnel->left_fd, &sz, sizeof(struct winsize), 0);
-	rc += recv(tunnel->left_fd, &tio, sizeof(tio), 0);
+	rc = recv(tunnel->fd[TUN_LEFT], &sz, sizeof(struct winsize), 0);
+	rc += recv(tunnel->fd[TUN_LEFT], &tio, sizeof(tio), 0);
 
 	if (sizeof(struct winsize) + sizeof(tio) == rc) {
-		pid = forkpty(&tunnel->right_fd, NULL, &tio, &sz);
+		pid = forkpty(&tunnel->fd[TUN_RIGHT], NULL, &tio, &sz);
 	} else {     /* Can't receive winsize setting from the client */
-		pid = forkpty(&tunnel->right_fd, NULL, &tparams, NULL);
-		tcgetattr(tunnel->right_fd, &tparams);
+		pid = forkpty(&tunnel->fd[TUN_RIGHT], NULL, &tparams, NULL);
+		tcgetattr(tunnel->fd[TUN_RIGHT], &tparams);
 		tparams.c_lflag |= EXTPROC;
 		tparams.c_lflag &= ~ECHO;
 		//tparams.c_cc[VEOF] = 3; // ^C
 		//tparams.c_cc[VINTR] = 4; // ^D
-		tcsetattr(tunnel->right_fd, TCSANOW, &tparams);
+		tcsetattr(tunnel->fd[TUN_RIGHT], TCSANOW, &tparams);
 	}
 
 	if (pid < 0) {
@@ -1469,8 +1469,8 @@ static void *mp_tunnel_tty_server_go(void *v)
 		pthread_exit(NULL);
 	}
 
-	mp_tunnel_tunnel_fill_external(tunnel, tunnel->left_fd, "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
-	mp_tunnel_tunnel_fill_internal(tunnel, tunnel->right_fd, "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
+	mp_tunnel_tunnel_fill_external(tunnel, tunnel->fd[TUN_LEFT], "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	mp_tunnel_tunnel_fill_internal(tunnel, tunnel->fd[TUN_RIGHT], "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Start SSL connection */
 	mp_tunnel_init_server_ssl(tunnel, TUN_LEFT);
@@ -1499,8 +1499,8 @@ static void *mp_tunnel_tty_server_go(void *v)
 
 	mp_tunnel_print_stat(tunnel);
 	//mp_tunnel_tunnel_t_destroy(tunnel);
-	close(tunnel->left_fd);
-	close(tunnel->right_fd);
+	close(tunnel->fd[TUN_LEFT]);
+	close(tunnel->fd[TUN_RIGHT]);
 	DD("Close file descriptors\n\r");
 	mp_tunnel_kill_pty(pid);
 	DD("Finishing thread\n\r");
@@ -1556,7 +1556,7 @@ void *mp_tunnel_tty_server_start_thread(void *v)
 			The remote machine may declare preliminary about incoming connection.
 			If we do not expect connection from this machine, we reject */
 
-		t->left_fd = accept(sock, (struct sockaddr *)&serv_addr, &addrlen);
+		t->fd[TUN_LEFT] = accept(sock, (struct sockaddr *)&serv_addr, &addrlen);
 		pthread_create(&p_go, NULL, mp_tunnel_tty_server_go, t);
 	}
 }
