@@ -200,8 +200,7 @@ tunnel_t *mp_tunnel_tunnel_t_alloc(void)
 }
 
 /*** LOCKS */
-
-static void mp_tunnel_lock_right(tunnel_t *tunnel)
+static void mp_tunnel_lock(tunnel_t *tunnel, int direction)
 {
 	int rc;
 	return;
@@ -211,14 +210,14 @@ static void mp_tunnel_lock_right(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->buf_lock[TUN_RIGHT], &rc);
+	sem_getvalue(&tunnel->buf_lock[direction], &rc);
 	if (rc > 1) {
 		DE("Semaphor (left) count is too high: %d > 1\n\r", rc);
 		abort();
 	}
 
 	DD("Gettin sem\n\r");
-	rc = sem_wait(&tunnel->buf_lock[TUN_RIGHT]);
+	rc = sem_wait(&tunnel->buf_lock[direction]);
 	if (0 != rc) {
 		DE("Can't wait on left semaphore; abort\n\r");
 		perror("Can't wait on left semaphore; abort");
@@ -228,7 +227,7 @@ static void mp_tunnel_lock_right(tunnel_t *tunnel)
 	DD("Locked right buf\n\r");
 }
 
-static void mp_tunnel_lock_left(tunnel_t *tunnel)
+static void mp_tunnel_unlock(tunnel_t *tunnel, int direction)
 {
 	int rc;
 	return;
@@ -238,41 +237,14 @@ static void mp_tunnel_lock_left(tunnel_t *tunnel)
 		return;
 	}
 
-	sem_getvalue(&tunnel->buf_lock[TUN_LEFT], &rc);
-	if (rc > 1) {
-		DE("Semaphor (right) count is too high: %d > 1\n\r", rc);
-		abort();
-	}
-
-	DD("Gettin sem\n\r");
-	rc = sem_wait(&tunnel->buf_lock[TUN_LEFT]);
-	if (0 != rc) {
-		DE("Can't wait on right semaphore; abort\n\r");
-		perror("Can't wait on right semaphore; abort");
-		abort();
-	}
-
-	DD("Locked left buf\n\r");
-}
-
-static void mp_tunnel_unlock_right(tunnel_t *tunnel)
-{
-	int rc;
-	return;
-
-	if (NULL == tunnel) {
-		DE("tunnel is NULL\n\r");
-		return;
-	}
-
-	sem_getvalue(&tunnel->buf_lock[TUN_RIGHT], &rc);
+	sem_getvalue(&tunnel->buf_lock[direction], &rc);
 	if (rc > 0) {
 		DE("Tried to unlock not locked left semaphor\n\r");
 		abort();
 	}
 
 	DD("Putting sem\n\r");
-	rc = sem_post(&tunnel->buf_lock[TUN_RIGHT]);
+	rc = sem_post(&tunnel->buf_lock[direction]);
 	if (0 != rc) {
 		DE("Can't unlock ctl->left_lock\n\r");
 		perror("Can't unlock ctl->left_lock: abort");
@@ -280,33 +252,6 @@ static void mp_tunnel_unlock_right(tunnel_t *tunnel)
 	}
 
 	DD("Unlocked right buf\n\r");
-}
-
-static void mp_tunnel_unlock_left(tunnel_t *tunnel)
-{
-	int rc;
-	return;
-
-	if (NULL == tunnel) {
-		DE("tunnel is NULL\n\r");
-		return;
-	}
-
-	sem_getvalue(&tunnel->buf_lock[TUN_LEFT], &rc);
-	if (rc > 0) {
-		DE("Tried to unlock not locked right semaphor\n\r");
-		abort();
-	}
-
-	DD("Putting sem\n\n");
-	rc = sem_post(&tunnel->buf_lock[TUN_LEFT]);
-	if (0 != rc) {
-		DE("Can't unlock ctl->right_lock\n\r");
-		perror("Can't unlock ctl->right_lock: abort");
-		abort();
-	}
-
-	DD("Unlocked left buf\n\r");
 }
 
 void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
@@ -628,10 +573,12 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_RIGHT], new_size);
 	DD("average left: %f\n\r", average_left);
 
-	mp_tunnel_lock_right(tunnel);
+	// mp_tunnel_lock_right(tunnel);
+	mp_tunnel_lock(tunnel, TUN_RIGHT);
 	TFREE_SIZE(tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
 	tunnel->buf[TUN_RIGHT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_RIGHT]);
-	mp_tunnel_unlock_right(tunnel);
+	//mp_tunnel_unlock_right(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_RIGHT);
 
 	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_RIGHT]);
 
@@ -699,10 +646,12 @@ static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
 
 	DD("Going to resize l2r tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_LEFT], new_size);
 	DD("average left: %f\n\r", average_right);
-	mp_tunnel_lock_left(tunnel);
+	//mp_tunnel_lock_left(tunnel);
+	mp_tunnel_lock(tunnel, TUN_LEFT);
 	TFREE_SIZE(tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
 	tunnel->buf[TUN_LEFT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_LEFT]);
-	mp_tunnel_unlock_left(tunnel);
+	//mp_tunnel_unlock_left(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_LEFT);
 	DD("Resized l2r tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_LEFT]);
 
 end:
@@ -811,7 +760,8 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
-	mp_tunnel_lock_left(tunnel);
+	//mp_tunnel_lock_left(tunnel);
+	mp_tunnel_lock(tunnel, TUN_LEFT);
 
 	/* If 'left_ssl()' is not we use the SSL version*/
 	if (NULL != tunnel->ssl[TUN_LEFT] ) {
@@ -849,13 +799,15 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 
 	if (rr < 0) {
 		DE("Error on reading from %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
-		mp_tunnel_unlock_left(tunnel);
+		//mp_tunnel_unlock_left(tunnel);
+		mp_tunnel_unlock(tunnel, TUN_LEFT);
 		return (EBAD);
 	}
 
 	if (0 == rr) {
 		DE("Probably closed: %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
-		mp_tunnel_unlock_left(tunnel);
+		//mp_tunnel_unlock_left(tunnel);
+		mp_tunnel_unlock(tunnel, TUN_LEFT);
 		return (EBAD);
 	}
 
@@ -867,7 +819,8 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		rs = tunnel->do_write[TUN_RIGHT](tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
 	}
 
-	mp_tunnel_unlock_left(tunnel);
+	//mp_tunnel_unlock_left(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_LEFT);
 
 	if (rs < 0) {
 		DE("Error on writing to %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
@@ -900,7 +853,8 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
-	mp_tunnel_lock_right(tunnel);
+	// mp_tunnel_lock_right(tunnel);
+	mp_tunnel_lock(tunnel, TUN_RIGHT);
 
 	if (NULL != tunnel->ssl[TUN_RIGHT]) {
 		int ssl_error    = 0;
@@ -935,14 +889,16 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 
 	if (rr < 0) {
 		DE("Error on reading from %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
-		mp_tunnel_unlock_right(tunnel);
+		//mp_tunnel_unlock_right(tunnel);
+		mp_tunnel_unlock(tunnel, TUN_RIGHT);
 		return (EBAD);
 	}
 
 	if (0 == rr) {
 		DE("Probably closed: %s\n\r", tunnel->name[TUN_RIGHT] ? tunnel->name[TUN_RIGHT] : "Right fd");
 		return (EBAD);
-		mp_tunnel_unlock_right(tunnel);
+		//mp_tunnel_unlock_right(tunnel);
+		mp_tunnel_unlock(tunnel, TUN_RIGHT);
 	}
 
 	/* If 'left_ssl' is not NULL - use SSL operation */
@@ -955,7 +911,8 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 		rs = tunnel->do_write[TUN_LEFT](tunnel->fd[TUN_LEFT], tunnel->buf[TUN_RIGHT], rr);
 	}
 
-	mp_tunnel_unlock_right(tunnel);
+	//mp_tunnel_unlock_right(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_RIGHT);
 
 	if (rs < 0) {
 		DE("Error on writing to %s\n\r", tunnel->name[TUN_LEFT] ? tunnel->name[TUN_LEFT] : "Left fd");
@@ -992,14 +949,18 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 {
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
-	mp_tunnel_lock_left(tunnel);
+	//mp_tunnel_lock_left(tunnel);
+	mp_tunnel_lock(tunnel, TUN_LEFT);
 	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT]);
-	mp_tunnel_unlock_left(tunnel);
+	//mp_tunnel_unlock_left(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_LEFT);
 	TESTP(tunnel->buf[TUN_LEFT], EBAD);
 
-	mp_tunnel_lock_right(tunnel);
+	//mp_tunnel_lock_right(tunnel);
+	mp_tunnel_lock(tunnel, TUN_RIGHT);
 	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT]);
-	mp_tunnel_unlock_right(tunnel);
+	//mp_tunnel_unlock_right(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_RIGHT);
 	TESTP(tunnel->buf[TUN_RIGHT], EBAD);
 
 	while (1) {
@@ -1055,13 +1016,17 @@ end:
 static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 {
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
-	mp_tunnel_lock_left(tunnel);
+	//mp_tunnel_lock_left(tunnel);
+	mp_tunnel_lock(tunnel, TUN_LEFT);
 	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT]);
-	mp_tunnel_unlock_left(tunnel);
+	//mp_tunnel_unlock_left(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_LEFT);
 
-	mp_tunnel_lock_right(tunnel);
+	//mp_tunnel_lock_right(tunnel);
+	mp_tunnel_lock(tunnel, TUN_RIGHT);
 	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT]);
-	mp_tunnel_unlock_right(tunnel);
+	//mp_tunnel_unlock_right(tunnel);
+	mp_tunnel_unlock(tunnel, TUN_RIGHT);
 
 	while (1) {
 		int    rc;
