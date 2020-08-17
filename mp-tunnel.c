@@ -545,25 +545,14 @@ static int mp_tunnel_should_resize(tunnel_t *tunnel, int direction)
 	return (0);
 }
 
-static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
+int mp_tunnel_fill(tunnel_t *tunnel, int direction, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
 {
 	TESTP(tunnel, EBAD);
-	tunnel->fd[TUN_LEFT] = fd;
-	tunnel->name[TUN_LEFT] = name;
-	tunnel->do_read[TUN_LEFT] = do_read;
-	tunnel->do_write[TUN_LEFT] = do_write;
-	tunnel->do_close[TUN_LEFT] = do_close;
-	return (EOK);
-}
-
-static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
-{
-	TESTP(tunnel, EBAD);
-	tunnel->fd[TUN_RIGHT] = fd;
-	tunnel->name[TUN_RIGHT] = name;
-	tunnel->do_read[TUN_RIGHT] = do_read;
-	tunnel->do_write[TUN_RIGHT] = do_write;
-	tunnel->do_close[TUN_RIGHT] = do_close;
+	tunnel->fd[direction] = fd;
+	tunnel->name[direction] = name;
+	tunnel->do_read[direction] = do_read;
+	tunnel->do_write[direction] = do_write;
+	tunnel->do_close[direction] = do_close;
 	return (EOK);
 }
 
@@ -1260,8 +1249,10 @@ static void *mp_tunnel_tty_server_go(void *v)
 		pthread_exit(NULL);
 	}
 
-	mp_tunnel_tunnel_fill_external(tunnel, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
-	mp_tunnel_tunnel_fill_internal(tunnel, tunnel->fd[TUN_RIGHT] , "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
+	//mp_tunnel_tunnel_fill_external(tunnel, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	mp_tunnel_fill(tunnel, TUN_LEFT, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	//mp_tunnel_tunnel_fill_internal(tunnel, tunnel->fd[TUN_RIGHT] , "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
+	mp_tunnel_fill(tunnel, TUN_RIGHT, tunnel->fd[TUN_RIGHT] , "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Start SSL connection */
 	mp_tunnel_init_server_ssl(tunnel, TUN_LEFT);
@@ -1481,8 +1472,10 @@ void *mp_tunnel_tty_client_start_thread(void *v)
 
 	/* Acept connection and create pty */
 
-	mp_tunnel_tunnel_fill_external(tunnel, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
-	mp_tunnel_tunnel_fill_internal(tunnel, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
+	//mp_tunnel_tunnel_fill_external(tunnel, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	mp_tunnel_fill(tunnel, TUN_LEFT, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	//mp_tunnel_tunnel_fill_internal(tunnel, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
+	mp_tunnel_fill(tunnel, TUN_RIGHT, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Set SSL tunnel for external connection */
 	mp_tunnel_init_client_ssl(tunnel, TUN_LEFT);

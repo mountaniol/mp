@@ -283,13 +283,6 @@ uint32_t mp_tun_get_flags_left(tunnel_t *t);
 uint32_t mp_tun_get_flags_right(tunnel_t *t);
 #endif
 
-static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int left_fd, const char *left_name, conn_read_t left_read, conn_write_t left_write, conn_close_t left_close);
-static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int right_fd, const char *right_name, conn_read_t right_read, conn_write_t right_write, conn_close_t right_close);
-
-/* These are aliases in case the tunnel used for external-to-internal file descriptors */
-#define mp_tunnel_tunnel_fill_external(x1,x2,x3,x4,x5,x6) mp_tunnel_tunnel_fill_left(x1,x2,x3,x4,x5,x6)
-#define mp_tunnel_tunnel_fill_internal(x1,x2,x3,x4,x5,x6) mp_tunnel_tunnel_fill_right(x1,x2,x3,x4,x5,x6)
-
 /**
  * @author Sebastian Mountaniol (09/08/2020)
  * @func int mp_tunnel_set_certs(SSL_CTX *ctx, void *x509, void *priv_rsa)
