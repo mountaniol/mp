@@ -445,7 +445,7 @@ char *mp_tun2_get_rsa(tunnel_t *t, tun_stream_t stream)
 
 /* TODO: tune it in a real tests */
 /* Calculate new optimal buffer size */
-static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
+static int mp_tunnel_resize_buf(tunnel_t *tunnel, int direction)
 {
 	float  average_left = 0;
 	size_t new_size     = 0;
@@ -453,8 +453,8 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
 	/* What is max average? */
-	if (tunnel->cnt_session_write_total[TUN_LEFT] > 0 && tunnel->num_session_writes[TUN_LEFT] > 0) {
-		average_left = (float)tunnel->cnt_session_write_total[TUN_LEFT] / (float)tunnel->num_session_writes[TUN_LEFT];
+	if (tunnel->cnt_session_write_total[direction] > 0 && tunnel->num_session_writes[direction] > 0) {
+		average_left = (float)tunnel->cnt_session_write_total[direction] / (float)tunnel->num_session_writes[direction];
 	}
 
 	/* Now it is a trick. How fast should we resize the buffer?
@@ -467,13 +467,13 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 	   descriptore */
 
 	/* In 80%+ of writes the full buffer used. Triple  it*/
-	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.8) {
-		new_size = tunnel->buf_size[TUN_RIGHT] * 3;
+	if (tunnel->all_cnt_session_max_hits[direction] > tunnel->num_session_writes[direction] * 0.8) {
+		new_size = tunnel->buf_size[direction] * 3;
 
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
-	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.5) {
-		new_size = tunnel->buf_size[TUN_RIGHT] * 2;
+	if (tunnel->all_cnt_session_max_hits[direction] > tunnel->num_session_writes[direction] * 0.5) {
+		new_size = tunnel->buf_size[direction] * 2;
 		/* In < 50% of writes the full buffer used. Double it*/
 	} else {
 		/* In this case size may be reduced */
@@ -488,101 +488,29 @@ static int mp_tunnel_resize_right_buf(tunnel_t *tunnel)
 		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MIN;
 	}
 
-	if (new_size == tunnel->buf_size[TUN_RIGHT] ) {
+	if (new_size == tunnel->buf_size[direction] ) {
 		goto end;
 	}
 
-	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_RIGHT] , new_size);
+	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[direction] , new_size);
 	DD("average left: %f\n\r", average_left);
 
 	// mp_tunnel_lock_right(tunnel);
-	mp_tunnel_lock(tunnel, TUN_RIGHT);
-	TFREE_SIZE(tunnel->buf[TUN_RIGHT] , tunnel->buf_size[TUN_RIGHT] );
-	tunnel->buf[TUN_RIGHT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_RIGHT] );
+	mp_tunnel_lock(tunnel, direction);
+	TFREE_SIZE(tunnel->buf[direction] , tunnel->buf_size[direction] );
+	tunnel->buf[direction] = zmalloc_any(new_size, &tunnel->buf_size[direction] );
 	//mp_tunnel_unlock_right(tunnel);
-	mp_tunnel_unlock(tunnel, TUN_RIGHT);
+	mp_tunnel_unlock(tunnel, direction);
 
-	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_RIGHT] );
-
-end:
-	/* Save total write for statistics */
-	tunnel->cnt_write_total[TUN_LEFT] += tunnel->cnt_session_write_total[TUN_LEFT];
-	tunnel->num_session_writes[TUN_LEFT] = 0;
-	tunnel->cnt_session_write_total[TUN_LEFT] = 0;
-
-	tunnel->all_cnt_session_max_hits[TUN_LEFT] = 0;
-	return (EOK);
-}
-
-/* TODO: tune it in a real tests */
-/* r2l means "right to left", it means we write to the left buffer*/
-/* So we measure and change left beffer (r2l*/
-/* Calculate new optimal buffer size */
-static int mp_tunnel_resize_left_buf(tunnel_t *tunnel)
-{
-	float  average_right = 0;
-	size_t new_size      = 0;
-
-	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
-
-	/* What is max average? */
-	if (tunnel->cnt_session_write_total[TUN_RIGHT] > 0 && tunnel->num_session_writes[TUN_RIGHT] > 0) {
-		average_right = (float)tunnel->cnt_session_write_total[TUN_RIGHT] / (float)tunnel->num_session_writes[TUN_RIGHT];
-	}
-
-	/* Now it is a trick. How fast should we resize the buffer?
-	 * Let's do it based on statistics. If the max buffer size
-	 * used very often (80%+ percent of cases) - grow it fast,
-	 * triple it. If is hit the maximum between 50-80% cases -
-	 * double it. Else grow it slowly, 20% if its size */
-
-	/* We consider all write operation - to read and to right file
-	   descriptore */
-
-	/* In 80%+ of writes the full buffer used. Triple  it*/
-	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.8) {
-		new_size = tunnel->buf_size[TUN_LEFT] * 3;
-		/* In 50%-80% of writes the full buffer used. Double it*/
-	} else
-	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.5) {
-		new_size = tunnel->buf_size[TUN_LEFT] * 2;
-		/* In < 50% of writes the full buffer used. Double it*/
-	} else {
-		/* In this case size may be reduced */
-		new_size = (float)(average_right * 1.2);
-	}
-
-	//size_t new_size = (float)(average_max * 1.2);
-	if (new_size > MP_LIMIT_TUNNEL_BUF_SIZE_MAX) {
-		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MAX;
-	}
-
-	if (new_size < MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
-		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MIN;
-	}
-
-	if (new_size == tunnel->buf_size[TUN_RIGHT] ) {
-		goto end;
-	}
-
-
-	DD("Going to resize l2r tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[TUN_LEFT] , new_size);
-	DD("average left: %f\n\r", average_right);
-	//mp_tunnel_lock_left(tunnel);
-	mp_tunnel_lock(tunnel, TUN_LEFT);
-	TFREE_SIZE(tunnel->buf[TUN_LEFT] , tunnel->buf_size[TUN_LEFT] );
-	tunnel->buf[TUN_LEFT] = zmalloc_any(new_size, &tunnel->buf_size[TUN_LEFT] );
-	//mp_tunnel_unlock_left(tunnel);
-	mp_tunnel_unlock(tunnel, TUN_LEFT);
-	DD("Resized l2r tunnel buffer to %ld\n\r", tunnel->buf_size[TUN_LEFT] );
+	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->buf_size[direction] );
 
 end:
 	/* Save total write for statistics */
-	tunnel->cnt_write_total[TUN_RIGHT] += tunnel->cnt_session_write_total[TUN_RIGHT];
-	tunnel->num_session_writes[TUN_RIGHT] = 0;
-	tunnel->cnt_session_write_total[TUN_RIGHT] = 0;
+	tunnel->cnt_write_total[direction] += tunnel->cnt_session_write_total[direction];
+	tunnel->num_session_writes[direction] = 0;
+	tunnel->cnt_session_write_total[direction] = 0;
 
-	tunnel->all_cnt_session_max_hits[TUN_RIGHT] = 0;
+	tunnel->all_cnt_session_max_hits[direction] = 0;
 	return (EOK);
 }
 
@@ -923,11 +851,13 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 		}
 
 		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
-			mp_tunnel_resize_left_buf(tunnel);
+			//mp_tunnel_resize_left_buf(tunnel);
+			mp_tunnel_resize_buf(tunnel, TUN_LEFT);
 		}
 
 		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
-			mp_tunnel_resize_right_buf(tunnel);
+			//mp_tunnel_resize_right_buf(tunnel);
+			mp_tunnel_resize_buf(tunnel, TUN_RIGHT);
 		}
 	}
 end:
@@ -989,11 +919,13 @@ static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 		}
 
 		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
-			mp_tunnel_resize_left_buf(tunnel);
+			//mp_tunnel_resize_left_buf(tunnel);
+			mp_tunnel_resize_buf(tunnel, TUN_LEFT);
 		}
 
 		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
-			mp_tunnel_resize_right_buf(tunnel);
+			//mp_tunnel_resize_right_buf(tunnel);
+			mp_tunnel_resize_buf(tunnel, TUN_RIGHT);
 		}
 	}
 end:
