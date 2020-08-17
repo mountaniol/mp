@@ -1411,7 +1411,7 @@ static int mp_tunnel_start_ssl_conn_right(tunnel_t *t)
 {
 	TESTP(t, EBAD);
 
-	if (NULL == t->right_ctx) {
+	if (NULL == t->ctx[TUN_RIGHT]) {
 		DE("Tunnel right CTX is NULL\n");
 		return (EBAD);
 	}

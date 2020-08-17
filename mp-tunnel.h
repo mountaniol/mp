@@ -168,7 +168,7 @@ typedef struct tunnel_struct {
 	conn_close_t left_close;        /* (Optional) Close fd */
 	const char *left_name;          /* Name of the left fd - for debug */
 
-	/*** LEFT (EXTERNAL) SSL RELATED */
+	/*** SSL RELATED */
 
 	void *ctx[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 	void *rsa[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
@@ -192,13 +192,6 @@ typedef struct tunnel_struct {
 	conn_close_t right_close;       /* (Optional) Close fd */
 	/* TODO: replace it with buf_t */
 	const char *right_name;         /* Name of the right fd - for debug */
-
-	/*** RIGH (EXTERNAL) SSL RELATED */
-
-	void *right_ctx;                /* (Optional) SSL_CTX structure for left conection */
-	void *right_rsa;                        /* (Optional) In case SSL used this won't be NULL; */
-	void *right_x509;                       /* (Optional) In case SSL used this won't be NULL; */
-	void *right_ssl;                /* (Optional) In case SSL used this won't be NULL; */
 
 	/*** Staticstics */
 
