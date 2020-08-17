@@ -152,7 +152,7 @@ typedef struct tunnel_struct {
 	/*** Flags define the tunnel left size configuration, see TUN_* defines (like TUN_SERVER) */
 
 	uint32_t flags[TUN_MAX];
-	
+
 	/*** BUFFERS */
 	char *buf[TUN_MAX];                  /* Buffer used for read / write from left fd to right fd */
 	size_t buf_size[TUN_MAX];            /* Size of the l2r (left to right)buffer */
@@ -161,10 +161,14 @@ typedef struct tunnel_struct {
 	/*** File descriptors */
 	int fd[TUN_MAX];
 
+	/*** FILE OPERATIONS */
+	conn_read_t do_read[TUN_MAX];          /* (Must) Read from fd */
+	conn_write_t do_write[TUN_MAX];     /* (Must) Write to fd */
+	conn_close_t do_close[TUN_MAX];     /* (Optional) Close fd */
+	
+
 	/* Left socket operations */
-	conn_read_t left_read;          /* (Must) Read from fd */
-	conn_write_t left_write;        /* (Must) Write to fd */
-	conn_close_t left_close;        /* (Optional) Close fd */
+
 	const char *left_name;          /* Name of the left fd - for debug */
 
 	/*** SSL RELATED */
@@ -174,10 +178,6 @@ typedef struct tunnel_struct {
 	void *x509[TUN_MAX];                /* (Optional) In case SSL used this won't be NULL; */
 	void *ssl[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 
-	/* Right socket operations */
-	conn_read_t right_read;         /* (Must) Read from fd */
-	conn_write_t right_write;       /* (Must) Write to fd */
-	conn_close_t right_close;       /* (Optional) Close fd */
 	/* TODO: replace it with buf_t */
 	const char *right_name;         /* Name of the right fd - for debug */
 
@@ -204,9 +204,9 @@ typedef struct tunnel_struct {
 	size_t right_num_session_writes;        /* How many write operation done to the right after last buffer resize */
 	size_t right_all_cnt_session_max_hits;        /* How many times the max size buf_l2r used after last buffer resize */
 
-	/*** Optional params **/
+	/*** Optional params */
 	/* If given the server + port, the tunnel will resolve it */
-	
+
 	char *left_server;
 	int left_port;
 	char *right_server;
@@ -220,9 +220,7 @@ typedef struct tunnel_struct {
  * @author Sebastian Mountaniol (11/08/2020)
  * @func tunnel_t* mp_tunnel_tunnel_t_alloc(void)
  * @brief Allocate and init tunnel structure
- *
  * @param void
- *
  * @return tunnel_t* Allocated and inited tunnel struct on success, NULL on error
  * @details
  */
@@ -233,9 +231,7 @@ tunnel_t *mp_tunnel_tunnel_t_alloc(void);
  * @author Sebastian Mountaniol (11/08/2020)
  * @func int mp_tunnel_tunnel_t_alloc(tunnel_t *tunnel)
  * @brief Init tunnel structure
- *
  * @param tunnel_t * tunnel Structure to init
- *
  * @return int EOK on success, < 0 on error
  * @details You do not need it the stucture created
  * with mp_tunnel_tunnel_t_alloc() func. Only if you
@@ -254,7 +250,6 @@ int mp_tunnel_tunnel_t_init(tunnel_t *tunnel);
  * @func void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
  * @brief Close all descriptors, destroy semaphores, free
  * the tunnel structure
- *
  * @param tunnel_t * tunnel Tunnel to destroy
  * @details Attention: if there is no 'close' operation
  * defined, the file descriptor must be closed and be < 0,
@@ -279,10 +274,8 @@ int mp_tun_set_flags_left(tunnel_t *t, uint32_t flags);
  * @author Sebastian Mountaniol (11/08/2020)
  * @func int mp_tunnel_set_right_flags(tunnel_t *t, uint32_t flags)
  * @brief Set configuration flags of the tunnel right side
- *
  * @param tunnel_t * t Tunnel to set flags
  * @param uint32_t flags Flags to set
- *
  * @return int New set of flags returned. In case of error 0xFFFFFFFF value returned
  * @details The new set of flags completely replace the old set of flags. The error is possible is pointer to tunnel is NULL
  */
@@ -293,9 +286,7 @@ int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags);
  * @author Sebastian Mountaniol (11/08/2020)
  * @func uint32_t mp_tunnel_get_left_flags(tunnel_t *t)
  * @brief Return left flags
- *
  * @param tunnel_t * t Current set of flags returned. In case of error 0xFFFFFFFF value returned
- *
  * @return uint32_t Flags
  * @details The error is possible if pointer of the tunnel struct is NULL
  */

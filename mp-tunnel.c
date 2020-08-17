@@ -779,25 +779,25 @@ static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
 	return (0);
 }
 
-static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *left_name, conn_read_t left_read, conn_write_t left_write, conn_close_t left_close)
+static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int fd, const char *left_name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
 {
 	TESTP(tunnel, EBAD);
 	tunnel->fd[TUN_LEFT] = fd;
 	tunnel->left_name = left_name;
-	tunnel->left_read = left_read;
-	tunnel->left_write = left_write;
-	tunnel->left_close = left_close;
+	tunnel->do_read[TUN_LEFT] = do_read;
+	tunnel->do_write[TUN_LEFT] = do_write;
+	tunnel->do_close[TUN_LEFT] = do_close;
 	return (EOK);
 }
 
-static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *right_name, conn_read_t right_read, conn_write_t right_write, conn_close_t right_close)
+static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int fd, const char *right_name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close)
 {
 	TESTP(tunnel, EBAD);
 	tunnel->fd[TUN_RIGHT] = fd;
 	tunnel->right_name = right_name;
-	tunnel->right_read = right_read;
-	tunnel->right_write = right_write;
-	tunnel->right_close = right_close;
+	tunnel->do_read[TUN_RIGHT] = do_read;
+	tunnel->do_write[TUN_RIGHT] = do_write;
+	tunnel->do_close[TUN_RIGHT] = do_close;
 	return (EOK);
 }
 
@@ -843,8 +843,8 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		tunnel->right_num_writes_ssl++;
 	}  /* End of the SSL handler */
 	else {
-		assert(NULL != tunnel->left_read);
-		rr = tunnel->left_read(tunnel->fd[TUN_LEFT], tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
+		assert(NULL != tunnel->do_read[TUN_LEFT]);
+		rr = tunnel->do_read[TUN_LEFT](tunnel->fd[TUN_LEFT], tunnel->buf[TUN_LEFT], tunnel->buf_size[TUN_LEFT]);
 	}
 
 	if (rr < 0) {
@@ -863,8 +863,8 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		rs = SSL_write(tunnel->ssl[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
 		/*** TODO: We should handle here SSL errors */
 	} else {
-		assert(NULL != tunnel->right_write);
-		rs = tunnel->right_write(tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
+		assert(NULL != tunnel->do_write[TUN_RIGHT]);
+		rs = tunnel->do_write[TUN_RIGHT](tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_LEFT], rr);
 	}
 
 	mp_tunnel_unlock_left(tunnel);
@@ -929,8 +929,8 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 
 	} /* End of SSL handler */
 	else {
-		assert(NULL != tunnel->right_read);
-		rr = tunnel->right_read(tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
+		assert(NULL != tunnel->do_read[TUN_RIGHT]);
+		rr = tunnel->do_read[TUN_RIGHT](tunnel->fd[TUN_RIGHT], tunnel->buf[TUN_RIGHT], tunnel->buf_size[TUN_RIGHT]);
 	}
 
 	if (rr < 0) {
@@ -951,8 +951,8 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 		tunnel->left_num_writes++;
 		/*** TODO: Handle SSL errors */
 	} else {
-		assert(NULL != tunnel->left_write);
-		rs = tunnel->left_write(tunnel->fd[TUN_LEFT], tunnel->buf[TUN_RIGHT], rr);
+		assert(NULL != tunnel->do_write[TUN_LEFT]);
+		rs = tunnel->do_write[TUN_LEFT](tunnel->fd[TUN_LEFT], tunnel->buf[TUN_RIGHT], rr);
 	}
 
 	mp_tunnel_unlock_right(tunnel);
