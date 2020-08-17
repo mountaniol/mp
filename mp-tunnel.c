@@ -374,52 +374,17 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 
 /*** Configure tunnel flags */
 
-int mp_tun_set_flags_left(tunnel_t *t, uint32_t flags)
+int mp_tun_set_flags(tunnel_t *t, int direction, uint32_t flags)
 {
 	TESTP(t, 0xFFFFFFFF);
-	t->left_flags = flags;
-	return (t->left_flags);
+	t->flags[direction] = flags;
+	return (t->flags[direction]);
 }
 
-int mp_tun_set_flags_ext(tunnel_t *t, uint32_t flags)
-{
-	return (mp_tun_set_flags_left(t, flags));
-}
-
-uint32_t mp_tun_get_flags_left(tunnel_t *t)
+uint32_t mp_tun_get_flags(tunnel_t *t, int direction)
 {
 	TESTP(t, 0xFFFFFFFF);
-	return (t->left_flags);
-}
-
-uint32_t mp_tun_get_flags_ext(tunnel_t *t)
-{
-
-	return (mp_tun_get_flags_left(t));
-}
-
-int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags)
-{
-	TESTP(t, 0xFFFFFFFF);
-	t->right_flags = flags;
-	return (t->right_flags);
-}
-
-int mp_tun_set_flags_intern(tunnel_t *t, uint32_t flags)
-{
-
-	return (mp_tun_set_flags_right(t, flags));
-}
-
-uint32_t mp_tun_get_flags_right(tunnel_t *t)
-{
-	TESTP(t, 0xFFFFFFFF);
-	return (t->right_flags);
-}
-
-uint32_t mp_tun_get_flags_intern(tunnel_t *t)
-{
-	return (mp_tun_get_flags_right(t));
+	return (t->flags[direction]);
 }
 
 /*** Left / right buffer size */
@@ -1778,11 +1743,11 @@ int main(int argi, char *argv[])
 		/* LEFT (external) part of the tunnel */
 		/* Tunnel left (external) side is SSL server mode socket */
 
-		mp_tun_set_flags_left(tunnel, TUN_SOCKET_SSL | TUN_SERVER | TUN_AUTOBUF);
+		mp_tun_set_flags(tunnel, TUN_LEFT, TUN_SOCKET_SSL | TUN_SERVER | TUN_AUTOBUF);
 		mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 
 		/* RIGHT (internal) size of the tunnel: it is TTY */
-		mp_tun_set_flags_right(tunnel, TUN_TTY_SERVER | TUN_AUTOBUF);
+		mp_tun_set_flags(tunnel, TUN_RIGHT, TUN_TTY_SERVER | TUN_AUTOBUF);
 
 		pthread_create(&pid, NULL, mp_tunnel_tty_server_start_thread, tunnel);
 		pthread_join(pid, NULL);
@@ -1794,10 +1759,10 @@ int main(int argi, char *argv[])
 		pthread_t pid;
 
 		/* LEFT side og the tunnel: SSL client connection */
-		mp_tun_set_flags_left(tunnel, TUN_SOCKET_SSL | TUN_AUTOBUF);
+		mp_tun_set_flags(tunnel, TUN_LEFT, TUN_SOCKET_SSL | TUN_AUTOBUF);
 		mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 		/* RIGHT (internal) size of the tunnel: it is TTY */
-		mp_tun_set_flags_right(tunnel, TUN_TTY_CLIENT | TUN_AUTOBUF);
+		mp_tun_set_flags(tunnel, TUN_RIGHT, TUN_TTY_CLIENT | TUN_AUTOBUF);
 
 		pthread_create(&pid, NULL, mp_tunnel_tty_client_start_thread, tunnel);
 		pthread_join(pid, NULL);

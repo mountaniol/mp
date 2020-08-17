@@ -151,8 +151,8 @@ typedef struct tunnel_struct {
 
 	/*** Flags define the tunnel left size configuration, see TUN_* defines (like TUN_SERVER) */
 
-	uint32_t left_flags;
-
+	uint32_t flags[TUN_MAX];
+	
 	/*** LEFT (EXTERNAL) FD */
 
 	/* Buffer: left buffer used to read from the left tunnel side and write to the right side */
@@ -174,9 +174,6 @@ typedef struct tunnel_struct {
 	void *rsa[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 	void *x509[TUN_MAX];                /* (Optional) In case SSL used this won't be NULL; */
 	void *ssl[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
-
-	/*** Flags define the tunnel right side configuration, see TUN_* defines (like TUN_SERVER) */
-	uint32_t right_flags;
 
 	/*** RIGHT (INTERNAL) FD */
 	/* Buffer: right buffer used to read from the right side and to write to left size */
@@ -274,18 +271,18 @@ int mp_tunnel_tunnel_t_init(tunnel_t *tunnel);
  */
 void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel);
 
+#if 0
 /**
  * @author Sebastian Mountaniol (11/08/2020)
  * @func int mp_tunnel_set_left_flags(tunnel_t *t, uint32_t flags)
  * @brief Set configuration flags of the tunnel left side
- *
  * @param tunnel_t * t Tunnel to set flags
  * @param uint32_t flags Flags to set
- *
  * @return int New set of flags returned. In case of error 0xFFFFFFFF value returned
  * @details The new det of flags completely replace the old set of flags. The error is possible is pointer to tunnel is NULL
  */
 int mp_tun_set_flags_left(tunnel_t *t, uint32_t flags);
+
 
 /**
  * @author Sebastian Mountaniol (11/08/2020)
@@ -299,6 +296,7 @@ int mp_tun_set_flags_left(tunnel_t *t, uint32_t flags);
  * @details The new set of flags completely replace the old set of flags. The error is possible is pointer to tunnel is NULL
  */
 int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags);
+#endif
 
 /**
  * @author Sebastian Mountaniol (11/08/2020)
@@ -312,17 +310,17 @@ int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags);
  */
 uint32_t mp_tun_get_flags_left(tunnel_t *t);
 
+#if 0
 /**
  * @author Sebastian Mountaniol (11/08/2020)
  * @func uint32_t mp_tunnel_get_right_flags(tunnel_t *t)
  * @brief Return left flags
- *
  * @param tunnel_t * t Current set of flags returned. In case of error 0xFFFFFFFF value returned
- *
  * @return uint32_t Flags
  * @details The error is possible if pointer of the tunnel struct is NULL
  */
 uint32_t mp_tun_get_flags_right(tunnel_t *t);
+#endif
 
 static int mp_tunnel_tunnel_fill_left(tunnel_t *tunnel, int left_fd, const char *left_name, conn_read_t left_read, conn_write_t left_write, conn_close_t left_close);
 static int mp_tunnel_tunnel_fill_right(tunnel_t *tunnel, int right_fd, const char *right_name, conn_read_t right_read, conn_write_t right_write, conn_close_t right_close);
