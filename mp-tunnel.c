@@ -199,7 +199,7 @@ tunnel_t *mp_tunnel_tunnel_t_alloc(void)
 	return (tunnel);
 }
 
-/*** LOCKS **/
+/*** LOCKS */
 
 static void mp_tunnel_lock_right(tunnel_t *tunnel)
 {
@@ -311,6 +311,7 @@ static void mp_tunnel_unlock_left(tunnel_t *tunnel)
 
 void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 {
+	int i = 0;
 	if (NULL == tunnel) {
 		DE("tunnel is NULL\n");
 		return;
@@ -330,36 +331,22 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 
 	DE("Destroied locks\n");
 
-	if (NULL != tunnel->left_ssl) {
-		SSL_free(tunnel->left_ssl);
-	}
+	for (i = 0; i < TUN_MAX; i++) {
+		if (NULL != tunnel->ssl[i] ) {
+			SSL_free(tunnel->ssl[i]);
+		}
 
-	if (NULL != tunnel->right_ssl) {
-		SSL_free(tunnel->right_ssl);
-	}
+		if (NULL != tunnel->ctx[i] ) {
+			SSL_CTX_free(tunnel->ctx[i] );
+		}
 
-	if (NULL != tunnel->left_ctx) {
-		SSL_CTX_free(tunnel->left_ctx);
-	}
+		if (NULL != tunnel->rsa[i] ) {
+			RSA_free(tunnel->rsa[i] );
+		}
 
-	if (NULL != tunnel->right_ctx) {
-		SSL_CTX_free(tunnel->right_ctx);
-	}
-
-	if (NULL != tunnel->left_rsa) {
-		RSA_free(tunnel->left_rsa);
-	}
-
-	if (NULL != tunnel->right_rsa) {
-		RSA_free(tunnel->right_rsa);
-	}
-
-	if (NULL != tunnel->left_x509) {
-		X509_free(tunnel->left_x509);
-	}
-
-	if (NULL != tunnel->right_x509) {
-		X509_free(tunnel->right_x509);
+		if (NULL != tunnel->x509[i]) {
+			X509_free(tunnel->x509[i]);
+		}
 	}
 
 	if (NULL != tunnel->left_server) {
@@ -377,7 +364,7 @@ void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
 	if (NULL != tunnel->left_buf) {
 		free(tunnel->left_buf);
 	}
-	
+
 	memset(tunnel, 0, sizeof(tunnel_t));
 
 	DE("Finished\n");
@@ -524,44 +511,12 @@ char *mp_tun_get_get_name_right(tunnel_t *t)
 
 /*** Set / get right / left X509 and private RSA key */
 
-int mp_tun_get_set_x509_rsa_left(tunnel_t *t, void *x509, void *rsa)
+int mp_tun_set_x509_rsa(tunnel_t *t, int direction, void *x509, void *rsa)
 {
 	TESTP(t, -1);
-	t->left_rsa = rsa;
-	t->left_x509 = x509;
+	t->rsa[direction] = rsa;
+	t->x509[direction] = x509;
 	return (EOK);
-}
-
-char *mp_tun_get_get_x509_left(tunnel_t *t)
-{
-	TESTP(t, NULL);
-	return (t->left_x509);
-}
-
-char *mp_tun_get_get_rsa_left(tunnel_t *t)
-{
-	TESTP(t, NULL);
-	return (t->left_rsa);
-}
-
-int mp_tun_get_set_x509_rsa_right(tunnel_t *t, void *x509, void *rsa)
-{
-	TESTP(t, -1);
-	t->right_rsa = rsa;
-	t->right_x509 = x509;
-	return (EOK);
-}
-
-char *mp_tun_get_get_x509_right(tunnel_t *t)
-{
-	TESTP(t, NULL);
-	return (t->right_x509);
-}
-
-char *mp_tun_get_get_rsa_right(tunnel_t *t)
-{
-	TESTP(t, NULL);
-	return (t->right_rsa);
 }
 
 /*** Set / get left / right server name + port */
@@ -633,32 +588,26 @@ int mp_tun_get_port_right(tunnel_t *t)
 	return (t->right_port);
 }
 
-/*** Set / get left / right SSL file descriptor */
+/*** TUN2: Set / get right / left X509 and private RSA key */
 
-int mp_tun_set_get_ssl_left(tunnel_t *t, void *ssl)
+int mp_tun2_set_x509_rsa(tunnel_t *t, tun_stream_t stream, void *x509, void *rsa)
 {
-	TESTP(t, EBAD);
-	t->left_ssl = ssl;
+	TESTP(t, -1);
+	t->rsa[stream] = rsa;
+	t->x509[stream] = x509;
 	return (EOK);
 }
 
-void *mp_tun_get_get_ssl_left(tunnel_t *t)
+char *mp_tun2_get_x509(tunnel_t *t, tun_stream_t stream)
 {
 	TESTP(t, NULL);
-	return (t->left_ssl);
+	return (t->x509[stream] );
 }
 
-int mp_tun_set_get_ssl_right(tunnel_t *t, void *ssl)
-{
-	TESTP(t, EBAD);
-	t->right_ssl = ssl;
-	return (EOK);
-}
-
-void *mp_tun_get_get_ssl_right(tunnel_t *t)
+char *mp_tun2_get_rsa(tunnel_t *t, tun_stream_t stream)
 {
 	TESTP(t, NULL);
-	return (t->right_ssl);
+	return (t->rsa[stream] );
 }
 
 
@@ -900,15 +849,15 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 	mp_tunnel_lock_left(tunnel);
 
 	/* If 'left_ssl()' is not we use the SSL version*/
-	if (NULL != tunnel->left_ssl) {
+	if (NULL != tunnel->ssl[TUN_LEFT] ) {
 		int read_blocked = 0;
 		int ssl_error    = 0;
 
-		rr = SSL_read(tunnel->left_ssl, tunnel->left_buf, tunnel->left_buf_size);
+		rr = SSL_read(tunnel->ssl[TUN_LEFT] , tunnel->left_buf, tunnel->left_buf_size);
 
 		/*** TODO: We should handle here SSL errors */
 		//check SSL errors
-		switch (ssl_error = SSL_get_error(tunnel->left_ssl, rr)) {
+		switch (ssl_error = SSL_get_error(tunnel->ssl[TUN_LEFT] , rr)) {
 		case SSL_ERROR_NONE: /* All right */
 			break;
 		case SSL_ERROR_ZERO_RETURN: /* Connection closed by other side */
@@ -925,7 +874,7 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		default: /* Some error, clean up and close connection */
 			return (EBAD);
 			break;
-		} while (SSL_pending(tunnel->left_ssl) && !read_blocked);
+		} while (SSL_pending(tunnel->ssl[TUN_LEFT] ) && !read_blocked);
 		tunnel->right_num_writes_ssl++;
 	}  /* End of the SSL handler */
 	else {
@@ -945,8 +894,8 @@ static inline int mp_tunnel_x_conn_execute_l2r(tunnel_t *tunnel)
 		return (EBAD);
 	}
 
-	if (NULL != tunnel->right_ssl) {
-		rs = SSL_write(tunnel->right_ssl, tunnel->left_buf, rr);
+	if (NULL != tunnel->ssl[TUN_RIGHT]) {
+		rs = SSL_write(tunnel->ssl[TUN_RIGHT], tunnel->left_buf, rr);
 		/*** TODO: We should handle here SSL errors */
 	} else {
 		assert(NULL != tunnel->right_write);
@@ -988,13 +937,13 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 
 	mp_tunnel_lock_right(tunnel);
 
-	if (NULL != tunnel->right_ssl) {
+	if (NULL != tunnel->ssl[TUN_RIGHT]) {
 		int ssl_error    = 0;
 		int read_blocked = 0;
-		rr = SSL_read(tunnel->right_ssl, tunnel->right_buf, tunnel->right_buf_size);
+		rr = SSL_read(tunnel->ssl[TUN_RIGHT], tunnel->right_buf, tunnel->right_buf_size);
 		/*** TODO: Handle SSL errors */
 		//check SSL errors
-		switch (ssl_error = SSL_get_error(tunnel->right_ssl, rr)) {
+		switch (ssl_error = SSL_get_error(tunnel->ssl[TUN_RIGHT] , rr)) {
 		case SSL_ERROR_NONE: /* All right */
 			break;
 		case SSL_ERROR_ZERO_RETURN: /* Connection closed by other side */
@@ -1011,7 +960,7 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 		default: /* Some error, clean up and close connection */
 			return (EBAD);
 			break;
-		} while (SSL_pending(tunnel->right_ssl) && !read_blocked);
+		  } while (SSL_pending(tunnel->ssl[TUN_RIGHT]) && !read_blocked);
 
 	} /* End of SSL handler */
 	else {
@@ -1032,8 +981,8 @@ static inline int mp_tunnel_x_conn_execute_r2l(tunnel_t *tunnel)
 	}
 
 	/* If 'left_ssl' is not NULL - use SSL operation */
-	if (NULL != tunnel->left_ssl) {
-		rs = SSL_write(tunnel->left_ssl, tunnel->right_buf, rr);
+	if (NULL != tunnel->ssl[TUN_LEFT] ) {
+		rs = SSL_write(tunnel->ssl[TUN_LEFT] , tunnel->right_buf, rr);
 		tunnel->left_num_writes++;
 		/*** TODO: Handle SSL errors */
 	} else {
@@ -1246,7 +1195,7 @@ int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
 
 #ifdef STANDALONE
 /* Create SSL context (CTX) */
-/*@null@*/ SSL_CTX *mp_tunnel_init_server_tls_ctx_left(tunnel_t *t)
+/*@null@*/ SSL_CTX *mp_tunnel_init_server_tls_ctx(tunnel_t *t, int direction)
 {
 	const SSL_METHOD *method;
 	SSL_CTX          *ctx;
@@ -1276,11 +1225,11 @@ int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
 
 	/* Load certificates */
 	/* Before the CTX set to use X509 cert and RSA private key, they should be created and loaded  */
-	if (NULL == t->left_x509) {
+	if (NULL == t->x509[direction]) {
 		DE("Can not proceed - no X509 certificate loaded\n");
 
 	}
-	if (EOK != mp_tunnel_set_cert(ctx, t->left_x509, t->left_rsa)) {
+	if (EOK != mp_tunnel_set_cert(ctx, t->x509[direction], t->rsa[direction])) {
 		SSL_CTX_free(ctx);
 		return (NULL);
 	}
@@ -1288,8 +1237,7 @@ int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
 	return (ctx);
 }
 
-/* Create SSL context (CTX) */
-/*@null@*/ SSL_CTX *mp_tunnel_init_client_tls_ctx_left(tunnel_t *t)
+/*@null@*/ SSL_CTX *mp_tunnel_init_client_tls_ctx(tunnel_t *t, int direction)
 {
 	const SSL_METHOD *method;
 	SSL_CTX          *ctx;
@@ -1319,11 +1267,11 @@ int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
 
 	/* Load certificates */
 	/* Before the CTX set to use X509 cert and RSA private key, they should be created and loaded  */
-	if (NULL == t->left_x509) {
+	if (NULL == t->x509[direction] ) {
 		DE("Can not proceed - no X509 certificate loaded\n");
 
 	}
-	if (EOK != mp_tunnel_set_cert(ctx, t->left_x509, t->left_rsa)) {
+	if (EOK != mp_tunnel_set_cert(ctx, t->x509[direction], t->rsa[direction])) {
 		SSL_CTX_free(ctx);
 		return (NULL);
 	}
@@ -1331,37 +1279,34 @@ int mp_tunnel_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
 	return (ctx);
 }
 
-SSL_CTX *mp_tunnel_init_client_tls_ctx_external(tunnel_t *t)
-{
-	return (mp_tunnel_init_client_tls_ctx_left(t));
-}
-
-int mp_tunnel_ssl_set_ctx_left(tunnel_t *t, void *ctx)
+/* Create SSL context (CTX) */
+int mp_tunnel_ssl_set_ctx(tunnel_t *t, int direction, void *ctx)
 {
 	TESTP(t, EBAD);
 	TESTP(ctx, EBAD);
-	t->left_ctx = ctx;
+	t->ctx[direction] = ctx;
 	return (EOK);
 }
 
-int mp_tunnel_ssl_set_rsa_left(tunnel_t *t, void *rsa)
+int mp_tunnel_ssl_set_rsa(tunnel_t *t, int direction, void *rsa)
 {
 	TESTP(t, EBAD);
 	TESTP(rsa, EBAD);
-	t->left_rsa = rsa;
+	t->rsa[direction] = rsa;
 	return (EOK);
 }
 
-int mp_tunnel_ssl_set_x509_left(tunnel_t *t, void *x509)
+int mp_tunnel_ssl_set_x509(tunnel_t *t, int direction, void *x509)
 {
 	TESTP(t, EBAD);
 	TESTP(x509, EBAD);
-	t->left_x509 = x509;
+	t->x509[direction] = x509;
 	return (EOK);
 }
 
 /* Load SSL certificates / keys */
-static int mp_tunnel_init_server_ssl_left(tunnel_t *t)
+
+static int mp_tunnel_init_server_ssl(tunnel_t *t, int direction)
 {
 	void *rsa  = NULL;
 	void *ctx  = NULL;
@@ -1374,7 +1319,7 @@ static int mp_tunnel_init_server_ssl_left(tunnel_t *t)
 		return (EBAD);
 	}
 
-	rc = mp_tunnel_ssl_set_rsa_left(t, rsa);
+	rc = mp_tunnel_ssl_set_rsa(t, direction, rsa);
 	if (EOK != rc) {
 		DE("Can't set RSA private left\n");
 		return (EBAD);
@@ -1385,43 +1330,43 @@ static int mp_tunnel_init_server_ssl_left(tunnel_t *t)
 		DE("Can't load X509 cetrificate\n");
 		return (EBAD);
 	}
-	rc = mp_tunnel_ssl_set_x509_left(t, x509);
+	rc = mp_tunnel_ssl_set_x509(t, direction, x509);
 	if (EOK != rc) {
 		DE("Can't set X509 left\n");
 		return (EBAD);
 	}
 
-	ctx = mp_tunnel_init_server_tls_ctx_left(t);
+	ctx = mp_tunnel_init_server_tls_ctx(t, direction);
 	if (NULL == ctx) {
 		DE("Can't create CTX\n");
 		return (EBAD);
 	}
 
-	rc = mp_tunnel_ssl_set_ctx_left(t, ctx);
+	rc = mp_tunnel_ssl_set_ctx(t, direction, ctx);
 	if (EOK != rc) {
-		DE("Can't set CTX left\n");
+		DE("Can't set CTX\n");
 		return (EBAD);
 	}
 
 	return (EOK);
 }
 
-static int mp_tunnel_init_client_ssl_left(tunnel_t *t)
+static int mp_tunnel_init_client_ssl(tunnel_t *t, int direction)
 {
-	t->left_rsa = mp_config_load_rsa_priv();
-	if (NULL == t->left_rsa) {
+	t->rsa[direction] = mp_config_load_rsa_priv();
+	if (NULL == t->rsa[direction]) {
 		DE("Can't load RSA private\n");
 		return (EBAD);
 	}
 
-	t->left_x509 = mp_config_load_X509();
-	if (NULL == t->left_x509) {
+	t->x509[direction] = mp_config_load_X509();
+	if (NULL == t->x509[direction]) {
 		DE("Can't load X509 cetrificate\n");
 		return (EBAD);
 	}
 
-	t->left_ctx = mp_tunnel_init_client_tls_ctx_left(t);
-	if (NULL == t->left_ctx) {
+	t->ctx[direction] = mp_tunnel_init_client_tls_ctx(t, direction);
+	if (NULL == t->ctx[direction]) {
 		DE("Can't create CTX\n");
 		return (EBAD);
 	}
@@ -1437,11 +1382,10 @@ static int mp_tunnel_init_client_ssl_left(tunnel_t *t)
  * be set: t->ssl != NULL Warning: tunnel->lef_fd
  * must be a socket!
  */
-static int mp_tunnel_start_ssl_conn_left(tunnel_t *t)
-{
+static int mp_tunnel_start_ssl_conn_left(tunnel_t *t){
 	TESTP(t, EBAD);
 
-	if (NULL == t->left_ctx) {
+	if (NULL == t->ctx[TUN_LEFT]) {
 		DE("Tunnel left CTX is NULL\n");
 		return (EBAD);
 	}
@@ -1451,13 +1395,13 @@ static int mp_tunnel_start_ssl_conn_left(tunnel_t *t)
 		return (EBAD);
 	}
 
-	t->left_ssl = SSL_new(t->left_ctx);
-	TESTP_MES(t->left_ssl, EBAD, "Can't allocate left SSL");
+	t->ssl[TUN_LEFT] = SSL_new(t->ctx[TUN_LEFT]);
+	TESTP_MES(t->ssl[TUN_LEFT] , EBAD, "Can't allocate left SSL");
 
-	if (1 != SSL_set_fd(t->left_ssl, t->left_fd)) {
+	if (1 != SSL_set_fd(t->ssl[TUN_LEFT] , t->left_fd)) {
 		DE("Can't set left fd into *SSL");
-		SSL_free(t->left_ssl);
-		t->left_ssl = NULL;
+		SSL_free(t->ssl[TUN_LEFT] );
+		t->ssl[TUN_LEFT] = NULL;
 		return (EBAD);
 	}
 	return (EOK);
@@ -1477,22 +1421,16 @@ static int mp_tunnel_start_ssl_conn_right(tunnel_t *t)
 		return (EBAD);
 	}
 
-	t->right_ssl = SSL_new(t->right_ctx);
-	TESTP_MES(t->right_ssl, EBAD, "Can't allocate right SSL");
+	t->ssl[TUN_RIGHT] = SSL_new(t->ctx[TUN_RIGHT]);
+	TESTP_MES(t->ssl[TUN_RIGHT], EBAD, "Can't allocate right SSL");
 
-	if (1 != SSL_set_fd(t->right_ssl, t->right_fd)) {
+	if (1 != SSL_set_fd(t->ssl[TUN_RIGHT], t->right_fd)) {
 		DE("Can't set right fd into *SSL");
-		SSL_free(t->right_ssl);
-		t->right_ssl = NULL;
+		SSL_free(t->ssl[TUN_RIGHT]);
+		t->ssl[TUN_RIGHT] = NULL;
 		return (EBAD);
 	}
 	return (EOK);
-}
-
-/* 'Left' == 'external', 'right' == 'internal' */
-static int mp_tunnel_start_ssl_conn_external(tunnel_t *t)
-{
-	return (mp_tunnel_start_ssl_conn_left(t));
 }
 
 static int mp_tunnel_start_ssl_conn_internal(tunnel_t *t)
@@ -1570,13 +1508,14 @@ static void *mp_tunnel_tty_server_go(void *v)
 	mp_tunnel_tunnel_fill_internal(tunnel, tunnel->right_fd, "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Start SSL connection */
-	mp_tunnel_init_server_ssl_left(tunnel);
-	rc = mp_tunnel_start_ssl_conn_external(tunnel);
+	mp_tunnel_init_server_ssl(tunnel, TUN_LEFT);
+	rc = mp_tunnel_start_ssl_conn_left(tunnel);
+	
 	if (EOK != rc) {
 		DE("Can't start SSL\n");
 		return (NULL);
 	}
-	rc = SSL_accept(tunnel->left_ssl);
+	rc = SSL_accept(tunnel->ssl[TUN_LEFT] );
 	if (1 != rc) {
 		DE("SSL: Can't accept connection\n");
 		return (NULL);
@@ -1589,8 +1528,8 @@ static void *mp_tunnel_tty_server_go(void *v)
 	/* No need to join thread - they were dettached */
 
 	/* If it SSL connection, we should dhutdown it */
-	if (tunnel->left_ssl) {
-		SSL_shutdown(tunnel->left_ssl);
+	if (tunnel->ssl[TUN_LEFT] ) {
+		SSL_shutdown(tunnel->ssl[TUN_LEFT] );
 	}
 
 	mp_tunnel_print_stat(tunnel);
@@ -1712,19 +1651,6 @@ void *mp_tunnel_tty_server_start_thread_(void *v)
 	}
 }
 
-#if 0
-/* start the server version of the tunnel */
-int mp_tunnel_tty_server_start_thread_(tunnel_args_t *args){
-	pthread_t pid;
-	DD("Going to open server\n");
-	// mp_tunnel_tty_server_start(NULL);
-	pthread_create(&pid, NULL, mp_tunnel_tty_server_start_thread, &args);
-	pthread_join(pid, NULL);
-	DD("Finished\n\r");
-	return (0);
-}
-#endif
-
 void *mp_tunnel_tty_client_start_thread(void *v)
 {
 	/* Socket initialization */
@@ -1803,15 +1729,15 @@ void *mp_tunnel_tty_client_start_thread(void *v)
 	mp_tunnel_tunnel_fill_internal(tunnel, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Set SSL tunnel for external connection */
-	mp_tunnel_init_client_ssl_left(tunnel);
+	mp_tunnel_init_client_ssl(tunnel, TUN_LEFT);
 
-	rc = mp_tunnel_start_ssl_conn_external(tunnel);
+	rc = mp_tunnel_start_ssl_conn_left(tunnel);
 	if (EOK != rc) {
 		DE("Can't init SSL\n");
 		return (NULL);
 	}
 
-	rc = SSL_connect(tunnel->left_ssl);
+	rc = SSL_connect(tunnel->ssl[TUN_LEFT] );
 	if (1 != rc) {
 		DE("SSL: Can't handshake with server\n");
 		return (NULL);
@@ -1825,8 +1751,8 @@ void *mp_tunnel_tty_client_start_thread(void *v)
 	DD("Remote connection closed\n\r");
 	mp_tunnel_print_stat(tunnel);
 
-	if (tunnel->left_ssl) {
-		SSL_shutdown(tunnel->left_ssl);
+	if (tunnel->ssl[TUN_LEFT] ) {
+		SSL_shutdown(tunnel->ssl[TUN_LEFT] );
 	}
 
 	pthread_exit(NULL);
@@ -1856,7 +1782,7 @@ int main(int argi, char *argv[])
 		mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 
 		/* RIGHT (internal) size of the tunnel: it is TTY */
-		mp_tun_set_flags_right(tunnel, TUN_TTY | TUN_AUTOBUF);
+		mp_tun_set_flags_right(tunnel, TUN_TTY_SERVER | TUN_AUTOBUF);
 
 		pthread_create(&pid, NULL, mp_tunnel_tty_server_start_thread, tunnel);
 		pthread_join(pid, NULL);
@@ -1871,7 +1797,7 @@ int main(int argi, char *argv[])
 		mp_tun_set_flags_left(tunnel, TUN_SOCKET_SSL | TUN_AUTOBUF);
 		mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 		/* RIGHT (internal) size of the tunnel: it is TTY */
-		mp_tun_set_flags_right(tunnel, TUN_TTY | TUN_AUTOBUF);
+		mp_tun_set_flags_right(tunnel, TUN_TTY_CLIENT | TUN_AUTOBUF);
 
 		pthread_create(&pid, NULL, mp_tunnel_tty_client_start_thread, tunnel);
 		pthread_join(pid, NULL);

@@ -39,7 +39,8 @@ typedef int (*tunnel_hook_t) (void *, char *, size_t, size_t);
 #define TUN_SOCKET_SSL 	(1<<10)	/* It is SSL socket */
 #define TUN_SOCKET_UNIX	(1<<11)	/* It is UNIX socket */
 #define TUN_TIPC 		(1<<12)	/* This is TIPC connection */
-#define TUN_TTY 		(1<<13)	/* It is TTY */
+#define TUN_TTY_SERVER	(1<<13)	/* It is TTY */
+#define TUN_TTY_CLIENT	(1<<14)	/* It is TTY */
 
 typedef struct tunnel_args_struct {
 	char *left_target;  /* In case of socket target is server name;
@@ -133,6 +134,15 @@ typedef struct tunnel_args_struct {
  * 
  */
 
+/* Define right (internal) and left (external) channels */
+typedef enum tun_stream_enum {
+	TUN_LEFT = 0,
+	TUN_EXT = TUN_LEFT,
+	TUN_RIGHT = 1,
+	TUN_INTER = TUN_RIGHT,
+	TUN_MAX = 2
+} tun_stream_t;
+
 typedef struct tunnel_struct {
 
 	/*** TUNNEL MAIN */
@@ -160,10 +170,10 @@ typedef struct tunnel_struct {
 
 	/*** LEFT (EXTERNAL) SSL RELATED */
 
-	void *left_ctx;                 /* (Optional) In case SSL used this won't be NULL; */
-	void *left_rsa;                 /* (Optional) In case SSL used this won't be NULL; */
-	void *left_x509;                /* (Optional) In case SSL used this won't be NULL; */
-	void *left_ssl;                 /* (Optional) In case SSL used this won't be NULL; */
+	void *ctx[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
+	void *rsa[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
+	void *x509[TUN_MAX];                /* (Optional) In case SSL used this won't be NULL; */
+	void *ssl[TUN_MAX];                 /* (Optional) In case SSL used this won't be NULL; */
 
 	/*** Flags define the tunnel right side configuration, see TUN_* defines (like TUN_SERVER) */
 	uint32_t right_flags;
