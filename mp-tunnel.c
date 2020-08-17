@@ -514,64 +514,31 @@ end:
 	return (EOK);
 }
 
-/* We check optimal buffer size every 64 writes. If the buffer
-  should be enlarged or shrank, we return 1, else 0 */
-static int mp_tunnel_should_resize_l2r(tunnel_t *tunnel)
+static int mp_tunnel_should_resize(tunnel_t *tunnel, int direction)
 {
 	TESTP_MES(tunnel, 0, "tunnel is NULL");
 	/* Recalculate it after 16 operation done at least */
-	if (tunnel->num_session_writes[TUN_RIGHT] < 64) {
+	if (tunnel->num_session_writes[direction] < 64) {
 		return (0);
 	}
 
 	/* If from the last resize the 100% of buffer size used in >=
 	   50% of writes - resize it */
-	if (tunnel->all_cnt_session_max_hits[TUN_RIGHT] > tunnel->num_session_writes[TUN_RIGHT] * 0.5) {
+	if (tunnel->all_cnt_session_max_hits[direction] > tunnel->num_session_writes[direction] * 0.5) {
 		return (1);
 	}
 
 	/* Find the max average for both directions */
-	float average_right = (float)tunnel->cnt_session_write_total[TUN_RIGHT] / (float)tunnel->num_session_writes[TUN_RIGHT];
+	float average = (float)tunnel->cnt_session_write_total[direction] / (float)tunnel->num_session_writes[direction];
 
 	/* If average transfer > 80% of the current buffer size */
-	if ((float)average_right >= (float)tunnel->buf_size[TUN_LEFT] * 0.8) {
+	if ((float)average >= (float)tunnel->buf_size[direction] * 0.8) {
 		return (1);
 	}
 
 	/* If average transfer < 50% of the current buffer size */
-	if (((float)average_right <= (float)tunnel->buf_size[TUN_LEFT] * 0.5) &&
-		average_right >= MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
-		return (1);
-	}
-
-	return (0);
-}
-
-static int mp_tunnel_should_resize_r2l(tunnel_t *tunnel)
-{
-	TESTP_MES(tunnel, 0, "tunnel is NULL");
-	/* Recalculate it after 16 operation done at least */
-	if (tunnel->num_session_writes[TUN_LEFT] < 64) {
-		return (0);
-	}
-
-	/* If from the last resize the 100% of buffer size used in >=
-	   50% of writes - resize it */
-	if (tunnel->all_cnt_session_max_hits[TUN_LEFT] > tunnel->num_session_writes[TUN_LEFT] * 0.5) {
-		return (1);
-	}
-
-	/* Find the max average for both directions */
-	float average_left = (float)tunnel->cnt_session_write_total[TUN_LEFT] / (float)tunnel->num_session_writes[TUN_LEFT];
-
-	/* If average transfer > 80% of the current buffer size */
-	if ((float)average_left >= (float)tunnel->buf_size[TUN_RIGHT] * 0.8) {
-		return (1);
-	}
-
-	/* If average transfer < 50% of the current buffer size */
-	if (((float)average_left <= (float)tunnel->buf_size[TUN_RIGHT] * 0.5) &&
-		average_left >= MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
+	if (((float)average <= (float)tunnel->buf_size[direction] * 0.5) &&
+		average >= MP_LIMIT_TUNNEL_BUF_SIZE_MIN) {
 		return (1);
 	}
 
@@ -850,12 +817,14 @@ static inline int mp_tunnel_run_x_conn(tunnel_t *tunnel)
 			if (EOK != rc) goto end;
 		}
 
-		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		//if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize(tunnel, TUN_LEFT)) {
 			//mp_tunnel_resize_left_buf(tunnel);
 			mp_tunnel_resize_buf(tunnel, TUN_LEFT);
 		}
 
-		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		//if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize(tunnel, TUN_RIGHT)) {
 			//mp_tunnel_resize_right_buf(tunnel);
 			mp_tunnel_resize_buf(tunnel, TUN_RIGHT);
 		}
@@ -918,12 +887,14 @@ static inline int mp_tunnel_run_x_conn_ssl(tunnel_t *tunnel)
 			if (EOK != rc) goto end;
 		}
 
-		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		//if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
+		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize(tunnel, TUN_LEFT)) {
 			//mp_tunnel_resize_left_buf(tunnel);
 			mp_tunnel_resize_buf(tunnel, TUN_LEFT);
 		}
 
-		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		//if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
+		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize(tunnel, TUN_RIGHT)) {
 			//mp_tunnel_resize_right_buf(tunnel);
 			mp_tunnel_resize_buf(tunnel, TUN_RIGHT);
 		}
