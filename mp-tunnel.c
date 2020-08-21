@@ -1058,12 +1058,14 @@ static void *mp_tun_tty_server_go(void *v)
 	}
 	if (pid == 0) {
 		char user[64]    = {0};
-		char command[128] = {0};
+		char command[128];
 
 		if (0 != getlogin_r(user, 64)) {
 			DE("Can't get username\n\r");
 			return (NULL);
 		}
+
+		memset(command, 0, sizeof(command) / sizeof(char));
 		/* Ttis is the terminal part; execute the bash */
 		openlog(DL_PREFIX, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_SYSLOG);
 

@@ -116,7 +116,7 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 	/* Find slot in the hash table for this data */
 	slot = HTABLE_SLOT(ht, hash);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", hash, slot, ht->size);
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long) hash, slot, ht->size);
 
 	/* Allocate new hash node */
 	node = hnode_alloc();
@@ -185,7 +185,7 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 
 	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", key, slot, ht->size);
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long) key, slot, ht->size);
 
 	node_p = node = ht->nodes[slot];
 
