@@ -300,9 +300,12 @@ static err_t mp_shell_ask_openport(j_t *args)
 	TESTP_MES_GO(resp, err, "Responce is NULL\n");
 	j_rm(root);
 
+	#if 0
 	if (j_test(resp, JK_STATUS, JV_OK)) {
 		rc = EOK;
 	}
+	#endif
+
 	root = j_new();
 	TESTP(root, EBAD);
 

@@ -25,7 +25,7 @@
 /* Construct config file directory full path */
 static buf_t *mp_config_get_config_dir(void)
 {
-	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // buf_string(4096);
+	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // buf_string(4096);
 	struct passwd *pw      = NULL;
 	const char    *homedir = NULL;
 
@@ -613,6 +613,9 @@ X509 *mp_config_load_X509()
 
 err:
 	rc = mp_config_file_lock(file);
+	if (EOK != rc) {
+		DE("Can't lock config file\n");
+	}
 	buf_free(file);
 	return (x509);
 }

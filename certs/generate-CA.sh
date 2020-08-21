@@ -84,10 +84,10 @@ defaultmd="-sha512"
 
 function maxdays() {
 	nowyear=$(date +%Y)
-	years=$(expr 2032 - $nowyear)
-	days=$(expr $years '*' 365)
+	years=$(( 2032 - nowyear ))
+	days=$(( $years * 365)
 
-	echo $days
+	echo "$days"
 }
 
 function getipaddresses() {
@@ -116,7 +116,7 @@ function addresslist() {
 		ALIST="${ALIST}DNS:$h,"
 	done
 	ALIST="${ALIST}DNS:${host},DNS:localhost"
-	echo $ALIST
+	echo "$ALIST"
 
 }
 
@@ -136,8 +136,8 @@ if [ ! -f $CACERT.crt ]; then
 	#                 
 
 	# Create un-encrypted (!) key
-	$openssl req -newkey rsa:${keybits} -x509 -nodes $defaultmd -days $days -extensions v3_ca -keyout $CACERT.key -out $CACERT.crt -subj "${CA_DN}"
-	echo "Created CA certificate in $CACERT.crt"
+	$openssl req -newkey rsa:${keybits} -x509 -nodes "${defaultmd}" -days "${days}" -extensions v3_ca -keyout "${CACERT}.key" -out "${CACERT}.crt" -subj "${CA_DN}"
+	echo "Created CA certificate in ${CACERT}.crt"
 	$openssl x509 -in $CACERT.crt -nameopt multiline -subject -noout
 
 	chmod 400 $CACERT.key
@@ -158,13 +158,13 @@ if [ $kind == 'server' ]; then
 
 	if [ ! -f $SERVER.key ]; then
 		echo "--- Creating server key and signing request"
-		$openssl genrsa -out $SERVER.key $keybits
+		$openssl genrsa -out "$SERVER.key" "$keybits"
 		$openssl req -new $defaultmd \
-			-out $SERVER.csr \
-			-key $SERVER.key \
+			-out "$SERVER.csr" \
+			-key "$SERVER.key" \
 			-subj "${SERVER_DN}"
-		chmod 400 $SERVER.key
-		chown $MOSQUITTOUSER $SERVER.key
+		chmod 400 "$SERVER.key"
+		chown "$MOSQUITTOUSER" "$SERVER.key"
 	fi
 
 	if [ -f $SERVER.csr -a ! -f $SERVER.crt ]; then
@@ -172,7 +172,7 @@ if [ $kind == 'server' ]; then
 		# There's no way to pass subjAltName on the CLI so
 		# create a cnf file and use that.
 
-		CNF=`mktemp /tmp/cacnf.XXXXXXXX` || { echo "$0: can't create temp file" >&2; exit 1; }
+		CNF=`mktemp /tmp/cacnf.XXXXXXXX` || { echo "${0}: can't create temp file" >&2; exit 1; }
 		sed -e 's/^.*%%% //' > $CNF <<\!ENDconfig
 		%%% [ JPMextensions ]
 		%%% basicConstraints        = critical,CA:false
@@ -210,13 +210,13 @@ if [ $kind == 'server' ]; then
 			-CAcreateserial \
 			-CAserial "${DIR}/ca.srl" \
 			-out $SERVER.crt \
-			-days $days \
+			-days "$days" \
 			-extfile ${CNF} \
 			-extensions JPMextensions
 
-		rm -f $CNF
+		rm -f "$CNF"
 		chmod 444 $SERVER.crt
-		chown $MOSQUITTOUSER $SERVER.crt
+		chown "$MOSQUITTOUSER" "$SERVER.crt"
 	fi
 else
 	#    ____ _ _            _   
@@ -226,14 +226,14 @@ else
 	#   \____|_|_|\___|_| |_|\__|
 	#                            
 
-	if [ ! -f $CLIENT.key ]; then
+	if [ ! -f "$CLIENT.key" ]; then
 		echo "--- Creating client key and signing request"
-		$openssl genrsa -out $CLIENT.key $keybits
+		$openssl genrsa -out "$CLIENT.key" "$keybits"
 
 		CNF=`mktemp /tmp/cacnf-req.XXXXXXXX` || { echo "$0: can't create temp file" >&2; exit 1; }
 		# Mosquitto's use_identity_as_username takes the CN attribute
 		# so we're populating that with the client's name
-		sed -e 's/^.*%%% //' > $CNF <<!ENDClientconfigREQ
+		sed -e 's/^.*%%% //' > "$CNF" <<!ENDClientconfigREQ
 		%%% [ req ]
 		%%% distinguished_name	= req_distinguished_name
 		%%% prompt			= no
@@ -248,13 +248,13 @@ else
 !ENDClientconfigREQ
 
 		$openssl req -new $defaultmd \
-			-out $CLIENT.csr \
-			-key $CLIENT.key \
-			-config $CNF
-		chmod 400 $CLIENT.key
+			-out "$CLIENT.csr" \
+			-key "$CLIENT.key" \
+			-config "$CNF"
+		chmod 400 "$CLIENT.key"
 	fi
 
-	if [ -f $CLIENT.csr -a ! -f $CLIENT.crt ]; then
+	if [ -f "$CLIENT.csr" -a ! -f "$CLIENT.crt" ]; then
 
 		CNF=`mktemp /tmp/cacnf-cli.XXXXXXXX` || { echo "$0: can't create temp file" >&2; exit 1; }
 		sed -e 's/^.*%%% //' > $CNF <<\!ENDClientconfig
@@ -275,17 +275,17 @@ else
 
 		echo "--- Creating and signing client certificate"
 		$openssl x509 -req $defaultmd \
-			-in $CLIENT.csr \
-			-CA $CACERT.crt \
-			-CAkey $CACERT.key \
+			-in "$CLIENT.csr" \
+			-CA "$CACERT.crt" \
+			-CAkey "$CACERT.key" \
 			-CAcreateserial \
 			-CAserial "${DIR}/ca.srl" \
-			-out $CLIENT.crt \
-			-days $days \
+			-out "$CLIENT.crt" \
+			-days "$days" \
 			-extfile ${CNF} \
 			-extensions JPMclientextensions
 
-		rm -f $CNF
-		chmod 444 $CLIENT.crt
+		rm -f "$CNF"
+		chmod 444 "$CLIENT.crt"
 	fi
 fi
