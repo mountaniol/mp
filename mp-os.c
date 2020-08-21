@@ -11,6 +11,38 @@
 #include "mp-debug.h"
 #include "mp-memory.h"
 #include "mp-limits.h"
+#include "mp-os.h"
+
+/* We open it once and keep opened */
+static FILE *rand_device = NULL;
+
+static int open_random_device(void)
+{
+	if (NULL != rand_device) {
+		return (EOK);
+	}
+
+	/* Try to open a /dev/urandom device */
+	if (NULL == rand_device) {
+		//rand_device = fopen("/dev/urandom", "r");
+		rand_device = mp_os_fopen("/dev/urandom", "r");
+	}
+
+	if (NULL != rand_device) {
+		return (EOK);
+	}
+
+	/* Try to open /dev/random device */
+	if (NULL == rand_device) {
+		rand_device = mp_os_fopen("/dev/random", "r");
+	}
+
+	if (NULL != rand_device) {
+		return (EOK);
+	}
+
+	return (EBAD);
+}
 
 /*@null@*/ char *mp_os_get_hostname()
 {
@@ -45,32 +77,60 @@
 	freeaddrinfo(info);
 	return (ret);
 }
+
+/* Fill the buffer with noise */
+int mp_os_fill_random(void *buf, size_t buf_size)
+{
+	ssize_t rc;
+	if (EOK != open_random_device()) {
+		DE("Can't open random device!\n");
+		abort();
+	}
+
+	TESTP_MES(buf, EBAD, "Got NULL");
+	if (buf_size < 1) {
+		DE("Length of buffer is invalid\n");
+		return (EBAD);
+	}
+
+	rc = fread(buf, 1, buf_size, rand_device);
+	if (rc < 0) {
+		DE("Can't read from random device!\n");
+		DE("Please check that you can read from /dev/random or /dev/urandom\n");
+		abort();
+	}
+
+	if ((size_t)rc != buf_size) {
+		DE("Can't read enough random data: asked %zu, got %zu\n", buf_size, rc);
+		return (EBAD);
+	}
+
+	return (EOK);
+}
+
 const char charset_alpha[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK0123456789";
 const char charset_num[]   = "0123456789";
 
 /*@null@*/ static char *_rand_string(size_t size, const char charset[], size_t charset_size)
 {
-	FILE   *fd  = NULL;
+	//FILE   *fd  = NULL;
 	char   *str = NULL;
 	size_t n    = 0;
 	int    rc   = -1;
 
 	if (0 == size) return (NULL);
 
+	if (EOK != open_random_device()) {
+		DE("Can't open random device!\n");
+		abort();
+	}
+
 	str = zmalloc(size);
 	TESTP_MES(str, NULL, "Can't allocate");
-
-	/* TODO: Make sure this is opened. If not, use other random number generators */
-	fd = fopen("/dev/urandom", "r");
-	if (NULL == fd) {
-		fd = fopen("/dev/random", "r");
-	}
-	TESTP_MES(fd, NULL, "Can't open either /dev/urandom nor /dev/randomn");
-
-	rc = fread(str, 1, size, fd);
-	if (0 != fclose(fd)) {
-		DE("Can't close /dev/urandom\n");
-		perror("Can't close /dev/urandom");
+	
+	rc = mp_os_fill_random(str, size);
+	if (EOK != rc) {
+		DE("Can't read random\n");
 		abort();
 	}
 

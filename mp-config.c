@@ -504,7 +504,7 @@ int mp_config_save_rsa_keys(RSA *rsa)
 	TESTI_GO(rc, err);
 
 
-	fp = fopen(file->data, "wb");
+	fp = mp_os_fopen(file->data, "wb");
 	TESTP(fp, EBAD);
 
 	/* Todo: password the key */
@@ -529,7 +529,7 @@ int mp_config_save_rsa_keys(RSA *rsa)
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = fopen(file->data, "wb");
+	fp = mp_os_fopen(file->data, "wb");
 	TESTP(fp, EBAD);
 
 	rc = PEM_write_RSAPublicKey(fp, rsa);
@@ -566,7 +566,7 @@ err_t mp_config_save_rsa_x509(X509 *x509)
 	TESTI_GO(rc, err);
 
 	/* Open file for writing */
-	fd = fopen(file->data, "wb");
+	fd = mp_os_fopen(file->data, "wb");
 	if (NULL == fd) {
 		DE("Can't open x509 file for writing\n");
 		goto err;
@@ -605,7 +605,7 @@ X509 *mp_config_load_X509()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = fopen(file->data, "r");
+	fp = mp_os_fopen(file->data, "r");
 	TESTP_GO(fp, err);
 
 	x509 = PEM_read_X509(fp, NULL, NULL, NULL);
@@ -634,7 +634,7 @@ RSA *mp_config_load_rsa_pub()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = fopen(file->data, "rb");
+	fp = mp_os_fopen(file->data, "rb");
 	TESTP_GO(fp, err);
 
 	rsa = PEM_read_RSAPublicKey(fp, NULL, NULL, NULL);
@@ -733,7 +733,7 @@ RSA *mp_config_load_rsa_priv()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = fopen(file->data, "rb");
+	fp = mp_os_fopen(file->data, "rb");
 	if (NULL == fp) {
 		DE("Can't open file %s\n", file->data);
 		perror("Can't open:");

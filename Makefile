@@ -1,8 +1,8 @@
-GCC=gcc
-CFLAGS=-Wall -Wextra -rdynamic -O2 -g3
+#GCC=gcc
+#CFLAGS=-Wall -Wextra -rdynamic -O2
 
-#GCC=clang-10
-#CFLAGS=-Wall -Wextra -O2 -ggdb
+GCC=clang-10
+CFLAGS=-Wall -Wextra -O2
 #CFLAGS=-Wall -Wextra -O2
 DEBUG=-DDEBUG3
 DEBUG +=-DDEBUG2
@@ -19,7 +19,10 @@ DEBUG += -DDERROR3
 
 BUFT_A=buf_t/buf_t.a
 J_ARCH=/usr/lib/x86_64-linux-gnu/libjansson.a
+J_LIB=jansson
 MINI_ARCH=/usr/lib/x86_64-linux-gnu/libminiupnpc.a
+MINI_LIB=miniupnpc
+MOSQ_LIB=mosquitto
 MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
@@ -57,12 +60,16 @@ buft:
 
 m: buft $(MOSQ_O)
 	@echo "|>> Linking mserver"
-	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) $(BUFT_A) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl
+	$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) $(BUFT_A) -o $(MOSQ_T) -lpthread -lcrypto -lssl -l$(MINI_LIB) -l$(J_LIB) -l$(MOSQ_LIB)
+	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) $(BUFT_A) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl -l$(MINI_LIB) -l$(J_LIB)
+	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) $(MINI_ARCH) $(BUFT_A) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl $(J_ARCH)
+	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O)  $(J_ARCH) $(MINI_ARCH) $(BUFT_A) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so  -lpthread -lcrypto -lssl
 	#$(GCC) $(CFLAGS) $(DEBUG) $(MOSQ_O) -o $(MOSQ_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread -lssh2
 
 cli: buft $(CLI_O)
 	@echo "|>> Linking mclient"
-	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(J_ARCH) $(BUFT_A) -o $(CLI_T) -lpthread
+	@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(BUFT_A) -o $(CLI_T) -lpthread -l$(J_LIB)
+	#@$(GCC) $(CFLAGS) $(DEBUG) $(CLI_O) $(J_ARCH) $(BUFT_A) -o $(CLI_T) -lpthread
 	#@$(GCC) $(CFLAGS) $(CLI_O) -o $(CLI_T) /usr/lib/x86_64-linux-gnu/libmosquitto.so -ljansson -lminiupnpc -lpthread
 	
 u: buft
@@ -76,7 +83,8 @@ eth: buft
 #	/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 
 tunnel: buft
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto #-lpam
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto $(J_LIB)#-lpam
+	#$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto #-lpam
 
 btest: buft
 	$(GCC) $(CFLAGS) -ggdb -DSTANDALONE $(DEBUG) mp-memory.c $(BUFT_A) -o buf_t_test.out

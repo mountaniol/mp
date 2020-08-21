@@ -35,4 +35,15 @@ int mp_os_open(const char *file, int flags, mode_t mode);
  *
  */
 FILE *mp_os_fopen(const char *file, const char *mode);
+
+/**
+ * @author Sebastian Mountaniol (21/08/2020)
+ * @func int mp_os_fill_random(void *buf, size_t buf_size)
+ * @brief Fille given buffer with random noise
+ * @param void * buf Buffer to fill with random data
+ * @param size_t buf_size Buffer size
+ * @return int EOK on success, EBAD on error
+ * @details
+ */
+int mp_os_fill_random(void *buf, size_t buf_size);
 #endif /* MP_OS_H */

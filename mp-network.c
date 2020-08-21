@@ -14,6 +14,7 @@
 #include "mp-ports.h"
 #include "mp-dict.h"
 #include "mp-limits.h"
+#include "mp-os.h"
 
 #define BUF_INTERFACE (1024)
 /*@null@*/ static buf_t *mp_network_find_wan_interface(void)
@@ -23,7 +24,7 @@
 	char  *ptr  = NULL;
 	buf_t *buft;
 
-	fd = fopen("/proc/net/route", "r");
+	fd = mp_os_fopen("/proc/net/route", "r");
 	TESTP_MES(fd, NULL, "Can't open /proc/net/route\n");
 
 	buft = buf_string(BUF_INTERFACE);
