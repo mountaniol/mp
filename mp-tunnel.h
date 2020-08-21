@@ -197,7 +197,7 @@ typedef struct tunnel_struct {
 
 /**
  * @author Sebastian Mountaniol (11/08/2020)
- * @func tunnel_t* mp_tunnel_tunnel_t_alloc(void)
+ * @func tun_t *mp_tun_t_alloc(void)
  * @brief Allocate and init tunnel structure
  * @param void
  * @return tunnel_t* Allocated and inited tunnel struct on success, NULL on error
@@ -208,7 +208,7 @@ tun_t *mp_tun_t_alloc(void);
 /* Allocate new tunnel structure, init semaphone */
 /**
  * @author Sebastian Mountaniol (11/08/2020)
- * @func int mp_tunnel_tunnel_t_alloc(tunnel_t *tunnel)
+ * @func int mp_tun_t_init(tunnel_t *tunnel)
  * @brief Init tunnel structure
  * @param tunnel_t * tunnel Structure to init
  * @return int EOK on success, < 0 on error
@@ -217,6 +217,7 @@ tun_t *mp_tun_t_alloc(void);
  * allocated the structure manually you should init it
  * with this function
  */
+
 int mp_tun_t_init(tun_t *tunnel);
 /*
  * Close both descriptors, destroy semaphone, free memory
@@ -225,67 +226,33 @@ int mp_tun_t_init(tun_t *tunnel);
  */
 
 /**
- * @author Sebastian Mountaniol (11/08/2020)
- * @func void mp_tunnel_tunnel_t_destroy(tunnel_t *tunnel)
+ * @author Sebastian Mountaniol (18/08/2020)
+ * @func void mp_tun_t_destroy(tun_t *tunnel)
  * @brief Close all descriptors, destroy semaphores, free
  * the tunnel structure
- * @param tunnel_t * tunnel Tunnel to destroy
+ * @param tun_t * tunnel Tunnel to destroy
  * @details Attention: if there is no 'close' operation
  * defined, the file descriptor must be closed and be < 0,
  * else this function makes nothing and returns an error.
  */
 void mp_tun_t_destroy(tun_t *tunnel);
 
-#if 0
-/**
- * @author Sebastian Mountaniol (11/08/2020)
- * @func int mp_tunnel_set_left_flags(tunnel_t *t, uint32_t flags)
- * @brief Set configuration flags of the tunnel left side
- * @param tunnel_t * t Tunnel to set flags
- * @param uint32_t flags Flags to set
- * @return int New set of flags returned. In case of error 0xFFFFFFFF value returned
- * @details The new det of flags completely replace the old set of flags. The error is possible is pointer to tunnel is NULL
- */
-int mp_tun_set_flags_left(tunnel_t *t, uint32_t flags);
-
-
-/**
- * @author Sebastian Mountaniol (11/08/2020)
- * @func int mp_tunnel_set_right_flags(tunnel_t *t, uint32_t flags)
- * @brief Set configuration flags of the tunnel right side
- * @param tunnel_t * t Tunnel to set flags
- * @param uint32_t flags Flags to set
- * @return int New set of flags returned. In case of error 0xFFFFFFFF value returned
- * @details The new set of flags completely replace the old set of flags. The error is possible is pointer to tunnel is NULL
- */
-int mp_tun_set_flags_right(tunnel_t *t, uint32_t flags);
-#endif
-
-/**
- * @author Sebastian Mountaniol (11/08/2020)
- * @func uint32_t mp_tunnel_get_left_flags(tunnel_t *t)
- * @brief Return left flags
- * @param tunnel_t * t Current set of flags returned. In case of error 0xFFFFFFFF value returned
- * @return uint32_t Flags
- * @details The error is possible if pointer of the tunnel struct is NULL
- */
-uint32_t mp_tun_get_flags_left(tun_t *t);
-
-#if 0
-/**
- * @author Sebastian Mountaniol (11/08/2020)
- * @func uint32_t mp_tunnel_get_right_flags(tunnel_t *t)
- * @brief Return left flags
- * @param tunnel_t * t Current set of flags returned. In case of error 0xFFFFFFFF value returned
- * @return uint32_t Flags
- * @details The error is possible if pointer of the tunnel struct is NULL
- */
-uint32_t mp_tun_get_flags_right(tunnel_t *t);
-#endif
+int mp_tun_set_flags(tun_t *t, int direction, uint32_t flags);
+uint32_t mp_tun_get_flags(tun_t *t, int direction);
+int mp_tun_set_buf_size(tun_t *t, int direction, size_t size);
+int mp_tun_set_fd(tun_t *t, int direction, int fd);
+int mp_tun_get_fd(tun_t *t, int direction);
+int mp_tun_set_name(tun_t *t, int direction, const char *name, size_t name_len);
+char *mp_tun_get_name(tun_t *t, int direction);
+int mp_tun_set_x509_rsa(tun_t *t, int direction, void *x509, void *rsa);
+int mp_tun_set_server_port(tun_t *t, int direction, const char *server, int port);
+char *mp_tun_get_server(tun_t *t, int direction);
+int mp_tun_get_port(tun_t *t, int direction);
+int mp_tun_fill(tun_t *tunnel, int direction, int fd, const char *name, conn_read_t do_read, conn_write_t do_write, conn_close_t do_close);
 
 /**
  * @author Sebastian Mountaniol (09/08/2020)
- * @func int mp_tunnel_set_certs(SSL_CTX *ctx, void *x509, void *priv_rsa)
+ * @func int mp_tun_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
  * @brief Set tunel certificate, RSA and CTX
  * @param SSL_CTX * ctx - Inited CTX object
  * @param void * x509 - X509 certufucate
@@ -295,13 +262,14 @@ uint32_t mp_tun_get_flags_right(tunnel_t *t);
  */
 int mp_tun_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa);
 
-/* This function starts */
-void *mp_tun_tty_server_start_thread(void *v);
+/*@null@*/ SSL_CTX *mp_tun_init_server_tls_ctx(tun_t *t, int direction);
+/*@null@*/ SSL_CTX *mp_tun_init_client_tls_ctx(tun_t *t, int direction);
 
-typedef struct conn2_struct {
-	conn_t conn_in;
-	conn_t conn_out;
-	int status;
-} conn2_t;
+int mp_tun_ssl_set_ctx(tun_t *t, int direction, void *ctx);
+int mp_tun_ssl_set_rsa(tun_t *t, int direction, void *rsa);
+int mp_tun_ssl_set_x509(tun_t *t, int direction, void *x509);
+
+void *mp_tun_tty_server_start_thread(void *v);
+void *mp_tun_tty_client_start_thread(void *v);
 
 #endif /* MP_TUNNEL_H */

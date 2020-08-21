@@ -57,7 +57,9 @@ typedef struct control_struct {
 	/*@null@*/ void *config; /* The config file in form of JSON object */
 	void *tickets_out;
 	void *tickets_in;
-	void *buffers; /* Here we keep allocate buffers until they sent */
+	//void *buffers;  /* Here we keep allocate buffers until they sent */
+	void *buf_hash; /* Here we keep allocated buffers until they sent */
+
 	void *buf_missed; /* Here we keep buffer counters that we couldn't find on the first run */
 	char *rootdescurl; /* The router UPNP description, use it to speed up UPNP requests */
 	void *rsa_priv; /* RSA Private key */

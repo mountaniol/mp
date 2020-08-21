@@ -1,8 +1,8 @@
-#GCC=gcc
-#CFLAGS=-Wall -Wextra -rdynamic -O2
+GCC=gcc
+CFLAGS=-Wall -Wextra -rdynamic -O2 -g3
 
-GCC=clang-10
-CFLAGS=-Wall -Wextra -O2 -ggdb
+#GCC=clang-10
+#CFLAGS=-Wall -Wextra -O2 -ggdb
 #CFLAGS=-Wall -Wextra -O2
 DEBUG=-DDEBUG3
 DEBUG +=-DDEBUG2
@@ -24,13 +24,13 @@ MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
 		mp-requests.o mp-communicate.o mp-os.o mp-net-utils.o \
-		mp-security.o
+		mp-security.o mp-htable.o
 
 MOSQ_C=mp-main.c mp-jansson.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
-		mp-requests.c
+		mp-requests.c mp-htable.o
 # client cli
-CLI_O=mp-shell.o mp-jansson.o mp-memory.o mp-ctl.o mp-os.o mp-net-utils.o libfort.a
+CLI_O=mp-shell.o mp-jansson.o mp-memory.o mp-ctl.o mp-os.o mp-net-utils.o mp-htable.o libfort.a
 CLI_T=mp
 
 # Port mapper, standalone compilation

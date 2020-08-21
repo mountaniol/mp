@@ -178,11 +178,18 @@ static int conn_read_from_std(int fd, char *buf, size_t sz)
 /* Init tunnel */
 int mp_tun_t_init(tun_t *tunnel)
 {
+	int i;
 	memset(tunnel, 0, sizeof(tun_t));
-	tunnel->fd[TUN_RIGHT] = -1;
-	tunnel->fd[TUN_LEFT] = -1;
 
-	return (sem_init(&tunnel->buf_lock[TUN_RIGHT] , 0, 1) + sem_init(&tunnel->buf_lock[TUN_LEFT] , 0, 1));
+	for (i = 0; i < TUN_MAX; i++) {
+
+		tunnel->fd[i] = -1;
+		if (0 != sem_init(&tunnel->buf_lock[i] , 0, 1)) {
+			return (EBAD);
+		}
+	}
+
+	return (EOK);
 }
 
 /* Alloc and init the tunnel structure */
@@ -521,15 +528,13 @@ int mp_tun_fill(tun_t *tunnel, int direction, int fd, const char *name, conn_rea
 /* TCP max socket size is 1 GB */
 #define MAX_SOCKET_SIZE (0x40000000)
 /* Read data from conn1, send to conn2 */
-// mp_tun_x_conn_execute_l2r
-int mp_tun_x_conn_execute(tun_t *tunnel, int from, int to)
+static int mp_tun_x_conn_execute(tun_t *tunnel, int from, int to)
 {
 	ssize_t rr;
 	ssize_t rs;
 
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
-	//mp_tunnel_lock_left(tunnel);
 	mp_tun_lock(tunnel, from);
 
 	/* If 'left_ssl()' is not we use the SSL version*/
@@ -568,14 +573,12 @@ int mp_tun_x_conn_execute(tun_t *tunnel, int from, int to)
 
 	if (rr < 0) {
 		DE("Error on reading from %s\n\r", tunnel->name[from] ? tunnel->name[from] : "TODO");
-		//mp_tunnel_unlock_left(tunnel);
 		mp_tun_unlock(tunnel, from);
 		return (EBAD);
 	}
 
 	if (0 == rr) {
 		DE("Probably closed: %s\n\r", tunnel->name[from] ? tunnel->name[from] : "Left fd");
-		//mp_tunnel_unlock_left(tunnel);
 		mp_tun_unlock(tunnel, from);
 		return (EBAD);
 	}
@@ -588,7 +591,6 @@ int mp_tun_x_conn_execute(tun_t *tunnel, int from, int to)
 		rs = tunnel->do_write[to] (tunnel->fd[to] , tunnel->buf[from] , rr);
 	}
 
-	//mp_tunnel_unlock_left(tunnel);
 	mp_tun_unlock(tunnel, from);
 
 	if (rs < 0) {
@@ -625,19 +627,19 @@ static inline int mp_tun_run_x_conn(tun_t *tunnel)
 {
 	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
 
-	//mp_tunnel_lock_left(tunnel);
-	mp_tun_lock(tunnel, TUN_LEFT);
-	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT] );
-	//mp_tunnel_unlock_left(tunnel);
-	mp_tun_unlock(tunnel, TUN_LEFT);
-	TESTP(tunnel->buf[TUN_LEFT] , EBAD);
+	if (NULL == tunnel->buf[TUN_LEFT] ) {
+		mp_tun_lock(tunnel, TUN_LEFT);
+		tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT] );
+		mp_tun_unlock(tunnel, TUN_LEFT);
+		TESTP(tunnel->buf[TUN_LEFT] , EBAD);
+	}
 
-	//mp_tunnel_lock_right(tunnel);
-	mp_tun_lock(tunnel, TUN_RIGHT);
-	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT] );
-	//mp_tunnel_unlock_right(tunnel);
-	mp_tun_unlock(tunnel, TUN_RIGHT);
-	TESTP(tunnel->buf[TUN_RIGHT] , EBAD);
+	if (NULL == tunnel->buf[TUN_RIGHT] ) {
+		mp_tun_lock(tunnel, TUN_RIGHT);
+		tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT] );
+		mp_tun_unlock(tunnel, TUN_RIGHT);
+		TESTP(tunnel->buf[TUN_RIGHT] , EBAD);
+	}
 
 	while (1) {
 		int    rc;
@@ -667,26 +669,20 @@ static inline int mp_tun_run_x_conn(tun_t *tunnel)
 
 		/* Data is ready on left file descriptor: read from conn1, write to conn2 */
 		if (FD_ISSET(tunnel->fd[TUN_LEFT] , &read_set)) {
-			//rc = mp_tun_x_conn_execute_l2r(tunnel);
 			rc = mp_tun_x_conn_execute(tunnel, TUN_LEFT, TUN_RIGHT);
 			if (EOK != rc) goto end;
 		}
 		/* Data is ready on the right file descriptor: read from conn2, write to conn1 */
 		if (FD_ISSET(tunnel->fd[TUN_RIGHT] , &read_set)) {
-			//rc = mp_tun_x_conn_execute_r2l(tunnel);
 			rc = mp_tun_x_conn_execute(tunnel, TUN_RIGHT, TUN_LEFT);
 			if (EOK != rc) goto end;
 		}
 
-		//if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
 		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tun_should_resize(tunnel, TUN_LEFT)) {
-			//mp_tunnel_resize_left_buf(tunnel);
 			mp_tun_resize_buf(tunnel, TUN_LEFT);
 		}
 
-		//if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
 		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tun_should_resize(tunnel, TUN_RIGHT)) {
-			//mp_tunnel_resize_right_buf(tunnel);
 			mp_tun_resize_buf(tunnel, TUN_RIGHT);
 		}
 	}
@@ -694,21 +690,29 @@ end:
 	return (EOK);
 }
 
-/* Like the previous function mp_tunnel_run_x_conn() but use ssl file handlers */
-static inline int mp_tun_run_x_conn_ssl(tun_t *tunnel)
+typedef struct one_direction_args_struct
 {
-	TESTP_MES(tunnel, EBAD, "tunnel is NULL");
-	//mp_tunnel_lock_left(tunnel);
-	mp_tun_lock(tunnel, TUN_LEFT);
-	tunnel->buf[TUN_LEFT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_LEFT] );
-	//mp_tunnel_unlock_left(tunnel);
-	mp_tun_unlock(tunnel, TUN_LEFT);
+	tun_t *t;
+	int from;
+	int to;
+} one_direction_args_t;
 
-	//mp_tunnel_lock_right(tunnel);
-	mp_tun_lock(tunnel, TUN_RIGHT);
-	tunnel->buf[TUN_RIGHT] = zmalloc_any(READ_BUF, &tunnel->buf_size[TUN_RIGHT] );
-	//mp_tunnel_unlock_right(tunnel);
-	mp_tun_unlock(tunnel, TUN_RIGHT);
+/* Run dedicated thread to pass data from 'from' to 'to' direction */
+void *mp_tun_run_x_conn_one_direction(void *v)
+{
+	one_direction_args_t *args   = v;
+	tun_t                *tunnel = args->t;
+	int                  from    = args->from;
+	int                  to      = args->from;
+
+	TESTP_MES(tunnel, NULL, "tunnel is NULL");
+
+	if (NULL == tunnel->buf[from] ) {
+		mp_tun_lock(tunnel, from);
+		tunnel->buf[from] = zmalloc_any(READ_BUF, &tunnel->buf_size[from] );
+		mp_tun_unlock(tunnel, from);
+		TESTP(tunnel->buf[from] , NULL);
+	}
 
 	while (1) {
 		int    rc;
@@ -720,50 +724,32 @@ static inline int mp_tun_run_x_conn_ssl(tun_t *tunnel)
 		FD_ZERO(&read_set);
 		FD_ZERO(&ex_set);
 
-		FD_SET(tunnel->fd[TUN_RIGHT] , &read_set);
-		FD_SET(tunnel->fd[TUN_LEFT] , &read_set);
+		FD_SET(tunnel->fd[from] , &read_set);
 
-		FD_SET(tunnel->fd[TUN_LEFT] , &ex_set);
-		FD_SET(tunnel->fd[TUN_RIGHT] , &ex_set);
+		FD_SET(tunnel->fd[from] , &ex_set);
 
-		n = MAX(tunnel->fd[TUN_LEFT] , tunnel->fd[TUN_RIGHT] ) + 1;
+		n = tunnel->fd[from] + 1;
 
 		rc = select(n, &read_set, NULL, &ex_set, NULL);
 
 		/* Some exception happened */
-		if (FD_ISSET(tunnel->fd[TUN_LEFT] , &ex_set) || FD_ISSET(tunnel->fd[TUN_RIGHT] , &ex_set)) {
+		if (FD_ISSET(tunnel->fd[from] , &ex_set)) {
 			DD("Some exception happened. Ending x_connect\n");
 			return (EBAD);
 		}
 
-		/* Data is ready on connection 1: read from conn1, write to conn2 */
-		if (FD_ISSET(tunnel->fd[TUN_LEFT] , &read_set)) {
-			//rc = mp_tun_x_conn_execute_l2r(tunnel);
-			rc = mp_tun_x_conn_execute(tunnel, TUN_LEFT, TUN_RIGHT);
+		/* Data is ready on left file descriptor: read from conn1, write to conn2 */
+		if (FD_ISSET(tunnel->fd[from] , &read_set)) {
+			rc = mp_tun_x_conn_execute(tunnel, from, to);
 			if (EOK != rc) goto end;
 		}
 
-		/* Data is ready on connection 2: read from conn2, write to conn1 */
-		if (FD_ISSET(tunnel->fd[TUN_RIGHT] , &read_set)) {
-			//rc = mp_tun_x_conn_execute_r2l(tunnel);
-			rc = mp_tun_x_conn_execute(tunnel, TUN_RIGHT, TUN_LEFT);
-			if (EOK != rc) goto end;
-		}
-
-		//if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_l2r(tunnel)) {
-		if (tunnel->buf_size[TUN_LEFT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tun_should_resize(tunnel, TUN_LEFT)) {
-			//mp_tunnel_resize_left_buf(tunnel);
-			mp_tun_resize_buf(tunnel, TUN_LEFT);
-		}
-
-		//if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tunnel_should_resize_r2l(tunnel)) {
-		if (tunnel->buf_size[TUN_RIGHT] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tun_should_resize(tunnel, TUN_RIGHT)) {
-			//mp_tunnel_resize_right_buf(tunnel);
-			mp_tun_resize_buf(tunnel, TUN_RIGHT);
+		if (tunnel->buf_size[from] < MP_LIMIT_TUNNEL_BUF_SIZE_MAX && mp_tun_should_resize(tunnel, from)) {
+			mp_tun_resize_buf(tunnel, from);
 		}
 	}
 end:
-	return (EOK);
+	return (NULL);
 }
 
 static void mp_tun_print_stat(tun_t *tunnel)
@@ -1093,14 +1079,11 @@ static void *mp_tun_tty_server_go(void *v)
 		pthread_exit(NULL);
 	}
 
-	//mp_tunnel_tunnel_fill_external(tunnel, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
 	mp_tun_fill(tunnel, TUN_LEFT, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
-	//mp_tunnel_tunnel_fill_internal(tunnel, tunnel->fd[TUN_RIGHT] , "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
 	mp_tun_fill(tunnel, TUN_RIGHT, tunnel->fd[TUN_RIGHT] , "Server:PTY", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Start SSL connection */
 	mp_tun_init_server_ssl(tunnel, TUN_LEFT);
-	//rc = mp_tunnel_start_ssl_conn_left(tunnel);
 	rc = mp_tun_start_ssl_conn(tunnel, TUN_LEFT);
 
 	if (EOK != rc) {
@@ -1125,7 +1108,6 @@ static void *mp_tun_tty_server_go(void *v)
 	}
 
 	mp_tun_print_stat(tunnel);
-	//mp_tunnel_tunnel_t_destroy(tunnel);
 	close(tunnel->fd[TUN_LEFT] );
 	close(tunnel->fd[TUN_RIGHT] );
 	DD("Close file descriptors\n\r");
@@ -1317,15 +1299,12 @@ void *mp_tun_tty_client_start_thread(void *v)
 
 	/* Acept connection and create pty */
 
-	//mp_tunnel_tunnel_fill_external(tunnel, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
 	mp_tun_fill(tunnel, TUN_LEFT, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
-	//mp_tunnel_tunnel_fill_internal(tunnel, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
 	mp_tun_fill(tunnel, TUN_RIGHT, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Set SSL tunnel for external connection */
 	mp_tun_init_client_ssl(tunnel, TUN_LEFT);
 
-	//rc = mp_tunnel_start_ssl_conn_left(tunnel);
 	rc = mp_tun_start_ssl_conn(tunnel, TUN_LEFT);
 	if (EOK != rc) {
 		DE("Can't init SSL\n");
@@ -1374,7 +1353,6 @@ int main(int argi, char *argv[])
 		/* Tunnel left (external) side is SSL server mode socket */
 
 		mp_tun_set_flags(tunnel, TUN_LEFT, TUN_SOCKET_SSL | TUN_SERVER | TUN_AUTOBUF);
-		//mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 		mp_tun_set_server_port(tunnel, TUN_LEFT, "127.0.0.1", 3318);
 
 		/* RIGHT (internal) size of the tunnel: it is TTY */
@@ -1389,11 +1367,9 @@ int main(int argi, char *argv[])
 	if (0 == strcmp(argv[1] , "-c")) {
 		pthread_t pid;
 
-		/* LEFT side og the tunnel: SSL client connection */
+		/* LEFT side of the tunnel: SSL client connection */
 		mp_tun_set_flags(tunnel, TUN_LEFT, TUN_SOCKET_SSL | TUN_AUTOBUF);
-		//mp_tun_set_server_port_left(tunnel, "127.0.0.1", 3318);
 		mp_tun_set_server_port(tunnel, TUN_LEFT, "127.0.0.1", 3318);
-		/* RIGHT (internal) size of the tunnel: it is TTY */
 		mp_tun_set_flags(tunnel, TUN_RIGHT, TUN_TTY_CLIENT | TUN_AUTOBUF);
 
 		pthread_create(&pid, NULL, mp_tun_tty_client_start_thread, tunnel);

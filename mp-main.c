@@ -717,13 +717,15 @@ static void mp_main_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		perror("usleep returned error");
 	}
 
-	buf = mp_communicate_get_buf_t_from_ctl_l(buf_id);
+	buf = mp_communicate_get_buf_t_from_hash(buf_id);
 	if (NULL == buf) {
 		DE("Can't find buffer\n");
 		return;
 	}
 
-	rc = mp_communicate_clean_missed_counters();
+	DDD("Found saved buffer %p, going to free one\n", buf);
+
+	rc = mp_communicate_clean_missed_counters_hash();
 	if (EOK != rc) {
 		DE("Something went wrong when tried to remove stucj counters\n");
 	}
@@ -1007,7 +1009,7 @@ static err_t mp_main_init_security()
 	if (EOK == rc) {
 		ctl->rsa_priv = mp_config_load_rsa_priv();
 	}
-	
+
 	if (NULL == ctl->rsa_priv) {
 		void *rsa;
 		rsa = mp_security_generate_rsa_pem_RSA(2048);
@@ -1065,7 +1067,7 @@ static err_t mp_main_init_security()
 		DE("Can't create OpelSSL CTX object\n");
 		return (EBAD);
 	}
-	
+
 	return (EOK);
 }
 

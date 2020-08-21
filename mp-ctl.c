@@ -7,6 +7,7 @@
 #include "mp-memory.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
+#include "mp-htable.h"
 
 /*@only@*/control_t *g_ctl = NULL;
 err_t ctl_allocate_init(void)
@@ -29,8 +30,11 @@ err_t ctl_allocate_init(void)
 	g_ctl->hosts = j_new();
 	TESTP_MES(g_ctl->me, -1, "Can't allocate json object");
 
-	g_ctl->buffers = j_new();
-	TESTP_MES(g_ctl->buffers, -1, "Can't allocate json object");
+	/* TODO: should define size of hash table as a define */
+	/* We use prime number of elements */
+	g_ctl->buf_hash = htable_alloc(127);
+	TESTP_MES(g_ctl->buf_hash, -1, "Can't allocate buf_hash table");
+
 
 	g_ctl->buf_missed = j_new();
 	TESTP_MES(g_ctl->buf_missed, -1, "Can't allocate json object");
@@ -54,7 +58,7 @@ err_t cli_destoy()
 	j_rm(g_ctl->hosts);
 	j_rm(g_ctl->config);
 	j_rm(g_ctl->tickets_out);
-	j_rm(g_ctl->buffers);
+	//j_rm(g_ctl->buffers);
 	j_rm(g_ctl->buf_missed);
 	TFREE_STR(g_ctl->rootdescurl);
 	free(g_ctl);

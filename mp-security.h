@@ -46,4 +46,15 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits);
  * @details
  */
 /*@null@*/X509 *mp_security_generate_x509(RSA *rsa);
+
+
+/**
+ * @author Sebastian Mountaniol (21/08/2020)
+ * @func SSL_CTX* mp_security_init_server_tls_ctx(void)
+ * @brief Create CTX context
+ * @param void
+ * @return SSL_CTX* Created context
+ * @details
+ */
+/*@null@*/ SSL_CTX *mp_security_init_server_tls_ctx(void);
 #endif /* MP_SECURITY_H */

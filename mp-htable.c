@@ -20,7 +20,7 @@ static inline uint32_t murmur_32_scramble(uint32_t k)
 
 uint32_t murmur3_32(const uint8_t *key, size_t len)
 {
-#ifndef S_SPLINT_S
+	#ifndef S_SPLINT_S
 	uint32_t h = MURMUR_SEED;
 	uint32_t k;
 	/* Read in groups of 4. */
@@ -53,7 +53,7 @@ uint32_t murmur3_32(const uint8_t *key, size_t len)
 	h *= 0xc2b2ae35;
 	h ^= h >> 16;
 	return (h);
-#endif /* S_SPLINT_S */
+	#endif /* S_SPLINT_S */
 }
 
 /* Allocate new hash table node */
@@ -101,38 +101,36 @@ int htable_free(htable_t *ht)
 	return (0);
 }
 
-/* insert new key / value pair */
-int htable_insert(htable_t *ht, char *key, void *data)
+/* insert new key / data where key is size_t integer value  */
+int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 {
 	hnode_t *node;
 	hnode_t *node_p;
-	uint32_t hash;
-	size_t slot;
+	size_t  slot;
 
 	TESTP_MES(ht, -1, "Got ht NULL");
-	TESTP_MES(key, -1, "Got key NULL");
 	TESTP_MES(data, -1, "Got data NULL");
 
-	/* Calculate hash for the jey */
-	hash = murmur3_32((uint8_t *)key, strlen(key));
-
-	DDD("Counted hash for key %s : %X\n", key, hash);
+	DD("Got hash: %lX\n", hash);
 
 	/* Find slot in the hash table for this data */
 	slot = HTABLE_SLOT(ht, hash);
 
-	DDD("Slot for key %s : %zu, size of htable: %zu\n", key, slot, ht->size);
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", hash, slot, ht->size);
 
 	/* Allocate new hash node */
 	node = hnode_alloc();
 	TESTP_MES(node, -1, "Can't allocate node\n");
 	node->data = data;
-	node->key = strdup(key);
+	if (NULL != key) {
+		node->key = strdup(key);
+	}
+
 	node->hash = hash;
 
 	DDD("Starting insert point search\n");
 	/* If this slot in hash table is vacant - insert the hash node  */
-	if (NULL == ht->nodes[slot]) {
+	if (NULL == ht->nodes[slot] ) {
 		DDD("Slot is empty - insert and finish\n");
 		ht->nodes[slot] = node;
 		ht->members++;
@@ -157,33 +155,51 @@ int htable_insert(htable_t *ht, char *key, void *data)
 	return (0);
 }
 
+
+/* insert new key / value pair where the key is a string */
+int htable_insert_by_string(htable_t *ht, char *key, void *data)
+{
+	size_t hash;
+
+	TESTP_MES(ht, -1, "Got ht NULL");
+	TESTP_MES(key, -1, "Got key NULL");
+	TESTP_MES(data, -1, "Got data NULL");
+
+	/* Calculate hash for the jey */
+	hash = murmur3_32((uint8_t *)key, strlen(key));
+
+	return (htable_insert_by_int(ht, hash, key, data));
+}
+
 /* remove data for the given key; the data returned */
-/*@null@*/ void *htable_delete(htable_t *ht, char *key)
+/*@null@*/ void __attribute__ ((noinline)) *htable_extract_by_int(htable_t *ht, size_t key)
 {
 	hnode_t *node;
 	hnode_t *node_p;
-//	hnode_t *node_r;
-	uint32_t hash;
-	size_t slot;
-	void *data;
+	//	hnode_t *node_r;
+	size_t  slot;
+	void    *data;
 
 	TESTP_MES(ht, NULL, "Got NULL");
-	TESTP_MES(key, NULL, "Got NULL");
+	DD("Got hash: %lX\n", key);
 
-	hash = murmur3_32((uint8_t *)key, strlen(key));
-	slot = HTABLE_SLOT(ht, hash);
+	slot = HTABLE_SLOT(ht, key);
+
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", key, slot, ht->size);
 
 	node_p = node = ht->nodes[slot];
 
 	/* Iterate over the linked list (if any) until NULL or until hash found */
-	while ((NULL != node) && (node->hash != hash)) {
+	while ((NULL != node) && (node->hash != key)) {
 		node_p = node;
 		node = node->next;
 	}
 
+	node = node_p;
+
 	/* We can't find node with this key */
 	if (NULL == node) {
-		DE("Not found key %s\n", key);
+		DE("Not found key %lX\n", key);
 		return (NULL);
 	}
 
@@ -196,8 +212,11 @@ int htable_insert(htable_t *ht, char *key, void *data)
 	   the "next" if the first node in the slot is NULL */
 	data = node->data;
 
-	if (NULL == ht->nodes[slot]->next) {
-		TFREE(node->key);
+	if (NULL == ht->nodes[slot] ->next) {
+		if (node->key) {
+			TFREE(node->key);
+		}
+
 		TFREE(node);
 		ht->nodes[slot] = NULL;
 	} else {
@@ -212,8 +231,33 @@ int htable_insert(htable_t *ht, char *key, void *data)
 	return (data);
 }
 
+/*@null@*/ void *htable_extract_by_string(htable_t *ht, char *key)
+{
+	uint32_t hash;
 
-/* Replace data for the given key; old datat returned */
+	TESTP_MES(ht, NULL, "Got NULL");
+	TESTP_MES(key, NULL, "Got NULL");
+
+	hash = murmur3_32((uint8_t *)key, strlen(key));
+	return (htable_extract_by_int(ht, hash));
+}
+
+/*@null@*/ void *htable_extract_any(htable_t *ht)
+{
+	hnode_t *node;
+	size_t  i;
+
+	TESTP_MES(ht, NULL, "Got NULL");
+
+	htable_each(ht, i, node) {
+		return (htable_extract_by_int(ht, node->hash));
+	}
+
+	return (NULL);
+}
+
+
+/* Replace data for the given key; old data returned */
 #if 0
 void *htable_replace(htable_t *ht, char *key, void *data){
 	return (0);
@@ -221,24 +265,21 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 #endif
 
 /* find data for the given key */
-/*@null@*/ void *htable_find(htable_t *ht, char *key)
+/*@null@*/ void *htable_find_by_int(htable_t *ht, size_t key)
 {
 	hnode_t *node;
-	uint32_t hash;
-	size_t slot;
+	size_t  slot;
 
 	TESTP_MES(ht, NULL, "Got NULL");
-	TESTP_MES(key, NULL, "Got NULL");
 
-	hash = murmur3_32((uint8_t *)key, strlen(key));
-	slot = HTABLE_SLOT(ht, hash);
+	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Search for key %s, hash %X, slot %zu\n", key, hash, slot);
+	DDD("Search for key %lX, slot %zu\n", key, slot);
 
 	node = ht->nodes[slot];
 
 	/* Iterate over the linked list (if any) until NULL or until hash found */
-	while ((NULL != node) && (node->hash != hash)) {
+	while ((NULL != node) && (node->hash != key)) {
 		node = node->next;
 	}
 
@@ -247,6 +288,18 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 	}
 
 	return (NULL);
+}
+
+/*@null@*/ void *htable_find_by_string(htable_t *ht, char *key)
+{
+	uint32_t hash;
+
+	TESTP_MES(ht, NULL, "Got NULL");
+	TESTP_MES(key, NULL, "Got NULL");
+
+	hash = murmur3_32((uint8_t *)key, strlen(key));
+
+	return (htable_find_by_int(ht, hash));
 }
 
 
@@ -262,11 +315,11 @@ int htable_test_key(htable_t *ht, char *key){
 }
 #endif
 
-/* remove first found key from hash table */
+/* find the first found key from hash table */
 /*@null@*/ void *htable_first_key(htable_t *ht)
 {
 	hnode_t *node;
-	size_t i;
+	size_t  i;
 
 	TESTP_MES(ht, NULL, "Got NULL");
 
@@ -289,9 +342,9 @@ static int htable_comp(const void *p1, const void *p2)
 /* Prepare sorted array */
 int htable_sort(htable_t *ht)
 {
-	size_t i = 0;
-	int j = 0;
-	hnode_t *node = NULL;
+	size_t  i      = 0;
+	int     j      = 0;
+	hnode_t *node  = NULL;
 	hnode_t **sarr = NULL;
 	TESTP_MES(ht, -1, "Got NULL");
 	if (ht->members < 1) {
@@ -327,11 +380,13 @@ int htable_unsort(htable_t *ht)
 	return (0);
 }
 
-/*** Testing here ***/
+/*** Testing here */
 
 #if 0
 static int hrable_test_number(int table_size){
-	char *keys[] = {"one", "two", "three", "four", "white", "black", "blue", "orange", NULL};
+	char *keys[] = {
+		"one", "two", "three", "four", "white", "black", "blue", "orange", NULL
+	};
 	char *key;
 	size_t i;
 	int rc;
@@ -406,9 +461,9 @@ static int hrable_test_number(int table_size){
 		char *found;
 		key = keys[i];
 
-	#ifndef S_SPLINT_S
+		#ifndef S_SPLINT_S
 		D("Starting delete of key %s, members: %zu\n", key, ht->members);
-	#endif
+		#endif
 		found = htable_delete(ht, key);
 		if (NULL == found) {
 			DE("Can't find key %s\n", key);
@@ -450,5 +505,3 @@ int hrable_test(void){
 	return (rc);
 }
 #endif
-
-
