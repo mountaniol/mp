@@ -19,11 +19,12 @@
 #include "mp-debug.h"
 #include "mp-jansson.h"
 #include "mp-memory.h"
+#include "mp-limits.h"
 
 /*@null@*//*@only@*/ j_t *j_str2j(/*@null@*/const char *str)
 {
 	json_error_t error;
-	json_t *root;
+	json_t       *root;
 
 	TESTP_MES(str, NULL, "Got NULL\n");
 
@@ -72,23 +73,30 @@
 
 /*@null@*//*@only@*/ buf_t *j_2buf(/*@null@*/const j_t *j_obj)
 {
-	buf_t *buf = NULL;
-	char *jd = NULL;
+	buf_t  *buf  = NULL;
+	char   *jd   = NULL;
+	size_t j_len = 0;
 
 	TESTP(j_obj, NULL);
 
 	jd = json_dumps(j_obj, (size_t)JSON_INDENT(4));
 	TESTP_MES(j_obj, NULL, "Can't transform JSON to string");
 
-	//buf = buf_new(jd, strlen(jd));
+	j_len = strnlen(jd, MP_LIMIT_JSON_TEXT_BUF_LEN);
+	if (j_len < 1) {
+		DE("Can't get the JSON buffer length\n");
+		buf_free(jd);
+		return (NULL);
+	}
+	
 	buf = buf_new(0);
 	TESTP_MES_GO(buf, err, "Can't allocate buf_t");
 
-	if (EOK != buf_set_data(buf, jd, strlen(jd), strlen(jd))) {
+	if (EOK != buf_set_data(buf, jd, j_len, j_len)) {
 		DE("Can't set data into buf\n");
 		goto err;
 	}
-	
+
 	BUF_DUMP(buf);
 
 	buf->used = buf->room;
@@ -155,7 +163,7 @@ err_t j_add_j(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/j_t *obj
 
 err_t j_add_str(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/const char *val)
 {
-	int rc;
+	int    rc;
 	json_t *j_str = NULL;
 
 	TESTP(root, EBAD);
@@ -175,7 +183,7 @@ err_t j_add_str(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/const 
 
 err_t j_add_int(/*@null@*/j_t *root, /*@null@*/const char *key, j_int_t val)
 {
-	int rc;
+	int    rc;
 	json_t *j_int;
 
 	TESTP(root, EBAD);
@@ -192,9 +200,9 @@ err_t j_add_int(/*@null@*/j_t *root, /*@null@*/const char *key, j_int_t val)
 
 err_t j_cp(/*@null@*/const j_t *from, /*@null@*/j_t *to, /*@null@*/const char *key)
 {
-	json_t *j_obj = NULL;
+	json_t *j_obj      = NULL;
 	json_t *j_obj_copy = NULL;
-	int rc = EBAD;
+	int    rc          = EBAD;
 	TESTP(from, EBAD);
 	TESTP(to, EBAD);
 	TESTP(key, EBAD);
@@ -216,7 +224,7 @@ err_t j_cp_val(/*@null@*/const j_t *from, /*@null@*/j_t *to, /*@null@*/const cha
 {
 	json_t *j_obj;
 	json_t *j_obj_copy;
-	int rc;
+	int    rc;
 	TESTP(from, EBAD);
 	TESTP(to, EBAD);
 	TESTP(key_from, EBAD);
@@ -269,8 +277,8 @@ int json_add_string_int(json_t *root, char *key, int val){
    Return EOK if this is true, return EBAD is no match */
 err_t j_test(/*@null@*/const j_t *root, /*@null@*/const char *type_name, /*@null@*/const char *expected_val)
 {
-	const char *val = NULL;
-	size_t val_len = 0;
+	const char *val    = NULL;
+	size_t     val_len = 0;
 
 	if (NULL == root || NULL == type_name || NULL == expected_val) {
 		DE("Got NULL: root = %p, type_name == %p, expected_val = %p\n", root, type_name, expected_val);
@@ -284,7 +292,7 @@ err_t j_test(/*@null@*/const j_t *root, /*@null@*/const char *type_name, /*@null
 		DE("Can't measure string name\n");
 		return (EBAD);
 	}
-	
+
 	/* Get and check type: we should be sure we have one  */
 	val = j_find_ref(root, type_name);
 	if (NULL == val) {
@@ -354,20 +362,20 @@ j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key)
 
 /*@null@*//*@only@*/char *j_find_dup(/*@null@*/const j_t *root, /*@null@*/const char *key)
 {
-	json_t *j_string = NULL;
-	size_t len = 0;
+	json_t     *j_string = NULL;
+	size_t     len       = 0;
 	const char *s_string;
 
 	TESTP(root, NULL);
 	TESTP(key, NULL);
 
 	j_string = json_object_get(root, key);
-#if 0 /* SEB 30/04/2020 18:36  */
+	#if 0 /* SEB 30/04/2020 18:36  */
 
 	if (NULL == j_string) {
 		DE("Can't find str for key: %s\n", key);
 	}
-#endif /* SEB 30/04/2020 18:36 */
+	#endif /* SEB 30/04/2020 18:36 */
 	TESTP(j_string, NULL);
 
 	len = json_string_length(j_string);
@@ -415,9 +423,9 @@ err_t j_rm_key(/*@null@*/j_t *root, /*@null@*/const char *key)
 
 void j_rm(/*@keep@*//*@null@*/j_t *root)
 {
-	const char *key = NULL;
-	void *tmp = NULL;
-	json_t *value = NULL;
+	const char *key   = NULL;
+	void       *tmp   = NULL;
+	json_t     *value = NULL;
 
 	if (NULL == root) return;
 
@@ -467,5 +475,3 @@ void j_print(/*@null@*/const j_t *root, /*@null@*/const char *prefix)
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 }
-
-

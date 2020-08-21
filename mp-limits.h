@@ -19,4 +19,7 @@
 /* Maximal legth of interface name (like 'eth0') */
 #define MP_LIMIT_INTERFACE_NAME_MAX (32)
 
+/* Maximal length of JSON buffer length: 256 KB */
+#define MP_LIMIT_JSON_TEXT_BUF_LEN (1024 * 256)
+
 #endif /* MP_LIMITS_H */

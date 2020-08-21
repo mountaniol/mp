@@ -762,7 +762,7 @@ static void mp_tun_print_stat(tun_t *tunnel)
 	DD("%s -> %s total bytes: %zu\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , tunnel->cnt_write_total[TUN_LEFT] );
 	DD("%s -> %s average write: %f\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , (float)tunnel->cnt_write_total[TUN_LEFT] / tunnel->num_writes[TUN_LEFT] );
 
-	DD("Buffer size: %ld\n\r", tunnel->buf_size[TUN_LEFT] );
+	DD("Buffer size: %zu\n\r", tunnel->buf_size[TUN_LEFT] );
 }
 
 /* Don't load certificates from the file, use in-memory */
