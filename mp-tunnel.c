@@ -461,7 +461,7 @@ static int mp_tun_resize_buf(tun_t *tunnel, int direction)
 		goto end;
 	}
 
-	DD("Going to resize r2l tunnel buffer from %ld to %ld\n\r", tunnel->buf_size[direction] , new_size);
+	DD("Going to resize r2l tunnel buffer from %zu to %zu\n\r", tunnel->buf_size[direction] , new_size);
 	DD("average left: %f\n\r", average);
 
 	// mp_tunnel_lock_right(tunnel);
@@ -471,7 +471,7 @@ static int mp_tun_resize_buf(tun_t *tunnel, int direction)
 	//mp_tunnel_unlock_right(tunnel);
 	mp_tun_unlock(tunnel, direction);
 
-	DD("Resized r2l tunnel buffer to %ld\n\r", tunnel->buf_size[direction] );
+	DD("Resized r2l tunnel buffer to %zu\n\r", tunnel->buf_size[direction] );
 
 end:
 	/* Save total write for statistics */
@@ -754,17 +754,16 @@ end:
 
 static void mp_tun_print_stat(tun_t *tunnel)
 {
-	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->name[TUN_LEFT] , tunnel->name[TUN_RIGHT] , tunnel->num_writes[TUN_RIGHT] , tunnel->num_writes_ssl[TUN_RIGHT] );
-	DD("%s -> %s total bytes: %ld\n\r", tunnel->name[TUN_LEFT] , tunnel->name[TUN_RIGHT] , tunnel->cnt_write_total[TUN_RIGHT] );
+	DD("%s -> %s writes: %zu (ssl: %zu)\n\r", tunnel->name[TUN_LEFT] , tunnel->name[TUN_RIGHT] , tunnel->num_writes[TUN_RIGHT] , tunnel->num_writes_ssl[TUN_RIGHT] );
+	DD("%s -> %s total bytes: %zu\n\r", tunnel->name[TUN_LEFT] , tunnel->name[TUN_RIGHT] , tunnel->cnt_write_total[TUN_RIGHT] );
 	DD("%s -> %s average write: %f\n\r", tunnel->name[TUN_LEFT] , tunnel->name[TUN_RIGHT] , (float)tunnel->cnt_write_total[TUN_RIGHT] / tunnel->num_writes[TUN_RIGHT] );
 
-	DD("%s -> %s writes: %ld (ssl: %ld)\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , tunnel->num_writes[TUN_LEFT] , tunnel->num_writes_ssl[TUN_LEFT] );
-	DD("%s -> %s total bytes: %ld\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , tunnel->cnt_write_total[TUN_LEFT] );
+	DD("%s -> %s writes: %zu (ssl: %zu)\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , tunnel->num_writes[TUN_LEFT] , tunnel->num_writes_ssl[TUN_LEFT] );
+	DD("%s -> %s total bytes: %zu\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , tunnel->cnt_write_total[TUN_LEFT] );
 	DD("%s -> %s average write: %f\n\r", tunnel->name[TUN_RIGHT] , tunnel->name[TUN_LEFT] , (float)tunnel->cnt_write_total[TUN_LEFT] / tunnel->num_writes[TUN_LEFT] );
 
 	DD("Buffer size: %ld\n\r", tunnel->buf_size[TUN_LEFT] );
 }
-
 
 /* Don't load certificates from the file, use in-memory */
 int mp_tun_set_cert(SSL_CTX *ctx, void *x509, void *priv_rsa)
@@ -1098,7 +1097,7 @@ static void *mp_tun_tty_server_go(void *v)
 
 	rc = mp_tun_run_x_conn(tunnel);
 
-	DD("Returned from mp_tunnel_run_x_conn\n\r");
+	DD("Returned from mp_tunnel_run_x_conn: %d\n\r", rc);
 
 	/* No need to join thread - they were dettached */
 

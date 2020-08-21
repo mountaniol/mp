@@ -25,7 +25,7 @@
 /* Construct config file directory full path */
 static buf_t *mp_config_get_config_dir(void)
 {
-	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // buf_string(4096);
+	buf_t         *dirname = NULL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // buf_string(4096);
 	struct passwd *pw      = NULL;
 	const char    *homedir = NULL;
 
@@ -295,6 +295,9 @@ static err_t mp_config_write(j_t *j_config)
 
 	/* 4. Write config */
 	rc = write(fd, conf->data, buf_used(conf));
+	if (rc != buf_used(conf)) {
+		DE("WARNING: error on config file write: rwritten %d, expected %d\n", rc, buf_used(conf));
+	}
 
 	/* Finished. Close and release everything */
 	/* Set return status as success */
@@ -342,18 +345,18 @@ err_t mp_config_save()
 			perror("can't close dir");
 		}
 	} else
-	if (ENOENT == errno) {
-		rc = mkdir(dirname->data, 0700);
-		if (0 != rc) {
-			DE("mkdir failed; probably it is a;ready exists?\n");
-			perror("can't mkdir");
+		if (ENOENT == errno) {
+			rc = mkdir(dirname->data, 0700);
+			if (0 != rc) {
+				DE("mkdir failed; probably it is a;ready exists?\n");
+				perror("can't mkdir");
+			}
+		} else {
+			DE("Some error\n");
+			perror("Config directory testing error");
+			buf_free(dirname);
+			return (EBAD);
 		}
-	} else {
-		DE("Some error\n");
-		perror("Config directory testing error");
-		buf_free(dirname);
-		return (EBAD);
-	}
 	buf_free(dirname);
 
 	filename = mp_config_get_config_name();
@@ -525,7 +528,7 @@ int mp_config_save_rsa_keys(RSA *rsa)
 
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
-	
+
 	fp = fopen(file->data, "wb");
 	TESTP(fp, EBAD);
 
@@ -581,6 +584,10 @@ err_t mp_config_save_rsa_x509(X509 *x509)
 
 err:
 	rc = mp_config_file_lock(file);
+	if (EOK != rc) {
+		DE("WARNING: Can't lock config file\n");
+	}
+
 	buf_free(file);
 	return (ret);
 }

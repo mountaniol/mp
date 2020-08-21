@@ -16,4 +16,7 @@
 /* Maximal length of string in buf_sprintf() function */
 #define MP_LIMIT_BUF_STRING_LEN (4096*16) 
 
+/* Maximal legth of interface name (like 'eth0') */
+#define MP_LIMIT_INTERFACE_NAME_MAX (32)
+
 #endif /* MP_LIMITS_H */

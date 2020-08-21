@@ -6,8 +6,8 @@
 
 /* SEB:TODO: What exactly the params? */
 /* Connect request: ask remote host to open port for ssh connection */
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_connect(const char *uid_remote, const char *user_remote)
-{
+#if 0
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_connect(const char *uid_remote, const char *user_remote){
 	buf_t *buf = NULL;
 
 	TESTP_MES(user_remote, NULL, "Got NULL");
@@ -22,10 +22,11 @@
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	j_rm(root);
 	return (buf);
 }
+#endif
 
 /* Last well sent by server on the client disconnect to all other listeners  */
 /*@null@*/ buf_t *mp_requests_build_last_will()
@@ -80,8 +81,8 @@ err:
 
 /* ssh request this client want to connect to client "uid"
    The client "uid" should open a port and return it in "ssh-done" responce */
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh(const char *uid)
-{
+#if 0
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh(const char *uid){
 	buf_t *buf = NULL;
 	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
@@ -95,15 +96,16 @@ err:
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	j_rm(root);
 	return (buf);
 }
+#endif
 
 /* "ssh-done" responce: this client opened a port and informes
    about it. This is responce to "ssh" requiest */
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port)
-{
+#if 0
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port){
 	buf_t *buf = NULL;
 	j_t *root = j_new();
 	TESTP_MES(root, NULL, "Can't create json\n");
@@ -120,10 +122,11 @@ err:
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	j_rm(root);
 	return (buf);
 }
+#endif
 
 /* sshr: This client can't connect to the remote client "uid", but the
    remote client "uid" can connect here. So this client asks to
@@ -133,8 +136,8 @@ err:
    already tried to open a port and failed.
    Another scenario: the remote client "uid" succeeded to open
    port, but we cannot connect. In this case we move on to "sshr" requiest */
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port)
-{
+#if 0
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port){
 	buf_t *buf = NULL;
 	j_t *root = NULL;
 
@@ -154,16 +157,17 @@ err:
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	j_rm(root);
 	return (buf);
 }
+#endif
 
 /* sshr-done: we opened reversed channel to the client "uid".
    The remote client "uid" may use "localport" on its side
    to establish connection */
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status)
-{
+#if 0
+/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status){
 	buf_t *buf = NULL;
 	j_t *root = NULL;
 
@@ -182,10 +186,11 @@ err:
 
 	buf = j_2buf(root);
 
-err:
+	err:
 	j_rm(root);
 	return (buf);
 }
+#endif
 
 /* SEB:TODO: I should just send ctl->me structure as keepalive */
 /*@null@*/ buf_t *mp_requests_build_keepalive()

@@ -280,7 +280,11 @@ err_t j_test(/*@null@*/const j_t *root, /*@null@*/const char *type_name, /*@null
 
 	/* SEB: TODO: Max length of the string should be defined and documented! */
 	val_len = strnlen(expected_val, 32);
-
+	if (val_len < 1) {
+		DE("Can't measure string name\n");
+		return (EBAD);
+	}
+	
 	/* Get and check type: we should be sure we have one  */
 	val = j_find_ref(root, type_name);
 	if (NULL == val) {

@@ -13,6 +13,7 @@
 #include "mp-jansson.h"
 #include "mp-ports.h"
 #include "mp-dict.h"
+#include "mp-limits.h"
 
 #define BUF_INTERFACE (1024)
 /*@null@*/ static buf_t *mp_network_find_wan_interface(void)
@@ -63,8 +64,21 @@
 
 		/* If the default route is all nulls this should be the WAN interface */
 		if (0 == strncmp(dest, "00000000", 8)) {
-			size_t len  = strlen(interface);
-			char   *ret = strndup(interface, len);
+			/* We don't know what is the length of interface name... suppose it  up to 32? */
+			size_t len;
+			char   *ret = NULL;
+			
+			len  = strnlen(interface, MP_LIMIT_INTERFACE_NAME_MAX);
+			if (len < 1) {
+				DE("Can't count interface name\n");
+				goto err;
+			}
+			ret = strndup(interface, len);
+			if (NULL == ret) {
+				DE("Can't duplicate interface name\n");
+				goto err;
+			}
+			
 			buf_clean(buft);
 			buf_set_data(buft, ret, len + 1, len);
 			//buf_detect_used(buft);
@@ -180,7 +194,7 @@ err_t mp_network_init_network_l()
 	if (EOK != j_add_str(ctl->me, JK_IP_INT, bvar->data)) DE("Can't add 'JK_IP_INT'\n");
 	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock();
-	buf_free(bvar); 
+	buf_free(bvar);
 	return (EOK);
 }
 
