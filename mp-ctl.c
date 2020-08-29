@@ -12,7 +12,7 @@
 /*@only@*/control_t *g_ctl = NULL;
 err_t ctl_allocate_init(void)
 {
-	j_t *ports = NULL;
+	j_t   *ports = NULL;
 	err_t rc;
 
 	if (NULL != g_ctl) return (EBAD);
@@ -33,11 +33,13 @@ err_t ctl_allocate_init(void)
 	/* TODO: should define size of hash table as a define */
 	/* We use prime number of elements */
 	g_ctl->buf_hash = htable_alloc(127);
-	TESTP_MES(g_ctl->buf_hash, -1, "Can't allocate buf_hash table");
+	TESTP_MES(g_ctl->buf_hash, -1, "Can't allocate buf_hash hash table");
 
-
-	g_ctl->buf_missed = j_new();
-	TESTP_MES(g_ctl->buf_missed, -1, "Can't allocate json object");
+	g_ctl->dispatcher = htable_alloc(127);
+	TESTP_MES(g_ctl->dispatcher, -1, "Can't allocate dispatcher hash table");
+	
+	//g_ctl->buf_missed = j_new();
+	//TESTP_MES(g_ctl->buf_missed, -1, "Can't allocate json object");
 
 	g_ctl->tickets_out = j_arr();
 	TESTP(g_ctl->tickets_out, -1);
@@ -59,7 +61,7 @@ err_t cli_destoy()
 	j_rm(g_ctl->config);
 	j_rm(g_ctl->tickets_out);
 	//j_rm(g_ctl->buffers);
-	j_rm(g_ctl->buf_missed);
+	//j_rm(g_ctl->buf_missed);
 	TFREE_STR(g_ctl->rootdescurl);
 	free(g_ctl);
 	g_ctl = NULL;
@@ -113,7 +115,7 @@ void ctl_unlock()
 }
 
 
-/*** Interface function for most important control_t fields ***/
+/*** Interface function for most important control_t fields **/
 /*@temp@*//*@notnull@*/ const char *ctl_uid_get(void)
 {
 	const char *uid;
@@ -154,4 +156,3 @@ void ctl_user_set(const char *user)
 		abort();
 	}
 }
-

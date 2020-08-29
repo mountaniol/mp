@@ -111,12 +111,12 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 	TESTP_MES(ht, -1, "Got ht NULL");
 	TESTP_MES(data, -1, "Got data NULL");
 
-	DD("Got hash: %lX\n", (unsigned long) hash);
+	DD("Got hash: %lX\n", (unsigned long)hash);
 
 	/* Find slot in the hash table for this data */
 	slot = HTABLE_SLOT(ht, hash);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long) hash, slot, ht->size);
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)hash, slot, ht->size);
 
 	/* Allocate new hash node */
 	node = hnode_alloc();
@@ -171,8 +171,21 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	return (htable_insert_by_int(ht, hash, key, data));
 }
 
+static void dump_hash(htable_t *ht)
+{
+	size_t slot ;
+	for (slot = 0; slot < ht->size; slot++) {
+		hnode_t *node = ht->nodes[slot];
+
+		while (NULL != node) {
+			DE("Hash: slot[%zd]: hash = %zu, (key = %s), pointer = %p\n", slot, node->hash, node->key, node->data);
+			node = node->next;
+		}
+	}
+}
+
 /* remove data for the given key; the data returned */
-/*@null@*/ void __attribute__ ((noinline)) *htable_extract_by_int(htable_t *ht, size_t key)
+/*@null@*/ void __attribute__((noinline))*htable_extract_by_int(htable_t *ht, size_t key)
 {
 	hnode_t *node;
 	hnode_t *node_p;
@@ -181,11 +194,11 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	void    *data;
 
 	TESTP_MES(ht, NULL, "Got NULL");
-	DD("Got hash: %lX\n", (unsigned long) key);
+	DD("Got hash: %lX\n", (unsigned long)key);
 
 	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long) key, slot, ht->size);
+	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)key, slot, ht->size);
 
 	node_p = node = ht->nodes[slot];
 
@@ -199,7 +212,8 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 
 	/* We can't find node with this key */
 	if (NULL == node) {
-		DE("Not found key %lX\n", (unsigned long) key);
+		DE("Not found key %lX\n", (unsigned long)key);
+		dump_hash(ht);
 		return (NULL);
 	}
 
@@ -274,7 +288,7 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 
 	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Search for key %lX, slot %zu\n", (unsigned long) key, slot);
+	DDD("Search for key %lX, slot %zu\n", (unsigned long)key, slot);
 
 	node = ht->nodes[slot];
 

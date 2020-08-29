@@ -22,6 +22,7 @@
 #include "mp-main.h"
 #include "mp-ctl.h"
 #include "mp-os.h"
+#include "mp-mqtt-app.h"
 
 /* The miniupnpc library API changed in version 14.
    After API version 14 it accepts additional param "ttl" */
@@ -265,7 +266,7 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 			return (NULL);
 		}
 
-		rc = mp_main_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
+		rc = mp_mqtt_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
 		if (EOK != rc) {
 			DE("Can't send ticket\n");
 		}
@@ -333,7 +334,7 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 		return (EBAD);
 	}
 
-	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
 	if (EOK != rc) DD("Can't add ticket\n");
 
 	// remove port mapping from WAN port 12345 to local host port 24680
@@ -344,18 +345,18 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 			protocol, // protocol must be either TCP or UDP
 			NULL); // remote (peer) host address or nullptr for no restriction
 
-	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
 	if (EOK != rc) DD("Can't add ticket\n");
 
 
 	if (0 != error) {
 		DE("Can't delete port %s\n", external_port);
-		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
+		rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
 		if (EOK != rc) DD("Can't add ticket\n");
 		FreeUPNPUrls(&upnp_urls);
 		return (EBAD);
 	} else {
-		rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
+		rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
 		if (EOK != rc) DD("Can't add ticket\n");
 	}
 
@@ -384,7 +385,7 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	int             rc;
 	control_t       *ctl      = ctl_get();
 
-	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
 	if (EOK != rc) {
 		DE("Can't send ticket\n");
 	}
@@ -400,12 +401,12 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
 		return (NULL);
 	}
-	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
 	if (EOK != rc) {
 		DE("Can't send ticket\n");
 	}
 
-	rc = mp_main_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
 	if (EOK != rc) {
 		DE("Can't send ticket\n");
 	}

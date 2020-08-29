@@ -85,10 +85,10 @@
 	j_len = strnlen(jd, MP_LIMIT_JSON_TEXT_BUF_LEN);
 	if (j_len < 1) {
 		DE("Can't get the JSON buffer length\n");
-		buf_free(jd);
+		free(jd);
 		return (NULL);
 	}
-	
+
 	buf = buf_new(0);
 	TESTP_MES_GO(buf, err, "Can't allocate buf_t");
 
@@ -345,18 +345,23 @@ err_t j_test_key(/*@null@*/const j_t *root, /*@null@*/const char *key)
 	return (json_string_value(j_obj));
 }
 
-j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key)
+/* TODO: accept one more argument int *status to return operation status */
+j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key, int *error)
 {
 	/*@temp@*/json_t *j_obj;
-	TESTP(root, 0XDEADBEEF);
-	TESTP(key, 0XDEADBEEF);
+	*error = EBAD; 
+
+	TESTP(root, EBAD);
+	TESTP(key, EBAD);
 
 	if (EOK != j_test_key(root, key)) {
-		return (0XDEADBEEF);
+		return (EBAD);
 	}
 
 	j_obj = json_object_get(root, key);
-	TESTP(j_obj, 0XDEADBEEF);
+	TESTP(j_obj, EBAD);
+
+	*error = EOK;
 	return (json_integer_value(j_obj));
 }
 

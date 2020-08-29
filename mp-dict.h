@@ -44,6 +44,16 @@
 /* Time value, used in tickets */
 #define JK_TIME "time-value"
 
+/* Dispatcher related fields */
+/* Source machine */
+#define JK_DISP_SRC_UID "disp-src-machine"
+/* Source application */
+#define JK_DISP_SRC_APP "disp-src-machine"
+/* Target machine */
+#define JK_DISP_TGT_UID "disp-tgt-machine"
+/* Target application */
+#define JK_DISP_TGT_APP "disp-tgt-machine"
+
 /*** Keys for SSH commands ***/
 #define JK_SSH_SERVER "ssh-remove-server"
 #define JK_SSH_DESTPORT "ssh-remote-port"

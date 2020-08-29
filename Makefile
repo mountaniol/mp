@@ -27,7 +27,7 @@ MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
 		mp-requests.o mp-communicate.o mp-os.o mp-net-utils.o \
-		mp-security.o mp-htable.o
+		mp-security.o mp-htable.o mp-dispatcher.o mp-mqtt-app.o
 
 MOSQ_C=mp-main.c mp-jansson.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
@@ -83,7 +83,7 @@ eth: buft
 #	/usr/lib/x86_64-linux-gnu/libminiupnpc.a
 
 tunnel: buft
-	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto $(J_LIB)#-lpam
+	$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c mp-htable.c $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto -l$(J_LIB) #-lpam
 	#$(GCC) $(CFLAGS) -DSTANDALONE $(DEBUG) mp-tunnel.c mp-net-utils.c mp-jansson.c mp-memory.c mp-config.c mp-ctl.c mp-os.c $(J_ARCH)  $(BUFT_A) -o tunnel.standalone -lutil -lpthread -lssl -lcrypto #-lpam
 
 btest: buft

@@ -296,7 +296,7 @@ static err_t mp_config_write(j_t *j_config)
 	/* 4. Write config */
 	rc = write(fd, conf->data, buf_used(conf));
 	if (rc != buf_used(conf)) {
-		DE("WARNING: error on config file write: rwritten %d, expected %d\n", rc, buf_used(conf));
+		DE("WARNING: error on config file write: written %d, expected %zd\n", rc, buf_used(conf));
 	}
 
 	/* Finished. Close and release everything */

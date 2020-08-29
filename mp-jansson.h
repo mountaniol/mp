@@ -7,6 +7,7 @@
 /* Use it instead of json_int_t, to remove dependency of jansson.h */
 typedef long long int j_int_t;
 typedef void j_t;
+
 /**
  * @brief Get string with JSON object, return json_t object
  * 
@@ -233,9 +234,10 @@ err_t j_cp_val(/*@null@*/const j_t *from, /*@null@*/j_t *to, /*@null@*/const cha
  * @param root json object containing value
  * @param key key to search
  * 
- * @return json_int_t value if found, 0XDEADBEEF on error
+ * @return json_int_t 	A value if found and "error" = EOK;
+ *						EBAD on error and "error" = EBAD;
  */
-j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key);
+j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key, int *error);
 /**
  * @func char *j_find_dup(json_t *root, const char *key)
  * @brief Extract from JSON object string value for key "key"

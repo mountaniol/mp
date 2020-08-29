@@ -145,13 +145,9 @@ static void enter_raw_mode(int quiet)
 
 	cfmakeraw(&tio);
 
-	/* SEB: Now add needed flags */
-	//tio.c_iflag |= ICRNL | IXON | ICRNL | ICANON;
-	//tio.c_lflag |= ICANON;
-
 	if (tcsetattr(fileno(stdin), TCSADRAIN, &tio) == -1) {
 		if (!quiet) perror("tcsetattr");
-	} //else _in_raw_mode = 1;
+	} 
 }
 
 /* Implementations of connection operations */
@@ -441,13 +437,13 @@ static int mp_tun_resize_buf(tun_t *tunnel, int direction)
 
 		/* In 50%-80% of writes the full buffer used. Double it*/
 	} else
-	if (tunnel->all_cnt_session_max_hits[direction] > tunnel->num_session_writes[direction] * 0.5) {
-		new_size = tunnel->buf_size[direction] * 2;
-		/* In < 50% of writes the full buffer used. Double it*/
-	} else {
-		/* In this case size may be reduced */
-		new_size = (float)(average * 1.2);
-	}
+		if (tunnel->all_cnt_session_max_hits[direction] > tunnel->num_session_writes[direction] * 0.5) {
+			new_size = tunnel->buf_size[direction] * 2;
+			/* In < 50% of writes the full buffer used. Double it*/
+		} else {
+			/* In this case size may be reduced */
+			new_size = (float)(average * 1.2);
+		}
 
 	if (new_size > MP_LIMIT_TUNNEL_BUF_SIZE_MAX) {
 		new_size = MP_LIMIT_TUNNEL_BUF_SIZE_MAX;
@@ -735,7 +731,7 @@ void *mp_tun_run_x_conn_one_direction(void *v)
 		/* Some exception happened */
 		if (FD_ISSET(tunnel->fd[from] , &ex_set)) {
 			DD("Some exception happened. Ending x_connect\n");
-			return (EBAD);
+			return (NULL);
 		}
 
 		/* Data is ready on left file descriptor: read from conn1, write to conn2 */
@@ -1012,10 +1008,58 @@ static int mp_tun_start_ssl_conn(tun_t *t, int direction)
 	return (EOK);
 }
 
-static void *mp_tun_tty_server_go(void *v)
+/* init client's tty */
+static int mp_tun_tty_init_client(tun_t *t, int direction)
+{
+	enter_raw_mode(1);
+	mp_tun_fill(tunnel, direction, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
+	return (0);
+}
+
+/* Init server part of tty */
+static pid_t mp_tun_tty_init_server(tun_t *t, int direction, struct termios *tio, struct winsize *sz)
 {
 	pid_t          pid;
 	struct termios tparams;
+
+	/* If tio is passed to function, copy it */
+	if (NULL != tio) {
+		memcpy(&tparams, tio, sizeof(struct termios));
+	}
+
+	/* Can't receive winsize setting from the client */
+	pid = forkpty(&t->fd[direction] , NULL, &tparams, sz);
+
+	/* If tio not passed, configure the terminal */
+	if (NULL == tio) {
+		tcgetattr(t->fd[direction] , &tparams);
+		tparams.c_lflag |= EXTPROC;
+		tparams.c_lflag &= ~ECHO;
+		tcsetattr(t->fd[direction] , TCSANOW, &tparams);
+	}
+
+	if (pid < 0) {
+		DE("Can't fork");
+		return (-1);
+	}
+
+	/* This is the terminal part; execute /bin/bash */
+	if (pid == 0) {
+		printf("%s", WELCOME);
+		signal(SIGUSR2, mp_tun_tty_handler);
+		//(SIGINT, mp_tunnel_tty_handler);
+		/* TODO: We may configure which shell to open and even receive it from the other side */
+		execlp("/bin/bash", "/bin/bash", NULL);
+		pthread_exit(NULL);
+	}
+
+	return (pid);
+}
+
+static void *mp_tun_tty_server_go(void *v)
+{
+	pid_t          pid;
+	//struct termios tparams;
 	int            rc;
 	struct winsize sz;
 	struct termios tio;
@@ -1040,44 +1084,10 @@ static void *mp_tun_tty_server_go(void *v)
 	rc = recv(tunnel->fd[TUN_LEFT] , &sz, sizeof(struct winsize), 0);
 	rc += recv(tunnel->fd[TUN_LEFT] , &tio, sizeof(tio), 0);
 
-	if (sizeof(struct winsize) + sizeof(tio) == rc) {
-		pid = forkpty(&tunnel->fd[TUN_RIGHT] , NULL, &tio, &sz);
-	} else {     /* Can't receive winsize setting from the client */
-		pid = forkpty(&tunnel->fd[TUN_RIGHT] , NULL, &tparams, NULL);
-		tcgetattr(tunnel->fd[TUN_RIGHT] , &tparams);
-		tparams.c_lflag |= EXTPROC;
-		tparams.c_lflag &= ~ECHO;
-		//tparams.c_cc[VEOF] = 3; // ^C
-		//tparams.c_cc[VINTR] = 4; // ^D
-		tcsetattr(tunnel->fd[TUN_RIGHT] , TCSANOW, &tparams);
-	}
-
+	pid = mp_tun_tty_init_server(tunnel, TUN_RIGHT, &tio, &sz);
 	if (pid < 0) {
-		DE("Can't fork");
-		pthread_exit(NULL);
-	}
-	if (pid == 0) {
-		char user[64]    = {0};
-		char command[128];
-
-		if (0 != getlogin_r(user, 64)) {
-			DE("Can't get username\n\r");
-			return (NULL);
-		}
-
-		memset(command, 0, sizeof(command) / sizeof(char));
-		/* Ttis is the terminal part; execute the bash */
-		openlog(DL_PREFIX, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_SYSLOG);
-
-		printf("%s", WELCOME);
-		signal(SIGUSR2, mp_tun_tty_handler);
-		//(SIGINT, mp_tunnel_tty_handler);
-		/* TODO: We may configure which shell to open and even receive it from the other side */
-		execlp("/bin/bash", "/bin/bash", NULL);
-		//execlp("/bin/bash", "--login", NULL);
-		//sprintf(command, "/usr/bin/su - %s", user);
-		//execlp("/bin/bash", "/usr/bin/su", "-", user,  NULL);
-		pthread_exit(NULL);
+		DE("Can't create server tty\n");
+		return (NULL);
 	}
 
 	mp_tun_fill(tunnel, TUN_LEFT, tunnel->fd[TUN_LEFT] , "Server:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
@@ -1171,61 +1181,6 @@ void *mp_tun_tty_server_start_thread(void *v)
 	}
 }
 
-void *mp_tun_tty_server_start_thread_(void *v)
-{
-	/* Socket initialization */
-	tun_t              *t        = v;
-	int                sock;
-	int                one       = 1;
-	struct sockaddr_in serv_addr;
-
-	//signal(SIGCHLD, SIG_IGN);
-
-	/* TODO: check here the mode, the ssl, the fd */
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(t->port[TUN_LEFT] );
-	serv_addr.sin_addr.s_addr = inet_addr(t->server[TUN_LEFT] );
-
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("server socket()");
-		pthread_exit(NULL);
-	}
-
-	/* allow later reuse of the socket (without timeout) */
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(int))) {
-		perror("setsockopt()");
-		pthread_exit(NULL);
-	}
-
-	if (bind(sock, (const struct sockaddr *)&serv_addr, sizeof(struct sockaddr))) {
-		perror("bind()");
-		pthread_exit(NULL);
-	}
-
-	/* TODO: From here: this code should be isolated into a separated function */
-
-	/* Acept connection and create pty */
-	while (1) {
-		pthread_t p_go;
-		int       client;
-
-		/* TODO: This number should not be hardcoded */
-		if (listen(sock, 16)) {
-			perror("listen()");
-			pthread_exit(NULL);
-		}
-
-		socklen_t addrlen = sizeof(struct sockaddr);
-
-		/* TODO: Here we may reject suspicious connection.
-			The remote machine may declare preliminary about incoming connection.
-			If we do not expect connection from this machine, we reject */
-
-		client = accept(sock, (struct sockaddr *)&serv_addr, &addrlen);
-		pthread_create(&p_go, NULL, mp_tun_tty_server_go, &client);
-	}
-}
-
 void *mp_tun_tty_client_start_thread(void *v)
 {
 	/* Socket initialization */
@@ -1244,9 +1199,7 @@ void *mp_tun_tty_client_start_thread(void *v)
 		abort();
 	}
 
-	//DD("Starting client\n");
-
-	/* Open the socket */
+	/* Open the socket to remote */
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(tunnel->port[TUN_LEFT] );
@@ -1264,7 +1217,7 @@ void *mp_tun_tty_client_start_thread(void *v)
 		return (NULL);
 	}
 
-	/* Connect the socket */
+	/* Connect the socket to the remote */
 
 	rc = connect(sock, (const struct sockaddr *)&serv_addr, sizeof(struct sockaddr_in));
 	if (0 != rc) {
@@ -1272,23 +1225,24 @@ void *mp_tun_tty_client_start_thread(void *v)
 		pthread_exit(NULL);
 	}
 
-	//#if 0
+	/* Read window size */
 	rc = mp_tun_get_winsize(STDOUT_FILENO, &sz);
 	if (0 != rc) {
 		DE("mp_tunnel_get_winsize failed: status is %d\n", rc);
 	}
 
+	/* Send the window size to the remote */
 	rc = send(sock, &sz, sizeof(struct winsize), 0);
 	if (sizeof(struct winsize) != rc) {
 		DE("Can't sent winsize\n");
 	}
 
-	//DD("Sent window size: col = %d, row = %d\n", sz.ws_col, sz.ws_row);
-
+	/* Read terminal attributes */
 	if (tcgetattr(fileno(stdin), &tio) == -1) {
 		return (NULL);
 	}
 
+	/* Send terminal attributes to the remote */
 	rc = send(sock, &tio, sizeof(tio), 0);
 	if (sizeof(tio) != rc) {
 		DE("Can't sent tio\n");
@@ -1301,6 +1255,7 @@ void *mp_tun_tty_client_start_thread(void *v)
 	/* Acept connection and create pty */
 
 	mp_tun_fill(tunnel, TUN_LEFT, sock, "Client:Socket", conn_read_from_socket, conn_write_to_socket, NULL);
+	/* The right side connected to the STDIN */
 	mp_tun_fill(tunnel, TUN_RIGHT, STDIN_FILENO, "Client:STDIN", conn_read_from_std, conn_write_to_std, NULL);
 
 	/* Set SSL tunnel for external connection */

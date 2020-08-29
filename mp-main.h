@@ -5,6 +5,6 @@
 #include "mp-jansson.h"
 
 
-err_t mp_main_ticket_responce(/*@temp@*/const j_t *req, const char *status, const char *comment);
+//err_t mp_mqtt_ticket_responce(/*@temp@*/const j_t *req, const char *status, const char *comment);
 
 #endif /* _SEC_CLIENT_MOSQ_H_ */
