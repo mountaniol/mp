@@ -27,7 +27,7 @@ MOSQ_T=mpd
 MOSQ_O=mp-main.o mp-jansson.o mp-config.o\
 		mp-ports.o mp-cli.o mp-memory.o mp-ctl.o mp-network.o \
 		mp-requests.o mp-communicate.o mp-os.o mp-net-utils.o \
-		mp-security.o mp-htable.o mp-dispatcher.o mp-mqtt-app.o
+		mp-security.o mp-htable.o mp-dispatcher.o mp-mqtt-module.o
 
 MOSQ_C=mp-main.c mp-jansson.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \

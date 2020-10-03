@@ -22,7 +22,7 @@
 #include "mp-main.h"
 #include "mp-ctl.h"
 #include "mp-os.h"
-#include "mp-mqtt-app.h"
+#include "mp-mqtt-module.h"
 #include "mp-dispatcher.h"
 
 /* The miniupnpc library API changed in version 14.

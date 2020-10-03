@@ -19,7 +19,7 @@
 #include "mp-security.h"
 #include "mp-os.h"
 #include "mp-dict.h"
-#include "mp-mqtt-app.h"
+#include "mp-mqtt-module.h"
 
 static void mp_main_print_info_banner()
 {

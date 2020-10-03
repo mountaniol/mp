@@ -21,7 +21,7 @@
 #include "mp-communicate.h"
 #include "mp-os.h"
 #include "mp-dict.h"
-#include "mp-mqtt-app.h"
+#include "mp-mqtt-module.h"
 #include "mp-dispatcher.h"
 
 
