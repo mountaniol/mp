@@ -207,6 +207,60 @@ static json_t *mp_config_read(void)
 	filename = mp_config_get_config_name();
 	TESTP_ASSERT(filename, "Can't create config file name");
 
+	/* Test that the config file exists */
+
+	rc = access(filename->data, F_OK);
+
+	if (0 != rc) {
+		switch (rc) {
+		case EACCES:
+			DE("Can't access the file: permission issue\n");
+			abort();
+			//return EBAD;
+		case ELOOP:
+			DE("Too many symbolic links\n");
+			abort();
+			//return EBAD;
+		case ENAMETOOLONG:
+			DE("pathname is too long");
+			abort();
+			//return EBAD;
+		case ENOENT:
+			DE("A component of pathname does not exist or is a dangling symbolic link\n");
+			abort();
+			//return EBAD;
+		case ENOTDIR:
+			DE("A component used as a directory in pathname is not, in fact, a directory\n");
+			abort();
+			//return EBAD;
+		case EROFS:
+			DE("Write permission was requested for a file on a read-only filesystem\n");
+			abort();
+			//return EBAD;
+		case EFAULT:
+			DE("pathname points outside your accessible address space\n");
+			abort();
+		case EINVAL:
+			DE("mode was incorrectly specified\n");
+			abort();
+		case EIO:
+			DE("An I/O error occurred\n");
+			abort();
+		case ENOMEM:
+			DE("Insufficient kernel memory was available\n");
+			abort();
+		case ETXTBSY:
+			DE("Write access was requested to an executable which is being executed\n");
+			abort();
+		case EBADF:
+			DE("dirfd is not a valid file descriptor\n");
+			abort();
+		default:
+			DE("I don't know what's going on!\n");
+			abort();
+		}
+	}
+
 	rc = mp_config_file_unlock(filename);
 	if (EOK != rc) {
 		DE("Can't unlock config file\n");

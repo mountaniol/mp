@@ -5,7 +5,7 @@ GCC=clang-10
 CFLAGS=-Wall -Wextra -O2
 #CFLAGS=-Wall -Wextra -O2
 DEBUG=-DDEBUG3
-DEBUG +=-DDEBUG2
+DEBUG += -DDEBUG2
 DEBUG += -DDERROR3
 #CFLAGS += -fanalyzer
 

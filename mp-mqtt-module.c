@@ -35,16 +35,53 @@ pthread_t mosq_thread_id;
 /* Dispatcher hook, called when a message from a remote host received */
 int mp_module_recv(void *root)
 {
-	//int       rc;
-	//pthread_t message_thread;
-
+	const char *command;
 	DD("Recevived a message\n");
-	/* This is the end point of a message dedicated to MODULE_CONNECTION */
-
 
 	/* Process it here */
 	j_print(root, "Reveived message is");
 
+	/* Process the message */
+	command = j_find_ref(root, JK_TYPE);
+	if (NULL == command) {
+		DE("No JK_TYPE found in the message\n");
+		j_rm(root);
+		return EBAD;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_ME)) {
+		DD("Found JV_TYPE_ME type\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_CLOSEPORT)) {
+		DD("Found JV_TYPE_CLOSEPORT type: bad, it dedicated to MODULE_PORTS\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_CONNECT)) {
+		DD("Found JV_TYPE_CONNECT type: a remote host connected\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_DISCONNECTED)) {
+		DD("Found JV_TYPE_DISCONNECTED type: a remote host disconnected\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_OPENPORT)) {
+		DD("Found JV_TYPE_OPENPORT type: bad, it dedicated to MODULE_PORTS\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_REVEAL)) {
+		DD("Found JV_TYPE_REVEAL type: we should send our configuration\n");
+		goto finish;
+	}
+
+	DE("Found unknown command: %s\n", command);
+
+finish:
 	j_rm(root);
 	return (0);
 }
@@ -65,6 +102,7 @@ int mp_module_send(void *root)
 	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
 	TESTP(buf, EBAD);
 
+	j_print(root, "Going to send the JSON");
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
 	buf_free(forum_topic);
 	return (rc);

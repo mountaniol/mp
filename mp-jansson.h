@@ -218,7 +218,7 @@ extern err_t j_cp_val(/*@null@*/const j_t *from, /*@null@*/j_t *to, /*@null@*/co
 extern /*@temp@*//*@null@*/ j_t *j_find_j(/*@null@*/const j_t *root, /*@null@*/const char *key);
 
 /**
- * @func char *j_find_dup(json_t *root, const char *key)
+ * @func const char *j_find_ref(const j_t *root, const char *key)
  * @brief Return reference to value for key "key". The reference
  *  	  should not be freed.
  * @author se (07/04/2020)

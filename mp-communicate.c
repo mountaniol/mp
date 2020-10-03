@@ -290,7 +290,7 @@ err_t mp_communicate_send_request(j_t *root)
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD0("Going to send request\n");
-	//j_print(root, "Sending requiest:");
+	j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
 	DDD("Send: \n%s\n", buf->data);
 	buf_free(forum_topic);

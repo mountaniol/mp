@@ -293,9 +293,11 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	}
 
 	if (node) {
+		DDD("Found data for key %lX, slot %zu\n", (unsigned long)key, slot);
 		return (node->data);
 	}
 
+	DDD("NOT found data for key %lX, slot %zu\n", (unsigned long)key, slot);
 	return (NULL);
 }
 

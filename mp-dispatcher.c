@@ -136,7 +136,6 @@ static int mp_disp_is_mes_for_me(void *json)
    MES_DEST_ERR on error */
 static int mp_disp_is_mes_from_me(void *json)
 {
-	//control_t  *ctl    = NULL;
 	const char *source = NULL;
 	const char *my_uid = NULL;
 	TESTP(json, MES_DEST_ERR);
@@ -144,7 +143,6 @@ static int mp_disp_is_mes_from_me(void *json)
 	source = j_find_ref(json, JK_DISP_SRC_UID);
 	TESTP(source, MES_DEST_ERR);
 
-	//ctl = ctl_get();
 	my_uid = ctl_uid_get();
 
 	if (0 == strncmp(source, my_uid, MP_LIMIT_UID_MAX)) {
