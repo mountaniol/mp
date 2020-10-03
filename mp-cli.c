@@ -195,77 +195,6 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (resp);
 }
 
-#if 0
-/*@null@*/ static j_t *mp_cli_ssh_forward(/*@temp@*/j_t *root){
-	//control_t *ctl = NULL;
-	int rc = EBAD;
-	/*@temp@*/j_t *resp = NULL;
-	/*@temp@*/j_t *remote_host = NULL;
-
-	DDD("Start\n");
-
-	/* Now: Here we should:
-	   1. Open port on remote machine UID
-	   2. Build json and start "forward ssh" thread
-	   3. (TODO) If the remote machine can not open port -  we should open port here and
-	   4. (TODO) start reverse ssh channel thread
-	   5. Also we need: private key, public key adn all other parameters for ssh opening
-	   6. (TODO) All this should be configured by user OR
-	   7. (TODO) We may generate SSH key for us and use it for communication
-	   */
-
-	/*
-	server_ip = j_find_ref(root, JK_SSH_SERVER);
-	remote_destport_src = j_find_ref(root, JK_SSH_DESTPORT);
-	remote_destport = atoi(remote_destport_src);
-	local_listenport_str = j_find_ref(root, JK_SSH_LOCALPORT);
-	local_listenport = atoi(local_listenport_str);
-	pub_key_name = j_find_ref(root, JK_SSH_PUBKEY);
-	priv_key_name = j_find_ref(root, JK_SSH_PRIVKEY);
-	username = j_find_ref(root, JK_SSH_USERNAME);
-	password = "";
-	*/
-
-	TESTP(root, NULL);
-
-	remote_host = mp_ports_ssh_port_for_uid(j_find_ref(root, JK_UID_SRC));
-	TESTP(remote_host, NULL);
-	//j_print(remote_host, "Found remote host for ssh connection");
-
-	rc = j_add_str(root, JK_SSH_SERVER, j_find_ref(remote_host, JK_IP_EXT));
-	TESTI_MES(rc, NULL, "can't find / add JK_IP_EXT -> JK_SSH_SERVER");
-
-	rc = j_add_str(root, JK_SSH_DESTPORT, j_find_ref(remote_host, JK_PORT_EXT));
-	TESTI_MES(rc, NULL, "can't find / add JK_PORT_EXT -> JK_SSH_DESTPORT");
-
-	rc = j_add_str(root, JK_SSH_LOCALPORT, "2222");
-	TESTI_MES(rc, NULL, "can't add port 222 -> JK_SSH_LOCALPORT");
-
-	rc = j_add_str(root, JK_SSH_PUBKEY, "/home/se/.ssh/id_rsa.pub");
-	TESTI_MES(rc, NULL, "can't add port /home/se/.ssh/id_rsa.pub -> JK_SSH_PUBKEY");
-
-	rc = j_add_str(root, JK_SSH_PRIVKEY, "/home/se/.ssh/id_rsa");
-	TESTI_MES(rc, NULL, "can't add port /home/se/.ssh/id_rsa -> JK_SSH_PRIVKEY");
-
-	rc = j_add_str(root, JK_SSH_USERNAME, "se");
-	TESTI_MES(rc, NULL, "can't add port JK_SSH_USERNAME 'se'");
-
-	DDD("Going to start SSH thread\n");
-	//j_print(root, "Params for ssh thread");
-	rc = ssh_thread_start(j_dup(root));
-
-	resp = j_new();
-	TESTP(resp, NULL);
-	if (EOK == rc) {
-		if (EOK != j_add_str(resp, JK_STATUS, JV_OK)) DE("Can't add JV_OK status\n");
-	} else {
-		if (EOK != j_add_str(resp, JK_STATUS, JV_BAD)) DE("Can't add JV_BAD status\n");
-	}
-
-	return (resp);
-}
-#endif
-
 /*@null@*/ static j_t *mp_cli_execute_req(/*@temp@*/j_t *root)
 {
 	/*@shared@*/control_t *ctl = NULL;
@@ -273,7 +202,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	/*@temp@*/j_t *resp = NULL;
 
 	ctl = ctl_get_locked();
-	rc = j_add_str(root, JK_UID_SRC, ctl_uid_get());
+	rc = j_add_str(root, JK_DISP_SRC_UID, ctl_uid_get());
 	ctl_unlock();
 	TESTI_MES(rc, NULL, "Can't add my UID into JSON");
 
@@ -310,6 +239,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 		return (mp_cli_get_list_l());
 	}
 
+	/* TODO: JV_TYPE_CONNECT used only in this line - looks like a bug */
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CONNECT)) {
 		return (NULL);
 	}
@@ -332,13 +262,6 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_PORTS)) {
 		return (mp_cli_get_ports_l());
 	}
-
-	#if 0
-	/* This is local request, we open a port on remote machine and connect */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_SSH)) {
-		return (mp_cli_ssh_forward(root));
-	}
-	#endif
 
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
 		return (mp_cli_send_ticket_req(root));
@@ -371,7 +294,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	}
 
 	//rc = pthread_setname_np(pthread_self(), "mp_cli_thread");
-	rc = prctl(PR_SET_NAME, "mp_cli_thread");
+	rc = prctl(PR_SET_NAME, "mp-cli-app");
 
 	if (0 != rc) {
 		DE("Can't set pthread name\n");

@@ -3,36 +3,13 @@
 #include "mp-ctl.h"
 #include "mp-jansson.h"
 #include "mp-dict.h"
-
-/* SEB:TODO: What exactly the params? */
-/* Connect request: ask remote host to open port for ssh connection */
-#if 0
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_connect(const char *uid_remote, const char *user_remote){
-	buf_t *buf = NULL;
-
-	TESTP_MES(user_remote, NULL, "Got NULL");
-
-	j_t *root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_CONNECT)) goto err;
-	//if (EOK != j_add_str(root, JK_USER, user_remote)) goto err;
-	//if (EOK != j_add_str(root, JK_UID, uid_remote)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid_remote)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	j_rm(root);
-	return (buf);
-}
-#endif
+#include "mp-dispatcher.h"
 
 /* Last well sent by server on the client disconnect to all other listeners  */
-/*@null@*/ buf_t *mp_requests_build_last_will()
+/*@null@*/ buf_t *mp_requests_build_last_will(void)
 {
 	const char *name;
-	buf_t *buf = NULL;
+	buf_t      *buf  = NULL;
 	/*@shared@*/control_t *ctl = ctl_get();
 
 	name = j_find_ref(ctl->me, JK_NAME);
@@ -45,7 +22,7 @@
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECTED)) goto err;
 	/* SEB: TODO: Whay exactly do I send the machine name to remote? */
 	if (EOK != j_add_str(root, JK_NAME, name)) goto err;
-	if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;
+	if (EOK != j_add_str(root, JK_DISP_SRC_UID, ctl_uid_get())) goto err;
 
 	buf = j_2buf(root);
 
@@ -56,21 +33,21 @@ err:
 }
 
 /* Reveal request: ask all my clients to send information */
-/*@null@*/ buf_t *mp_requests_build_reveal()
+/*@null@*/ buf_t *mp_requests_build_reveal(void)
 {
-	buf_t *buf = NULL;
-	j_t *root = NULL;
+	buf_t      *buf  = NULL;
+	j_t        *root = NULL;
 	const char *name;
 	/*@shared@*/control_t *ctl = ctl_get();
 	name = j_find_ref(ctl->me, JK_NAME);
 
 	TESTP_MES(name, NULL, "Got NULL");
 
-	root = j_new();
+	root= mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) goto err;
-	if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;
+	//if (EOK != j_add_str(root, JK_UID_SRC, ctl_uid_get())) goto err;
 
 	buf = j_2buf(root);
 
@@ -79,143 +56,42 @@ err:
 	return (buf);
 }
 
-/* ssh request this client want to connect to client "uid"
-   The client "uid" should open a port and return it in "ssh-done" responce */
-#if 0
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh(const char *uid){
-	buf_t *buf = NULL;
-	j_t *root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	/* Type of the message */
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_SSH)) goto err;
-
-	/* To whom this message */
-	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	j_rm(root);
-	return (buf);
-}
-#endif
-
-/* "ssh-done" responce: this client opened a port and informes
-   about it. This is responce to "ssh" requiest */
-#if 0
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_ssh_done(const char *uid, const char *ip, const char *port){
-	buf_t *buf = NULL;
-	j_t *root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	/* Type of the message */
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_SSH_DONE)) goto err;
-	/* To whom */
-	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
-	/* This is my external IP */
-	if (EOK != j_add_str(root, JK_IP_EXT, ip)) goto err;
-	/* This is my external port */
-	if (EOK != j_add_str(root, JK_PORT_EXT, port)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	j_rm(root);
-	return (buf);
-}
-#endif
-
-/* sshr: This client can't connect to the remote client "uid", but the
-   remote client "uid" can connect here. So this client asks to
-   open ssh reverse connection.
-   How do we know that we can not connect to the remote "uid" client?
-   Simple: its IP address is "0.0.0.0" because this "uid" client
-   already tried to open a port and failed.
-   Another scenario: the remote client "uid" succeeded to open
-   port, but we cannot connect. In this case we move on to "sshr" requiest */
-#if 0
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr(const char *uid, const char *ip, const char *port){
-	buf_t *buf = NULL;
-	j_t *root = NULL;
-
-	root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	/* Type of the message */
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_SSHR)) goto err;
-
-	/* To whom */
-	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
-	/* This is my external IP */
-	if (EOK != j_add_str(root, JK_IP_EXT, ip)) goto err;
-	/* This is my external port */
-	if (EOK != j_add_str(root, JK_PORT_EXT, port)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	j_rm(root);
-	return (buf);
-}
-#endif
-
-/* sshr-done: we opened reversed channel to the client "uid".
-   The remote client "uid" may use "localport" on its side
-   to establish connection */
-#if 0
-/*@unused@*/ /*@null@*/ buf_t *mp_requests_build_sshr_done(const char *uid, const char *localport, const char *status){
-	buf_t *buf = NULL;
-	j_t *root = NULL;
-
-	root = j_new();
-	TESTP_MES(root, NULL, "Can't create json\n");
-
-	/* Type of the message */
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_SSHR_DONE)) goto err;
-	/* To whom */
-	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
-	/* This is my external IP */
-	if (EOK != j_add_str(root, JK_PORT_INT, localport)) goto err;
-	/* Operation status */
-	if (EOK != j_add_str(root, JK_STATUS, status)) goto err;
-
-	buf = j_2buf(root);
-
-	err:
-	j_rm(root);
-	return (buf);
-}
-#endif
-
 /* SEB:TODO: I should just send ctl->me structure as keepalive */
-/*@null@*/ buf_t *mp_requests_build_keepalive()
+/*@null@*/ buf_t *mp_requests_build_keepalive(void)
 {
 	/*@shared@*/control_t *ctl = ctl_get();
-	return (j_2buf(ctl->me));
+	buf_t *buf;
+	j_t   *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION, 0);
+	TESTP_MES(root, NULL, "Can't create request");
+	j_print(root, "Created request");
+
+	j_merge(root, ctl->me);
+	//return (j_2buf(ctl->me));
+	//buf = j_2buf(ctl->me);
+	j_print(root, "Added ctl->me");
+	buf = j_2buf(root);
+	j_rm(root);
+	DD("Created keepalive:\n%s\n", buf->data);
+	return (buf);
 }
 
 /* SEB:TODO: We should form this request in mp-shell */
-/*@null@*/ buf_t *mp_requests_open_port(const char *uid, const char *port, const char *protocol)
+/*@null@*/ buf_t *mp_requests_open_port(const char *uid_dest, const char *port, const char *protocol)
 {
-	buf_t *buf = NULL;
-	j_t *root = NULL;
+	buf_t *buf  = NULL;
+	j_t   *root = NULL;
 
-	TESTP_MES(uid, NULL, "Got NULL");
+	TESTP_MES(uid_dest, NULL, "Got NULL");
 	TESTP_MES(port, NULL, "Got NULL");
 
-	root = j_new();
+	root = mp_disp_create_request(uid_dest, APP_CONNECTION, APP_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT)) goto err;
 	if (EOK != j_add_str(root, JK_PORT_INT, port)) goto err;
 	if (EOK != j_add_str(root, JK_PROTOCOL, protocol)) goto err;
 	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;
-	if (EOK != j_add_str(root, JK_DEST, uid)) goto err;
+	//if (EOK != j_add_str(root, JK_DEST, uid_dest)) goto err;
 
 	buf = j_2buf(root);
 
@@ -225,7 +101,3 @@ err:
 	}
 	return (buf);
 }
-
-
-
-

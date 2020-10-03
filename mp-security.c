@@ -24,32 +24,6 @@
 
 /* OpenSSL connection functions */
 
-/* Load certificate + private key from files */
-/* TODO: we may need also function loading all this from memory (SSL_FILETYPE_ASN1) */
-#if 0
-err_t mp_security_load_certs(SSL_CTX *ctx, char *cert_file, char *priv_key){
-	/* set the local certificate from CertFile */
-	if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0) {
-		//if (SSL_CTX_use_certificate(ctx, cert_file, SSL_FILETYPE_PEM) <= 0) {
-		DE("Can't load certificate: %s\n", SSL_FILETYPE_PEM);
-		ERR_print_errors_fp(stderr);
-		return (EBAD);
-	}
-	/* set the private key from KeyFile (may be the same as CertFile) */
-	if (SSL_CTX_use_PrivateKey_file(ctx, priv_key, SSL_FILETYPE_PEM) <= 0) {
-		ERR_print_errors_fp(stderr);
-		return (EBAD);
-	}
-	/* verify private key */
-	if (!SSL_CTX_check_private_key(ctx)) {
-		DE("Private key does not match the public certificate\n");
-		return (EBAD);
-	}
-
-	return (EOK);
-}
-#endif
-
 /* Don't load certificates from the file, use in-memory */
 err_t mp_security_use_certs(SSL_CTX *ctx, void *x509, void *priv_rsa)
 {
@@ -76,38 +50,6 @@ err_t mp_security_use_certs(SSL_CTX *ctx, void *x509, void *priv_rsa)
 	DD("Success: created OpenSSL CTX object\n");
 	return (EOK);
 }
-
-
-#if 0
-/*@null@*/ err_t mp_security_ctx_connect_certificate(SSL_CTX *ctx){
-	control_t *ctl = NULL;
-	TESTP(ctx, EBAD);
-	ctl = ctl_get();
-
-	/* Before the CTX set to use X509 cert and RSA private key, they should be created and loaded  */
-	if (NULL == ctl->x509) {
-		DE("Can not proceed - no X509 certificate is loaded\n");
-		return (EBAD);
-	}
-
-	if (NULL == ctl->rsa_priv) {
-		DE("Can not proceed - no RSA private key is loaded\n");
-		return (EBAD);
-	}
-
-	if (1 != SSL_CTX_use_certificate(ctx, ctl->x509)) {
-		DE("Can't use ctl->x509 in SSL_CTX\n");
-		return (EBAD);
-	}
-
-	if (1 != SSL_CTX_use_RSAPrivateKey(ctx, ctl->rsa_priv)) {
-		DE("Can't use ctl->rsa_priv in SSL_CTX\n");
-		return (EBAD);
-	}
-
-	return (EOK);
-}
-#endif
 
 /* Create SSL context (CTX) */
 /*@null@*/ SSL_CTX *mp_security_init_server_tls_ctx(void)
@@ -185,40 +127,6 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 
 	return (rsa);
 }
-
-/* Generate RSA private key, return in in PEM format */
-/* The password applied later, when we write it down to the disk */
-#if 0
-buf_t *mp_security_generate_rsa_pem_string(const int kbits){
-	int   keylen;
-
-	RSA   *rsa   = NULL;
-	buf_t *buf   = NULL;
-
-	rsa = mp_security_generate_rsa_pem_RSA(kbits);
-	TESTP(rsa, NULL);
-
-	/* To get the C-string PEM form: */
-	BIO *bio = BIO_new(BIO_s_mem());
-	PEM_write_bio_RSAPrivateKey(bio, rsa, NULL, NULL, 0, NULL, NULL);
-
-	keylen = BIO_pending(bio);
-	buf = buf_string(keylen + 1);
-	TESTP(buf, NULL);
-	BUF_DUMP(buf);
-	//pem_key = calloc(keylen + 1, 1); /* Null-terminate */
-	BIO_read(bio, buf->data, keylen);
-	buf->used = keylen + 1;
-
-	//printf("%s", pem_key);
-	printf("%s", buf->data);
-
-	BIO_free_all(bio);
-	RSA_free(rsa);
-	//free(pem_key);
-	return (buf);
-}
-#endif
 
 /*@null@*/ buf_t *mp_security_sha256_string(/*@null@*/buf_t *buf)
 {

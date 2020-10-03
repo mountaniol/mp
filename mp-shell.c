@@ -17,16 +17,17 @@
 #include "mp-dict.h"
 #include "buf_t/buf_t.h"
 #include "mp-memory.h"
+#include "mp-dispatcher.h"
 
 #ifndef S_SPLINT_S /* splint analyzer goes crazy if this included */
 	#include "libfort/src/fort.h"
 #else /* Mock for splint analyzer */
-#define ft_table_t void
-#define FT_ROW_HEADER (1)
-#define FT_CPROP_ROW_TYPE (1)
-#define FT_ANY_COLUMN (1)
-#define FT_ROW_HEADER (1)
-#define FT_ROW_HEADER (1)
+	#define ft_table_t void
+	#define FT_ROW_HEADER (1)
+	#define FT_CPROP_ROW_TYPE (1)
+	#define FT_ANY_COLUMN (1)
+	#define FT_ROW_HEADER (1)
+	#define FT_ROW_HEADER (1)
 int ft_set_cell_prop(ft_table_t *table, size_t row, size_t col, uint32_t property, int value);
 void ft_destroy_table(ft_table_t *table);
 const char *ft_to_string(const ft_table_t *table);
@@ -43,7 +44,7 @@ int ft_set_default_border_style(const struct ft_border_style *style);
 #define IN_STATUS_WORKING (0)
 #define IN_STATUS_FINISHED (1)
 #define IN_STATUS_FAILED (2)
-static int status = IN_STATUS_WORKING;
+static int status          = IN_STATUS_WORKING;
 static int waiting_counter = 0;
 
 /* Here we parse messages received from remote hosts.
@@ -79,9 +80,9 @@ static err_t mp_shell_parse_in_command(j_t *root)
 /*@null@*/ static void *mp_shell_in_stream_pthread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	/* TODO: move it to common header */
-	int fd = -1;
+	int                fd       = -1;
 	struct sockaddr_un cli_addr;
-	ssize_t rc = -1;
+	ssize_t            rc       = -1;
 
 	rc = pthread_detach(pthread_self());
 	if (0 != rc) {
@@ -119,11 +120,11 @@ static err_t mp_shell_parse_in_command(j_t *root)
 	}
 
 	do {
-		int fd2 = -1;
+		int     fd2       = -1;
 		/*@only@*/char *buf = NULL;
 		/*@only@*/j_t *root = NULL;
-		ssize_t received = 0;
-		size_t allocated = 0;
+		ssize_t received  = 0;
+		size_t  allocated = 0;
 
 		/* Listen for incoming connection */
 		rc = (ssize_t)listen(fd, 2);
@@ -188,10 +189,10 @@ static err_t mp_shell_parse_in_command(j_t *root)
 
 /*@null@*/ static j_t *mp_shell_do_requiest(j_t *root)
 {
-	int sd = -1;
-	ssize_t rc = -1;
+	int                sd         = -1;
+	ssize_t            rc         = -1;
 	struct sockaddr_un serveraddr;
-	j_t *resp;
+	j_t                *resp;
 
 	sd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sd < 0) {
@@ -265,12 +266,12 @@ static err_t mp_shell_ask_openport(j_t *args)
 
 	TESTP(args, EBAD);
 
-	root = j_new();
+	root = mp_disp_create_request(uid_dst, APP_PORTS, APP_SHELL, 0);
 	TESTP(root, EBAD);
 
 	//j_print(args, "args");
 
-	uid_dst = j_find_ref(args, JK_UID_DST);
+	uid_dst = j_find_ref(args, JK_DISP_TGT_UID);
 	TESTP_MES_GO(uid_dst, err, "Can't find uid");
 
 	port = j_find_ref(args, JK_PORT_INT);
@@ -279,13 +280,14 @@ static err_t mp_shell_ask_openport(j_t *args)
 	protocol = j_find_ref(args, JK_PROTOCOL);
 	TESTP_MES_GO(protocol, err, "Can't find protocol");
 
+
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
 	rc = j_add_str(root, JK_PROTOCOL, protocol);
 	TESTI_MES_GO(rc, err, "Can't add 'protocol' field");
-	rc = j_add_str(root, JK_UID_DST, uid_dst);
+	rc = j_add_str(root, JK_DISP_TGT_UID, uid_dst);
 	TESTI_MES_GO(rc, err, "Can't add 'dest' field");
 
 	ticket = mp_os_rand_string(TICKET_SIZE);
@@ -299,12 +301,6 @@ static err_t mp_shell_ask_openport(j_t *args)
 	resp = mp_shell_do_requiest(root);
 	TESTP_MES_GO(resp, err, "Responce is NULL\n");
 	j_rm(root);
-
-	#if 0
-	if (j_test(resp, JK_STATUS, JV_OK)) {
-		rc = EOK;
-	}
-	#endif
 
 	root = j_new();
 	TESTP(root, EBAD);
@@ -338,7 +334,7 @@ static err_t mp_shell_ask_closeport(j_t *args)
 
 	//j_print(args, "Closeport JSON");
 
-	uid = j_find_ref(args, JK_UID_DST);
+	uid = j_find_ref(args, JK_DISP_TGT_UID);
 	TESTP_MES_GO(uid, err, "Can't find uid");
 
 	port = j_find_ref(args, JK_PORT_INT);
@@ -349,7 +345,7 @@ static err_t mp_shell_ask_closeport(j_t *args)
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_CLOSEPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
-	rc = j_add_str(root, JK_UID_DST, uid);
+	rc = j_add_str(root, JK_DISP_TGT_UID, uid);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
@@ -378,12 +374,12 @@ err:
 	return (rc);
 }
 
-static err_t mp_shell_get_info()
+static err_t mp_shell_get_info(void)
 {
 	/*@only@*/j_t *root = j_new();
 	/*@only@*/j_t *resp = NULL;
 	/*@only@*/ft_table_t *table = NULL;
-	int rc;
+	int        rc;
 	const char *val;
 
 	TESTP(root, EBAD);
@@ -465,7 +461,7 @@ static err_t mp_shell_ssh(j_t *args)
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_SSH);
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_SSH");
-	rc = j_cp(args, root, JK_UID_DST);
+	rc = j_cp(args, root, JK_DISP_TGT_UID);
 	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
 	//j_print(root, "Sending SSH command\n");
 	resp = mp_shell_do_requiest(root);
@@ -478,7 +474,7 @@ static err_t mp_shell_ssh(j_t *args)
 	return (EOK);
 }
 
-static err_t mp_shell_get_hosts()
+static err_t mp_shell_get_hosts(void)
 {
 	/*@only@*/j_t *resp = NULL;
 	/*@only@*/j_t *root = j_new();
@@ -542,14 +538,14 @@ static err_t mp_shell_get_hosts()
 	return (EOK);
 }
 
-static err_t mp_shell_get_ports()
+static err_t mp_shell_get_ports(void)
 {
 	/*@only@*/j_t *resp = NULL;
 	/*@only@*/j_t *root = j_new();
 	size_t index = 0;
 	/*@only@*/j_t *val = NULL;
 	/*@only@*/ft_table_t *table = NULL;
-	int rc;
+	int    rc;
 
 	TESTP_MES(root, -1, "Can't allocate JSON object\n");
 	if (EOK != j_add_str(root, JK_COMMAND, JV_COMMAND_PORTS)) {
@@ -608,7 +604,7 @@ static err_t mp_shell_get_ports()
 }
 
 /* show opened remote ports */
-static err_t mp_shell_get_remote_ports()
+static err_t mp_shell_get_remote_ports(void)
 {
 	/*@only@*/j_t *resp = NULL;
 	/*@only@*/j_t *root = j_new();
@@ -616,7 +612,7 @@ static err_t mp_shell_get_remote_ports()
 	/*@only@*/const char *key;
 	/*@only@*/j_t *val = NULL;
 	/*@only@*/ft_table_t *table = NULL;
-	int rc;
+	int    rc;
 
 	D("Start\n");
 
@@ -784,7 +780,7 @@ int main(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	/*@only@*/j_t *args = NULL;
+	/*@only@*/j_t *args          = NULL;
 	/*@only@*/pthread_t in_thread_id;
 	int rc;
 
@@ -806,7 +802,7 @@ int main(int argc, char *argv[])
 	}
 
 	rc = pthread_create(&in_thread_id, NULL, mp_shell_in_stream_pthread, NULL);
-	
+
 	if (0 != rc) {
 		DE("Can't create mp_shell_in_thread\n");
 		perror("Can't create mp_shell_in_thread");
@@ -816,34 +812,34 @@ int main(int argc, char *argv[])
 	args = j_new();
 	TESTP_MES(args, -1, "Can't allocate JSON object\n");
 
-   static struct option long_options[] = {
-          /* These options set a flag. */
-          {"list",		no_argument,		0, 'l'},\
-          {"help",		no_argument,		0, 'h'},
-          {"info",		no_argument,		0, 'i'},
-          {"open",		required_argument,	0, 'o'},
-          {"close",		required_argument,	0, 'c'},
-          {"uid",		required_argument,	0, 'u'},
-          {"ssh",		required_argument,	0, 's'},
-          {"proto",		required_argument,	0, 'p'},
-          {"protocol",	required_argument,	0, 'p'},
-          {"remote",	required_argument,	0, 'r'},
-          {"goto",		required_argument,	0, 'g'},
-          {0, 0, 0, 0}
-        };
+	static struct option long_options[] = {
+		/* These options set a flag. */
+		{"list",		no_argument,		0, 'l'},
+		{"help",		no_argument,		0, 'h'},
+		{"info",		no_argument,		0, 'i'},
+		{"open",		required_argument,	0, 'o'},
+		{"close",		required_argument,	0, 'c'},
+		{"uid",		required_argument,	0, 'u'},
+		{"ssh",		required_argument,	0, 's'},
+		{"proto",		required_argument,	0, 'p'},
+		{"protocol",	required_argument,	0, 'p'},
+		{"remote",	required_argument,	0, 'r'},
+		{"goto",		required_argument,	0, 'g'},
+		{0, 0, 0, 0}
+	};
 
-	while ((opt = getopt_long (argc, argv, ":limro:u:s:p:c:h", long_options, &option_index)) != -1) {
-	//while ((opt = getopt(argc, argv, ":limro:u:s:p:c:h")) != -1) {
+	while ((opt = getopt_long(argc, argv, ":limro:u:s:p:c:h", long_options, &option_index)) != -1) {
+		//while ((opt = getopt(argc, argv, ":limro:u:s:p:c:h")) != -1) {
 		switch (opt) {
 		case 'i': /* Show this machine info */
-			rc = j_add_str(args, JK_SHOW_INFO, JV_YES);
+			rc = j_add_str(args, JK_CMDLINE_SHOW_INFO, JV_YES);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
 			}
 			break;
 		case 'l': /* Show remote hosts */
-			rc = j_add_str(args, JK_SHOW_HOSTS, JV_YES);
+			rc = j_add_str(args, JK_CMDLINE_SHOW_HOSTS, JV_YES);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -878,7 +874,7 @@ int main(int argc, char *argv[])
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'u': /* UID of remote machine */
-			rc = j_add_str(args, JK_UID_DST, optarg);
+			rc = j_add_str(args, JK_DISP_TGT_UID, optarg);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -890,7 +886,7 @@ int main(int argc, char *argv[])
 				j_rm(args);
 				return (EBAD);
 			}
-			rc = j_add_str(args, JK_UID_DST, optarg);
+			rc = j_add_str(args, JK_DISP_TGT_UID, optarg);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -904,21 +900,21 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'm': /* Show ports mapped on this machine */
-			rc = j_add_str(args, JK_SHOW_PORTS, JV_YES);
+			rc = j_add_str(args, JK_CMDLINE_SHOW_PORTS, JV_YES);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
 			}
 			break;
 		case 'r': /* TODO: Show ports mapped on a remote machine (if UID given) / on all remotes (if UID is not specified) */
-			rc = j_add_str(args, JK_SHOW_RPORTS, JV_YES);
+			rc = j_add_str(args, JK_CMDLINE_SHOW_RPORTS, JV_YES);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
 			}
 			break;
 
-			case 'g': /* goto - connect to remote mashine shell */
+		case 'g': /* goto - connect to remote mashine shell */
 			break;
 		case 'h': /* Print help */
 			mp_shell_usage(argv[0]);
@@ -937,7 +933,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (EOK == j_test(args, JK_SHOW_HOSTS, JV_YES)) {
+	if (EOK == j_test(args, JK_CMDLINE_SHOW_HOSTS, JV_YES)) {
 		if (0 != mp_shell_get_hosts()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);
@@ -945,7 +941,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (EOK == j_test(args, JK_SHOW_PORTS, JV_YES)) {
+	if (EOK == j_test(args, JK_CMDLINE_SHOW_PORTS, JV_YES)) {
 		if (0 != mp_shell_get_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);
@@ -953,7 +949,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (EOK == j_test(args, JK_SHOW_INFO, JV_YES)) {
+	if (EOK == j_test(args, JK_CMDLINE_SHOW_INFO, JV_YES)) {
 		if (0 != mp_shell_get_info()) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);
@@ -986,7 +982,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (EOK == j_test(args, JK_SHOW_RPORTS, JV_YES)) {
+	if (EOK == j_test(args, JK_CMDLINE_SHOW_RPORTS, JV_YES)) {
 		D("Found RPORTS command\n");
 		if (EOK != mp_shell_get_remote_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");

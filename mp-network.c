@@ -24,7 +24,7 @@
 	char  *ptr  = NULL;
 	buf_t *buft;
 
-	fd = mp_os_fopen("/proc/net/route", "r");
+	fd = mp_os_fopen_regular("/proc/net/route", "r");
 	TESTP_MES(fd, NULL, "Can't open /proc/net/route\n");
 
 	buft = buf_string(BUF_INTERFACE);
@@ -187,13 +187,13 @@ err_t mp_network_init_network_l()
 	buf_free(bvar);
 	D("My external ip: %s\n", j_find_ref(ctl->me, JK_IP_EXT));
 	/* By default the port is "0". It will be changed when we open an port */
-	if (EOK != j_add_str(ctl->me, JK_PORT_EXT, JV_NO_PORT)) DE("Can't add 'JK_PORT_EXT'\n");
+	if (EOK != j_add_str(ctl->me, JK_PORT_EXT, JV_BAD)) DE("Can't add 'JK_PORT_EXT'\n");
 
 	bvar = mp_network_get_internal_ip();
 	TESTP(bvar, EBAD);
 	ctl_lock();
 	if (EOK != j_add_str(ctl->me, JK_IP_INT, bvar->data)) DE("Can't add 'JK_IP_INT'\n");
-	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_NO_PORT)) DE("Can't add 'JK_PORT_INT'\n");
+	if (EOK != j_add_str(ctl->me, JK_PORT_INT, JV_BAD)) DE("Can't add 'JK_PORT_INT'\n");
 	ctl_unlock();
 	buf_free(bvar);
 	return (EOK);

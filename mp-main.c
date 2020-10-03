@@ -282,16 +282,6 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 		abort();
 	}
 
-	#if 0
-	rc = pthread_create(&mosq_thread_id, NULL, mp_mqtt_mosq_threads_manager_pthread, cert);
-	if (0 != rc) {
-		DE("Can't create thread mp_main_mosq_thread_manager\n");
-		perror("Can't create thread mp_main_mosq_thread_manager");
-		cli_destoy();
-		abort();
-	}
-	#endif
-
 	while (ctl->status != ST_STOPPED) {
 		//DD("Before sleep 300 millisec\n");
 		rc = mp_os_usleep(300);

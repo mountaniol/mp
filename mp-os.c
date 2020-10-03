@@ -25,7 +25,7 @@ static int open_random_device(void)
 	/* Try to open a /dev/urandom device */
 	if (NULL == rand_device) {
 		//rand_device = fopen("/dev/urandom", "r");
-		rand_device = mp_os_fopen("/dev/urandom", "r");
+		rand_device = mp_os_fopen_chardev("/dev/urandom", "r");
 	}
 
 	if (NULL != rand_device) {
@@ -34,7 +34,7 @@ static int open_random_device(void)
 
 	/* Try to open /dev/random device */
 	if (NULL == rand_device) {
-		rand_device = mp_os_fopen("/dev/random", "r");
+		rand_device = mp_os_fopen_chardev("/dev/random", "r");
 	}
 
 	if (NULL != rand_device) {
@@ -44,10 +44,10 @@ static int open_random_device(void)
 	return (EBAD);
 }
 
-/*@null@*/ char *mp_os_get_hostname()
+/*@null@*/ char *mp_os_get_hostname(void)
 {
 	struct addrinfo hints, *info;
-	int             gai_result = -1;
+	int             gai_result     = -1;
 
 	char            hostname[1024];
 	hostname[1023] = '\0';
@@ -127,7 +127,7 @@ const char charset_num[]   = "0123456789";
 
 	str = zmalloc(size);
 	TESTP_MES(str, NULL, "Can't allocate");
-	
+
 	rc = mp_os_fill_random(str, size);
 	if (EOK != rc) {
 		DE("Can't read random\n");
@@ -142,7 +142,7 @@ const char charset_num[]   = "0123456789";
 	--size;
 
 	for (n = 0; n < size; n++) {
-		unsigned int key = (((unsigned int)str[n] ) % (charset_size - 1));
+		unsigned int key = (((unsigned int)str[n]) % (charset_size - 1));
 		str[n] = charset[key];
 	}
 
@@ -217,8 +217,8 @@ err_t mp_os_usleep(int milliseconds) // cross-platform sleep function
 	return (EOK);
 }
 
-/* Test that given file is a regular file, OK if yes */
-static err_t mp_os_test_file(const char *file)
+/* Test that given file is kind of asked type, OK if yes */
+static err_t mp_os_test_file_type(const char *file, int tp)
 {
 	struct stat st;
 
@@ -229,7 +229,7 @@ static err_t mp_os_test_file(const char *file)
 	}
 
 	/* Is this file a regular file? If not, report it and return with error */
-	if (S_IFREG != (st.st_mode & S_IFMT)) {
+	if (tp != (st.st_mode & S_IFMT)) {
 		DE("Error on file [%s] opening: not a regular file, but ", file);
 		switch (st.st_mode & S_IFMT) {
 		case S_IFSOCK:
@@ -237,6 +237,9 @@ static err_t mp_os_test_file(const char *file)
 			break;
 		case S_IFLNK:
 			printf("symbolic link\n");
+			break;
+		case S_IFREG:
+			printf("regular file\n");
 			break;
 		case S_IFBLK:
 			printf("block device\n");
@@ -257,9 +260,9 @@ static err_t mp_os_test_file(const char *file)
 	return (EOK);
 }
 
-int mp_os_open(const char *file, int flags, mode_t mode)
+static int mp_os_open(const char *file, int flags, mode_t mode, int tp)
 {
-	if (EOK != mp_os_test_file(file)) {
+	if (EOK != mp_os_test_file_type(file, tp)) {
 		DE("Wrong file\n");
 		return (EBAD);
 	}
@@ -276,12 +279,27 @@ int mp_os_open(const char *file, int flags, mode_t mode)
 	return (EBAD);
 }
 
-FILE *mp_os_fopen(const char *file, const char *mode)
+int mp_os_open_regular(const char *file, int flags, mode_t mode)
 {
-	if (EOK != mp_os_test_file(file)) {
+	return (mp_os_open(file, flags, mode, S_IFREG));
+}
+
+static FILE *mp_os_fopen(const char *file, const char *mode, int tp)
+{
+	if (EOK != mp_os_test_file_type(file, tp)) {
 		DE("Wrong file\n");
 		return (NULL);
 	}
 
 	return (fopen(file, mode));
+}
+
+FILE *mp_os_fopen_regular(const char *file, const char *mode)
+{
+	return (mp_os_fopen(file, mode, S_IFREG));
+}
+
+FILE *mp_os_fopen_chardev(const char *file, const char *mode)
+{
+	return (mp_os_fopen(file, mode, S_IFCHR));
 }

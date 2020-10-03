@@ -121,6 +121,11 @@ void ctl_unlock()
 	const char *uid;
 	TESTP_ASSERT(g_ctl->me, "NULL!");
 	uid = j_find_ref(g_ctl->me, JK_UID_ME);
+	if(NULL == uid) {
+		DE("Fatal error: no uid found in ctl->me\n");
+		j_print(g_ctl->me, "Current g_ctl->me\n");
+		abort();
+	}
 	return (uid);
 }
 

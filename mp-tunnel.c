@@ -69,12 +69,6 @@ static int mp_tun_get_winsize(int fd, struct winsize *sz)
 	return (ioctl(fd, TIOCGWINSZ, sz));
 }
 
-#if 0
-static int mp_tunnel_set_winsize(int fd, struct winsize *sz){
-	return (ioctl(fd, TIOCSWINSZ, &sz));
-}
-#endif
-
 /* Ask user name, password. Check it and return answer: EOK if authorized, EBAD on fail */
 #if 0
 err_t mp_tunnel_pam_auth(int socket){

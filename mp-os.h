@@ -20,7 +20,7 @@ extern err_t mp_os_usleep(int milliseconds);
  * @details
  *
  */
-int mp_os_open(const char *file, int flags, mode_t mode);
+int mp_os_open_regular(const char *file, int flags, mode_t mode);
 
 /**
  * @author Sebastian Mountaniol (09/06/2020)
@@ -34,7 +34,17 @@ int mp_os_open(const char *file, int flags, mode_t mode);
  * @details
  *
  */
-FILE *mp_os_fopen(const char *file, const char *mode);
+FILE *mp_os_fopen_regular(const char *file, const char *mode);
+
+/**
+ * @author se (04/09/2020)
+ * @brief Secure open a character device
+ * @param file Name of character device to open
+ * @param mode Opening mode, like "fopen" function accepts
+ * @return FILE* Pointer to opened file descriptor; NULL on
+ *  	   error
+ */
+FILE *mp_os_fopen_chardev(const char *file, const char *mode);
 
 /**
  * @author Sebastian Mountaniol (21/08/2020)

@@ -7,9 +7,9 @@
  */
 
 #ifndef S_SPLINT_S
-#define _DEFAULT_SOURCE
-#define _XOPEN_SOURCE        /* or any value < 500 */
-#include <string.h>
+	#define _DEFAULT_SOURCE
+	#define _XOPEN_SOURCE        /* or any value < 500 */
+	#include <string.h>
 #endif
 
 #include <jansson.h>
@@ -119,7 +119,7 @@ err_t j_arr_add(/*@null@*/j_t *arr, /*@null@*/j_t *obj)
 	return (json_array_append_new(arr, obj));
 }
 
-/*@null@*//*@only@*/ j_t *j_arr()
+/*@null@*//*@only@*/ j_t *j_arr(void)
 {
 	return (json_array());
 }
@@ -134,7 +134,7 @@ j_t *j_arr_get(const j_t *arr, size_t index)
 	return (json_array_get(arr, index));
 }
 
-/*@null@*//*@only@*/ j_t *j_new()
+/*@null@*//*@only@*/ j_t *j_new(void)
 {
 	return (json_object());
 }
@@ -159,6 +159,43 @@ err_t j_add_j(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/j_t *obj
 	TESTP(obj, EBAD);
 
 	return (json_object_set_new(root, key, obj));
+}
+
+err_t j_merge(/*@null@*/j_t *to, /*@null@*/j_t *from)
+{
+	TESTP(to, EBAD);
+	TESTP(from, EBAD);
+
+	const char *key = NULL;
+	json_t     *val = NULL;
+
+	/* Iterate the 'from' object, copy every record of it to 'to' object */
+	json_object_foreach(from, key, val) {
+		json_t *j_copied = NULL;
+
+		j_copied = json_deep_copy(val);
+		if (NULL == j_copied) {
+			DE("Can't copy object for key %s\n", key);
+			return (EBAD);
+		}
+
+		j_add_j(to,key,j_copied);
+	}
+
+	/* TODO: Should we test that all copied? I don't do it */
+	return (EOK);
+}
+
+
+err_t j_cp_j(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/j_t *obj)
+{
+	TESTP(root, EBAD);
+	TESTP(key, EBAD);
+	TESTP(obj, EBAD);
+
+	j_t *copied = j_dup(obj);
+
+	return (j_add_j(root, key, copied));
 }
 
 err_t j_add_str(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/const char *val)
@@ -242,37 +279,6 @@ err_t j_cp_val(/*@null@*/const j_t *from, /*@null@*/j_t *to, /*@null@*/const cha
 }
 
 
-#if 0
-int json_add_string_int(json_t *root, char *key, int val){
-	json_t *j_int = NULL;
-
-	if (NULL == root) {
-		DE("Got root == NULL\n");
-		return (-1);
-	}
-
-	if (NULL == key) {
-		DE("Got key == NULL\n");
-		return (-1);
-	}
-
-	j_int = json_integer(val);
-
-	if (NULL == j_int) {
-		DE("Can't allocate json object\n");
-		return (-1);
-	}
-
-	if (0 != json_object_set_new(root, key, j_int)) {
-		DE("Can't set new pait into json object\n");
-		//json_decref(j_int);
-		return (-1);
-	}
-
-	return (0);
-}
-#endif
-
 /* Get JSON object, get  field name and expected value of this field.
    Return EOK if this is true, return EBAD is no match */
 err_t j_test(/*@null@*/const j_t *root, /*@null@*/const char *type_name, /*@null@*/const char *expected_val)
@@ -349,7 +355,7 @@ err_t j_test_key(/*@null@*/const j_t *root, /*@null@*/const char *key)
 j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key, int *error)
 {
 	/*@temp@*/json_t *j_obj;
-	*error = EBAD; 
+	*error = EBAD;
 
 	TESTP(root, EBAD);
 	TESTP(key, EBAD);
@@ -375,12 +381,6 @@ j_int_t j_find_int(/*@null@*/const j_t *root, /*@null@*/const char *key, int *er
 	TESTP(key, NULL);
 
 	j_string = json_object_get(root, key);
-	#if 0 /* SEB 30/04/2020 18:36  */
-
-	if (NULL == j_string) {
-		DE("Can't find str for key: %s\n", key);
-	}
-	#endif /* SEB 30/04/2020 18:36 */
 	TESTP(j_string, NULL);
 
 	len = json_string_length(j_string);

@@ -1,14 +1,14 @@
 #ifndef S_SPLINT_S
-#define _GNU_SOURCE             /* See feature_test_macros(7) */
-#include <sys/prctl.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
-#include <signal.h>
-#include <errno.h>
+	#define _GNU_SOURCE             /* See feature_test_macros(7) */
+	#include <sys/prctl.h>
+	#include <unistd.h>
+	#include <string.h>
+	#include <pthread.h>
+	#include <signal.h>
+	#include <errno.h>
 
-#include "openssl/ssl.h"
-#include "openssl/err.h"
+	#include "openssl/ssl.h"
+	#include "openssl/err.h"
 
 #endif
 
@@ -40,9 +40,30 @@
  * Then the message sent to its destination.
  * When a responce returned from a remote host, the dispatcher
  * analyzes it again, and decide where this message dedicated to.
+ *
+ * Pattern of usage:
+ *
+ * 
  */
 
 /* The callback every active side should registr to receive responces */
+
+/* This function translate APP ID to a string. For debug prints. */
+static const char *mp_disp_app_name(app_type_e app_id)
+{
+	const char *app_names[] = {
+		"APP_CONNECTION",
+		"APP_REMOTE",
+		"APP_CONFIG",
+		"APP_PORTS",
+		"APP_SHELL",
+		"APP_TUNNEL",
+		"APP_GUI",
+		"APP_SECURITY",
+		"APP_MPFS",
+	};
+	return (app_names[app_id]);
+}
 
 static disp_t *disp_t_alloc(void)
 {
@@ -53,10 +74,7 @@ static disp_t *disp_t_alloc(void)
 	return (d);
 }
 
-/* Here every sender registers itself: the "src_id" is
-  the source ID (integer) that the sender adds to JSON, and mp_dispatcher_cb_t
-  is a callback to receive messages */
-int mp_disp_register(size_t src_id, mp_disp_cb_t *func_send, mp_disp_cb_t *func_recv)
+int mp_disp_register(size_t app_id, mp_disp_cb_t func_send, mp_disp_cb_t func_recv)
 {
 	control_t *ctl = NULL;
 	disp_t    *d   = NULL;
@@ -67,41 +85,73 @@ int mp_disp_register(size_t src_id, mp_disp_cb_t *func_send, mp_disp_cb_t *func_
 	d = disp_t_alloc();
 	TESTP(d, EBAD);
 
-	d->disp_id = src_id;
-	d->recv = *func_recv;
-	d->send = *func_send;
+	d->disp_id = app_id;
+	d->recv = func_recv;
+	d->send = func_send;
 
 	ctl = ctl_get_locked();
-	htable_insert_by_int(ctl->dispatcher, src_id, NULL, d);
+	htable_insert_by_int(ctl->dispatcher, app_id, NULL, d);
 	ctl_unlock();
 
+	DDD("Registred handlers for app %zd : %s\n", app_id, mp_disp_app_name(app_id));
 	return (EOK);
 }
 
 /* This function analyses the JSOM message and detects 
-   whether this message dedicated to this hot or to a remote.
+   whether this message dedicated to this host or to a remote.
    Return:
-   0 - for this host
-   1  - for a remote
-   -1 - error */
-int mp_disp_is_mes_for_me(void *json)
+   MES_DEST_ME - for this host
+   MES_DEST_REMOTE  - for a remote
+   MES_DEST_ERR on error */
+static int mp_disp_is_mes_for_me(void *json)
 {
 	control_t  *ctl    = NULL;
 	const char *target = NULL;
 	const char *my_uid = NULL;
-	TESTP(json, -1);
+	TESTP(json, MES_DEST_ERR);
 
-	target = j_find_ref(json, JK_UID_DST);
-	TESTP(target, -1);
+	target = j_find_ref(json, JK_DISP_TGT_UID);
+	TESTP(target, MES_DEST_ERR);
+
+	/* If this message dedicated to ALL hosts, we accept it */
+	if (0 == strncmp(target, "ALL", 3)) {
+		return (MES_DEST_ME);
+	}
 
 	ctl = ctl_get();
 	my_uid = ctl_uid_get();
 
-	if (0 == strcmp(target, my_uid)) {
-		return (0);
+	if (0 == strncmp(target, my_uid, MP_LIMIT_UID_MAX)) {
+		return (MES_DEST_ME);
 	}
 
-	return (1);
+	return (MES_DEST_REMOTE);
+}
+
+/* This function analyses the JSOM message and detects 
+   whether this message sent from this host or from a remote.
+   Return:
+   MES_SRC_ME - from this host
+   MES_SRC_REMOTE  - from a remote host
+   MES_DEST_ERR on error */
+static int mp_disp_is_mes_from_me(void *json)
+{
+	control_t  *ctl    = NULL;
+	const char *source = NULL;
+	const char *my_uid = NULL;
+	TESTP(json, MES_DEST_ERR);
+
+	source = j_find_ref(json, JK_DISP_SRC_UID);
+	TESTP(source, MES_DEST_ERR);
+
+	ctl = ctl_get();
+	my_uid = ctl_uid_get();
+
+	if (0 == strncmp(source, my_uid, MP_LIMIT_UID_MAX)) {
+		return (MES_SRC_ME);
+	}
+
+	return (MES_SRC_REMOTE);
 }
 
 /* Send a message: the message is running from its source to destination */
@@ -114,14 +164,32 @@ int mp_disp_send(void *json)
 
 	TESTP(json, EBAD);
 
-	/* TODO: decide where to send it based on dest_id */
-	disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
-
-	if (EBAD == disp_id && EBAD == error) {
-		DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
-		DE("JSON dump:\n");
-		j_print(json, "No JK_DISP_SRC_APP in this JSON");
+	error = mp_disp_is_mes_for_me(json);
+	if (MES_DEST_ERR == error) {
+		DE("Can't detect target host of the message\n");
+		j_print(json, "The JSON without target host");
+		j_rm(json);
 		return (EBAD);
+	}
+
+	/* If this message is not for us (not for this machine) the APP is REMOTE - send it to remote host */
+	if (MES_DEST_REMOTE == error) {
+		disp_id = APP_REMOTE;
+	}
+
+	/* This message is for us, so find callbacks of target applications */
+	if (MES_DEST_ME == error) {
+
+		/* Extract from JSON the target app ID */
+		disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
+
+		/* If we can't find it - return with error */
+		if (EBAD == disp_id && EBAD == error) {
+			DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
+			DE("JSON dump:\n");
+			j_print(json, "No JK_DISP_SRC_APP in this JSON");
+			return (EBAD);
+		}
 	}
 
 	/* Now find the callbacks by ID */
@@ -129,10 +197,23 @@ int mp_disp_send(void *json)
 
 	d = htable_find_by_int(ctl->dispatcher, disp_id);
 	if (NULL == d) {
-		//DE("No handler is set for this type: %z\n", disp_id);
-		DE("No handler is set fot this type: %zd\n", disp_id);
+		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_app_name(disp_id));
+		j_print(json, "The JSON failed is:");
+		j_rm(json);
 		return (EBAD);
 	}
+
+	/* If the APP registered the "send" function, we use it.
+	   Else we drop the JSON and return error */
+	if (NULL == d->send) {
+		DE("Can't find 'send' handler for the app %s\n", mp_disp_app_name(disp_id));
+		j_rm(json);
+	}
+
+	/* If we can't extract APP remote we are dead, this is an illigal situation */
+	TESTP_ASSERT(d, "Can't find APP_REMOTE!\n");
+
+	DDD("The request dedicated to app: %zu : %s\n", disp_id, mp_disp_app_name(disp_id));
 
 	return (d->send(json));
 }
@@ -147,15 +228,34 @@ int mp_disp_recv(void *json)
 
 	TESTP(json, EBAD);
 
-	/* TODO: decide where to send it based on dest_id */
-	/* When an application sends the answer, it set SOURCE APP ID
-	of the request as TARGET APP ID as the reponce */
+	DDD("Received response message\n");
+
+	/* If this message is not for us, or not to ALL we drop it */
+	if (EOK != mp_disp_is_mes_for_me(json)) {
+		DDD("Found a 'not for me' message - drop it\n");
+		j_rm(json);
+		return (EOK);
+	}
+
+	/* If we are here, this message is for us;
+	*  however, we receive also messages from ourseves,
+	*  if we send a message to ALL */
+	if (MES_SRC_ME == mp_disp_is_mes_from_me(json)) {
+		DDD("Found a 'from me' message - drop it\n");
+		j_rm(json);
+		return (EOK);
+	}
+
+	/* TODO: decide where to send it based on dest_id.
+	*  When an application sends the answer, it set SOURCE APP ID
+	*  of the request as TARGET APP ID as the reponce */
 	disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
 
 	if (EBAD == disp_id && EBAD == error) {
 		DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
 		DE("JSON dump:\n");
 		j_print(json, "No JK_DISP_SRC_APP in this JSON");
+		j_rm(json);
 		return (EBAD);
 	}
 
@@ -164,24 +264,46 @@ int mp_disp_recv(void *json)
 
 	d = htable_find_by_int(ctl->dispatcher, disp_id);
 	if (NULL == d) {
-		DE("No handler is set for this type: %zd\n", disp_id);
+		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_app_name(disp_id));
+		j_rm(json);
 		return (EBAD);
 	}
+
+	DDD("The response dedicated to app: %zu : %s\n", disp_id, mp_disp_app_name(disp_id));
 
 	return (d->send(json));
 }
 
 /* This function fills dispatcher related fields in JSON message */
-int mp_disp_prepare_request(void *json, char *target, app_type_e dest, app_type_e source, int ticket)
+int mp_disp_prepare_request(void *json, const char *target_host, app_type_e dest_app, app_type_e src_app, ticket_t ticket)
 {
-	int rc;
+	int        rc      = EBAD;
+	const char *uid_me = NULL;
+
 	TESTP_ASSERT(json, "Got NULL json object");
 
-	rc = j_add_int(json, JK_DISP_SRC_APP, source);
+	/* Add source host UID (this host) */
+	uid_me = ctl_uid_get();
+	DD("My uid is: %s\n", uid_me);
+	rc = j_add_str(json, JK_DISP_SRC_UID, uid_me);
+	TESTI_ASSERT(rc, "Can't add JK_UID_SRC\n");
+
+	/* Add target host UID */
+	rc = j_add_str(json, JK_DISP_TGT_UID, target_host);
+	TESTI_ASSERT(rc, "Can't add JK_UID_DST\n");
+
+	/* Add source app ID */
+	rc = j_add_int(json, JK_DISP_SRC_APP, src_app);
 	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_APP\n");
 
-	rc = j_add_int(json, JK_DISP_TGT_APP, dest);
+	/* Add target app ID */
+	rc = j_add_int(json, JK_DISP_TGT_APP, dest_app);
 	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_APP\n");
+
+	/* If the ticket is not specified, we generate if for the app */
+	if (0 == ticket) {
+		mp_os_fill_random(&ticket, sizeof(ticket));
+	}
 
 	rc = j_add_int(json, JK_TICKET, ticket);
 	TESTI_ASSERT(rc, "Can't add JK_TICKET\n");
@@ -189,30 +311,56 @@ int mp_disp_prepare_request(void *json, char *target, app_type_e dest, app_type_
 	return (EOK);
 }
 
-/* This function fills dispatcher related fields in JSON message */
-int mp_disp_prepare_response(void *json_req, void *json_resp)
+j_t *mp_disp_create_request(const char *target_host, app_type_e dest, app_type_e source, ticket_t ticket)
 {
-	int rc;
-	int var;
-	int error = 0;
+	void *json = j_new();
+	int  rc;
+
+	TESTP_ASSERT(json, "Can't allocate json object");
+	rc = mp_disp_prepare_request(json, target_host, dest, source, ticket);
+	if (EOK != rc) {
+		DE("Can't fill the request\n");
+		j_rm(json);
+		return (NULL);
+	}
+
+	return (json);
+}
+
+/* This function fills dispatcher related fields in JSON message */
+int mp_disp_prepare_response(const void *json_req, void *json_resp)
+{
+	int        rc;
+	int        var;
+	int        error = 0;
+	const char *uid;
 	TESTP_ASSERT(json_req, "Got NULL json request  object");
 	TESTP_ASSERT(json_resp, "Got NULL json response object");
 
-	/* 1. "Target app ID" of source is "Source app ID" in response */
+	/* 1. Set the response target host UID - it is "source UID" of the request */
+	uid = j_find_ref(json_req, JK_DISP_SRC_UID);
+	TESTP_ASSERT(uid, "Can't find JK_UID_SRC in the request json\n");
+	rc = j_add_str(json_resp, JK_DISP_TGT_UID, uid);
+	TESTI_ASSERT(rc, "Can't find JK_UID_DST in request json\n");
+
+	/* 2. Set source host UID - it is UID of this host */
+	uid = ctl_uid_get();
+	rc = j_add_str(json_resp, JK_DISP_SRC_UID, uid);
+	TESTI_ASSERT(rc, "Can't find JK_UID_SRC in request json\n");
+
+	/* 3. "Target app ID" of source is "Source app ID" in response */
 	var = j_find_int(json_req, JK_DISP_TGT_APP, &error);
 	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_APP in request json\n");
-
 	rc = j_add_int(json_resp, JK_DISP_SRC_APP, var);
 	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_APP\n");
 
-	/* 2. "Source app ID" in the request is "Target app ID" int the response */
+	/* 4. "Source app ID" in the request is "Target app ID" int the response */
 	var = j_find_int(json_req, JK_DISP_SRC_APP, &error);
 	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_APP in request json\n");
-
 	rc = j_add_int(json_resp, JK_DISP_TGT_APP, var);
 	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_APP\n");
 
-	/* Ticket is the same, we just copy it from request to response */
+	/* 5. Ticket is the same, we copy it from the request to the response */
 	var = j_find_int(json_req, JK_TICKET, &error);
 	TESTI_ASSERT(error, "Can't find ticket in request json\n");
 	rc = j_add_int(json_resp, JK_TICKET, var);
@@ -220,9 +368,49 @@ int mp_disp_prepare_response(void *json_req, void *json_resp)
 
 	return (EOK);
 }
+
+/* This function cretes a new JSON 'response' message, and fills it using information from 'request' message */
+j_t *mp_disp_create_response(const void *json_req)
+{
+	j_t *resp = j_new();
+	TESTP(resp, NULL);
+	if (EOK != mp_disp_prepare_response(json_req, resp)) {
+		DE("Can't prepare response\n");
+		j_rm(resp);
+		return (NULL);
+	}
+
+	return (resp);
+}
+
+/* This function creates a new JSON 'ticket notification' message, and fills it using information from 'request' message */
+j_t *mp_disp_create_ticket_answer(void *json_req)
+{
+	j_t *resp = j_new();
+	TESTP(resp, NULL);
+	if (EOK != mp_disp_prepare_response(json_req, resp)) {
+		DE("Can't prepare response\n");
+		j_rm(resp);
+		return (NULL);
+	}
+
+	if (EOK != j_add_str(resp, JK_STATUS, JV_STATUS_WORK)) {
+		DE("Can't add JV_STATUS_WORK into the ricket response");
+		j_rm(resp);
+		return (NULL);
+	}
+
+	return (resp);
+}
+
 /*** Tickets */
 
-/* Save JSON */
+/* TODO. Not done, not tested.
+   Save JSON: we save JSON struct, private data and callback pointer by ticket.
+   We need it in applicateions like APP_SHELL or APP_GUI, where we may receive
+   the JSON struct from several external applications, and when a response received
+   we should know where to return it.
+ */
 int mp_disp_ticket_save(void *hash, void *json, void *priv)
 {
 	control_t *ctl    = NULL;

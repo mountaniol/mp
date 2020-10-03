@@ -12,7 +12,7 @@
 #include "mp-jansson.h"
 #include "mp-dict.h"
 #include "mp-htable.h"
-
+#include "mp-dispatcher.h"
 /*@null@*/ buf_t *mp_communicate_forum_topic()
 {
 	const char *user = ctl_user_get();
@@ -95,7 +95,7 @@ static err_t mp_communicate_save_buf_t_to_hash(buf_t *buf, int counter)
 }
 
 
-static err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_t *buf)
+err_t mp_communicate_mosquitto_publish(/*@temp@*/const char *topic, /*@temp@*/buf_t *buf)
 {
 	int rc;
 	int rc2;
@@ -131,6 +131,7 @@ err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/j_t 
 
 extern err_t send_keepalive_l()
 {
+#if 0 /* SEB DEADCODE 20/09/2020 13:38  */ 
 	//char  *forum_topic;
 	buf_t *forum_topic;
 	buf_t *buf         = NULL;
@@ -147,6 +148,67 @@ extern err_t send_keepalive_l()
 		DE("can't build notification\n");
 		return (EBAD);
 	}
+
+	DDD("Going to send keepalive:\n%s\n", buf->data);
+
+	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
+	if (MOSQ_ERR_SUCCESS == rc) {
+		rc = EOK;
+		goto end;
+	}
+
+	DE("Failed to send notification\n");
+	rc = mosquitto_reconnect(ctl->mosq);
+	if (MOSQ_ERR_SUCCESS != rc) {
+		DE("Failed to reconnect\n");
+		rc = EBAD;
+		goto end;
+	}
+
+	DD("Reconnected\n");
+
+	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
+	if (MOSQ_ERR_SUCCESS != rc) {
+		DE("Failed to send notification\n");
+		rc = EBAD;
+	}
+
+	end:
+	buf_free(forum_topic);
+	return (rc);
+#endif /* SEB DEADCODE 20/09/2020 13:38 */
+	int rc;
+	control_t *ctl = ctl_get();
+	j_t *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION,0);
+	TESTP(root, "Can't create request\n");
+	j_merge(root, ctl->me);
+	rc = mp_disp_send(root);
+	if (EOK != rc) {
+		DE("Can't send json\n");
+	}
+	return rc;
+}
+
+extern err_t send_keepalive_l_orig()
+{
+	//char  *forum_topic;
+	buf_t *forum_topic;
+	buf_t *buf         = NULL;
+	int   rc           = EBAD;
+
+	/*@shared@*/control_t *ctl = ctl_get();
+
+	forum_topic = mp_communicate_forum_topic();
+	TESTP(forum_topic, EBAD);
+
+	buf = mp_requests_build_keepalive();
+
+	if (NULL == buf) {
+		DE("can't build notification\n");
+		return (EBAD);
+	}
+
+	DDD("Going to send keepalive:\n%s\n", buf->data);
 
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
 	if (MOSQ_ERR_SUCCESS == rc) {
@@ -177,6 +239,7 @@ end:
 
 err_t send_reveal_l()
 {
+#if 0 /* SEB DEADCODE 20/09/2020 13:32  */ 
 	//char  *forum_topic;
 	buf_t *forum_topic;
 	buf_t *buf         = NULL;
@@ -195,8 +258,20 @@ err_t send_reveal_l()
 		DE("Failed to send reveal request\n");
 		return (EBAD);
 	}
+#endif /* SEB DEADCODE 20/09/2020 13:32 */
+	int rc;
+	j_t *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION,0);
+	TESTP(root, EBAD);
 
-	return (EOK);
+	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) {
+		j_rm(root);
+		return EBAD;
+	}
+		rc = mp_disp_send(root);
+	if (EOK != rc) {
+		DE("Can't send json\n");
+	}
+	return rc;
 }
 
 err_t mp_communicate_send_request(const j_t *root)
@@ -211,42 +286,19 @@ err_t mp_communicate_send_request(const j_t *root)
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
+	j_rm(root);
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD0("Going to send request\n");
 	//j_print(root, "Sending requiest:");
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
+	DDD("Send: \n%s\n", buf->data);
 	buf_free(forum_topic);
 	DDD("Sent request, status is %d\n", rc);
 	return (rc);
 }
 
-err_t send_request_to_open_port_old(struct mosquitto *mosq, char *target_uid, char *port, char *protocol)
-{
-	int   rc           = EBAD;
-	buf_t *buf         = NULL;
-	//char  *forum_topic;
-	buf_t *forum_topic;
-
-	TESTP(mosq, EBAD);
-	TESTP(target_uid, EBAD);
-	TESTP(port, EBAD);
-	TESTP(protocol, EBAD);
-
-	forum_topic = mp_communicate_forum_topic();
-	TESTP(forum_topic, EBAD);
-
-	DDD("Going to build request\n");
-	buf = mp_requests_open_port(target_uid, port, protocol);
-
-	TESTP_MES(buf, EBAD, "Can't build open port request");
-	DDD("Going to send request\n");
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	buf_free(forum_topic);
-	DDD("Sent request, status is %d\n", rc);
-	return (rc);
-}
-
+/* TODO: this function must go */
 err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 {
 	int        rc           = EBAD;
@@ -262,7 +314,7 @@ err_t send_request_return_tickets_l(/*@temp@*/j_t *root)
 
 	ticket = j_find_ref(root, JK_TICKET);
 	TESTP(ticket, EBAD);
-	target_uid = j_find_ref(root, JK_UID_SRC);
+	target_uid = j_find_ref(root, JK_DISP_SRC_UID);
 	TESTP(target_uid, EBAD);
 
 	ctl = ctl_get();

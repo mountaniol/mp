@@ -33,7 +33,7 @@ MOSQ_C=mp-main.c mp-jansson.c mp-config.c\
 		mp-ports.c sec-client-mosq-cli-serv.c mp-memory.c sec-ctl.c mp-network.c \
 		mp-requests.c mp-htable.o
 # client cli
-CLI_O=mp-shell.o mp-jansson.o mp-memory.o mp-ctl.o mp-os.o mp-net-utils.o mp-htable.o libfort.a
+CLI_O=mp-shell.o mp-jansson.o mp-memory.o mp-ctl.o mp-os.o mp-net-utils.o mp-htable.o mp-dispatcher.o libfort.a
 CLI_T=mp
 
 # Port mapper, standalone compilation

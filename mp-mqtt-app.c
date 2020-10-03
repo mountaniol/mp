@@ -1,13 +1,12 @@
 #ifndef S_SPLINT_S
-#define _GNU_SOURCE             /* See feature_test_macros(7) */
-#include <sys/prctl.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
+	#define _GNU_SOURCE             /* See feature_test_macros(7) */
+	#include <sys/prctl.h>
+	#include <unistd.h>
+	#include <string.h>
+	#include <pthread.h>
 
-#include "openssl/ssl.h"
-#include "openssl/err.h"
-
+	#include "openssl/ssl.h"
+	#include "openssl/err.h"
 #endif
 
 #include "mosquitto.h"
@@ -23,11 +22,54 @@
 #include "mp-os.h"
 #include "mp-dict.h"
 #include "mp-mqtt-app.h"
+#include "mp-dispatcher.h"
 
 
 #define SERVER "185.177.92.146"
 #define PORT 8883
 #define PASS "asasqwqw"
+
+pthread_t mosq_thread_id;
+/*@null@*/static void *mp_mqtt_message_processor_pthread(/*@only@*/void *v);
+
+/* Dispatcher hook, called when a message from a remote host received */
+int mp_app_recv(void *root)
+{
+	int       rc;
+	pthread_t message_thread;
+
+	DD("Recevived a message\n");
+	/* This is the end point of a message dedicated to APP_CONNECTION */
+
+
+	/* Process it here */
+	j_print(root, "Reveived message is");
+
+	j_rm(root);
+	return (0);
+}
+
+/* Dispatcher hook, called when a message to a remote machine asked to be sent */
+int mp_app_send(void *root)
+{
+	int   rc           = -1;
+	/* TODO: by default we publush message on own topic */
+	/* TODO: Probably it's better to push it to the personal topic of the receiver */
+	buf_t *forum_topic = mp_communicate_forum_topic();
+	buf_t *buf;
+
+	TESTP(forum_topic, EBAD);
+	TESTP(root, EBAD);
+
+	buf = j_2buf(root);
+	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
+	TESTP(buf, EBAD);
+
+	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
+	buf_free(forum_topic);
+	return (rc);
+}
+
 /* If we got request with a ticket, it means that the scond part (remote client)
    waits for a responce.
    We test the client's request, and if find a ticket - we create the
@@ -52,7 +94,7 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 	//j_print(req, "Got req:");
 	TESTP(status, EBAD);
 
-	uid = j_find_ref(req, JK_UID_SRC);
+	uid = j_find_ref(req, JK_DISP_SRC_UID);
 	TESTP(uid, EBAD);
 
 	ticket = j_find_ref(req, JK_TICKET);
@@ -62,6 +104,7 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 		return (EOK);
 	}
 
+	/* Create JSON object for the response */
 	root = j_new();
 	TESTP(root, EBAD);
 
@@ -71,7 +114,7 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 	TESTI_GO(rc, end);
 	rc = j_add_str(root, JK_STATUS, status);
 	TESTI_GO(rc, end);
-	rc = j_add_str(root, JK_UID_DST, uid);
+	rc = j_add_str(root, JK_DISP_TGT_UID, uid);
 	TESTI_GO(rc, end);
 
 	if (NULL != comment) {
@@ -91,7 +134,9 @@ end:
 	return (rc);
 }
 
-//static err_t mp_main_remove_host_l(const j_t *root)
+/* This function called when a remote machine disconnected from the server.
+   When it happens, we remove all information about this machine */
+/* TODO: APP_CONFIG should receive it */
 static err_t mp_mqtt_remove_host_l(const j_t *root)
 {
 	/*@temp@*/const control_t *ctl = NULL;
@@ -102,7 +147,7 @@ static err_t mp_mqtt_remove_host_l(const j_t *root)
 
 	DD("Starting\n");
 
-	uid_src = j_find_ref(root, JK_UID_SRC);
+	uid_src = j_find_ref(root, JK_DISP_SRC_UID);
 	TESTP_MES(uid_src, EBAD, "Can't extract uid from json\n");
 	DD("uid_src = %s\n", uid_src);
 
@@ -212,7 +257,7 @@ static err_t mp_mqtt_do_open_port_l(const j_t *root)
 	return (EOK);
 }
 
-/* This function is called when remote machine asks to open port for imcoming connection */
+/* This function is called when remote machine asks to close a port on this machine */
 static err_t mp_mqtt_do_close_port_l(const j_t *root)
 {
 	/*@temp@*/const control_t *ctl = ctl_get();
@@ -358,10 +403,10 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 */
 
 
-	if (EOK != j_test(root, JK_UID_DST, ctl_uid_get())) {
+	if (EOK != j_test(root, JK_DISP_TGT_UID, ctl_uid_get())) {
 		rc = 0;
 		DDD("This request not for us: JK_UID_DST = %s, us = %s\n",
-			j_find_ref(root, JK_UID_DST), ctl_uid_get());
+			j_find_ref(root, JK_DISP_TGT_UID), ctl_uid_get());
 		goto end;
 	}
 
@@ -527,6 +572,20 @@ end:
 		abort();
 	}
 
+	/* XXX */
+	/* TODO: Here we should call int mp_disp_recv(void *json) */
+
+	/* We pass the received message to dispatcher, and we are finished.
+	 * The dispatcher tests the message and calls appropriate function to process it.
+	 */
+
+	rc = mp_disp_recv(root);
+	TESTI_MES(rc, EBAD, "mp_disp_recv returned error");
+
+	return EOK;
+
+	/******************/
+
 	topic = j_find_ref(root, JK_TOPIC);
 	if (NULL == topic) {
 		DE("No topic in input JSON object\n");
@@ -558,7 +617,7 @@ end:
 
 	uid = ctl_uid_get();
 
-	if (0 == strcmp(uid, topics[3] )) {
+	if (0 == strcmp(uid, topics[3])) {
 		j_rm(root);
 		root = NULL;
 		rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);
@@ -568,8 +627,7 @@ end:
 		return (NULL);
 	}
 
-
-	rc = mp_mqtt_parse_message_l(topics[3] , root);
+	rc = mp_mqtt_parse_message_l(topics[3], root);
 	if (EOK != rc) {
 		DE("Can't parse message\n");
 		j_print(root, "Message is");
@@ -585,6 +643,7 @@ end:
 	return (NULL);
 }
 
+/* This callback works when a message received */
 static void mp_mqtt_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
 								  /*@unused@*/void *userdata __attribute__((unused)),
 								  const struct mosquitto_message *msg)
@@ -618,7 +677,7 @@ static void mp_mqtt_on_message_cl(/*@unused@*/struct mosquitto *mosq __attribute
 	}
 }
 
-
+/* This callback works when we are connected to the server */
 static void mqtt_connect_callback_l(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
 									/*@unused@*/void *obj __attribute__((unused)),
 									/*@unused@*/int result __attribute__((unused)))
@@ -636,6 +695,7 @@ static void mqtt_connect_callback_l(/*@unused@*/struct mosquitto *mosq __attribu
 	ctl_unlock();
 }
 
+/* This callback works when we loose connection to the sever */
 static void mp_mqtt_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
 									   /*@unused@*/void *data __attribute__((unused)),
 									   int reason)
@@ -698,7 +758,8 @@ static void mp_mqtt_on_disconnect_l_cl(/*@unused@*/struct mosquitto *mosq __attr
 	DDD("Exit from function\n");
 }
 
-
+/* This hook called when a message published on the server; we should clean the
+   buffer related to this message */
 static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute__((unused)),
 								  /*@unused@*/void *data __attribute__((unused)),
 								  int buf_id)
@@ -719,6 +780,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		perror("usleep returned error");
 	}
 
+	/* We saved buffer when asked to send the message. Now we extract it and free */
 	buf = mp_communicate_get_buf_t_from_hash(buf_id);
 	if (NULL == buf) {
 		DE("Can't find buffer\n");
@@ -736,6 +798,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
 	}
 }
+
 /* This thread is responsible for connection to the broker */
 /*@null@*/ static void *mp_mqtt_mosq_pthread(void *arg)
 {
@@ -750,7 +813,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 	/*@only@*/buf_t *buf = NULL;
 
 	/* TODO: Client ID, should be assigned on registartion and gotten from config file */
-	char  clientid[24]         = "seb";
+	char  clientid[24]     = "seb";
 	/* Instance ID, we dont care, it always random */
 	int   counter          = 0;
 
@@ -760,6 +823,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		perror("Thread: can't detach myself");
 		abort();
 	}
+	/* Set name */
 	//rc = pthread_setname_np(pthread_self(), "main_mosq_thread");
 	rc = prctl(PR_SET_NAME, "main_mosq_thread");
 	if (0 != rc) {
@@ -807,14 +871,20 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		ctl->status = ST_STOP;
 		goto end;
 	}
+
+	/* This is "we connected" callback */
 	mosquitto_connect_callback_set((struct mosquitto *)ctl->mosq, mqtt_connect_callback_l);
+	/* This is "message received" callback */
 	mosquitto_message_callback_set((struct mosquitto *)ctl->mosq, mp_mqtt_on_message_cl);
+	/* This is "we disconnected" callback */
 	mosquitto_disconnect_callback_set((struct mosquitto *)ctl->mosq, mp_mqtt_on_disconnect_l_cl);
+	/* This is "message is published" callback */
 	mosquitto_publish_callback_set((struct mosquitto *)ctl->mosq, mp_mqtt_on_publish_cb);
 
 	buf = mp_requests_build_last_will();
 	TESTP_MES_GO(buf, end, "Can't build last will");
 
+	/* This message will be sent to all other hosts when out connection is dropped */
 	rc = mosquitto_will_set(ctl->mosq, forum_topic_me->data, (int)buf_used(buf), buf->data, 1, false);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");
@@ -826,6 +896,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		goto end;
 	}
 
+	/* Reconnect timeout */
 	rc = mosquitto_reconnect_delay_set(ctl->mosq, 1, 30, false);
 	if (MOSQ_ERR_SUCCESS != rc) {
 		DE("Can't set reconnection delay params\n");
@@ -833,6 +904,7 @@ static void mp_mqtt_on_publish_cb(/*@unused@*/struct mosquitto *mosq __attribute
 		goto end;
 	}
 
+	/* And now we ready - let's connect */
 	rc = mosquitto_connect(ctl->mosq, SERVER, PORT, 60);
 
 	if (MOSQ_ERR_SUCCESS != rc) {
@@ -961,7 +1033,8 @@ end:
 		abort();
 	}
 
-	rc = prctl(PR_SET_NAME, "mosq_thread_manager");
+	/* Set name */
+	rc = prctl(PR_SET_NAME, "mqpp-app");
 	if (0 != rc) {
 		DE("Can't set pthread name\n");
 	}
@@ -984,11 +1057,19 @@ end:
 	return (NULL);
 }
 
-pthread_t mosq_thread_id;
-
 int mp_mqtt_start_app(void *cert_path)
 {
 	int rc;
+
+	/* Register this app in dispatcher */
+	rc = mp_disp_register(APP_CONNECTION, mp_app_send, mp_app_recv);
+
+	if (EOK != rc) {
+		DE("Can't register in dispatcher\n");
+		return (EBAD);
+	}
+
+	/* Create connection thread */
 	rc = pthread_create(&mosq_thread_id, NULL, mp_mqtt_mosq_threads_manager_pthread, cert_path);
 	if (0 != rc) {
 		DE("Can't create thread mp_main_mosq_thread_manager\n");

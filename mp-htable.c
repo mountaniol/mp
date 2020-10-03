@@ -101,6 +101,19 @@ int htable_free(htable_t *ht)
 	return (0);
 }
 
+static void dump_hash(htable_t *ht)
+{
+	size_t slot ;
+	for (slot = 0; slot < ht->size; slot++) {
+		hnode_t *node = ht->nodes[slot];
+
+		while (NULL != node) {
+			DE("Hash: slot[%zd]: hash = %zu, (key = %s), pointer = %p\n", slot, node->hash, node->key, node->data);
+			node = node->next;
+		}
+	}
+}
+
 /* insert new key / data where key is size_t integer value  */
 int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 {
@@ -134,6 +147,7 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 		DDD("Slot is empty - insert and finish\n");
 		ht->nodes[slot] = node;
 		ht->members++;
+		dump_hash(ht);
 		return (0);
 	}
 
@@ -152,6 +166,7 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 	node_p->next = node;
 	/* If we are here, it means a collition has place, the slot is occupied */
 	ht->collisions++;
+	dump_hash(ht);
 	return (0);
 }
 
@@ -169,19 +184,6 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	hash = murmur3_32((uint8_t *)key, strlen(key));
 
 	return (htable_insert_by_int(ht, hash, key, data));
-}
-
-static void dump_hash(htable_t *ht)
-{
-	size_t slot ;
-	for (slot = 0; slot < ht->size; slot++) {
-		hnode_t *node = ht->nodes[slot];
-
-		while (NULL != node) {
-			DE("Hash: slot[%zd]: hash = %zu, (key = %s), pointer = %p\n", slot, node->hash, node->key, node->data);
-			node = node->next;
-		}
-	}
 }
 
 /* remove data for the given key; the data returned */
@@ -271,13 +273,6 @@ static void dump_hash(htable_t *ht)
 }
 
 
-/* Replace data for the given key; old data returned */
-#if 0
-void *htable_replace(htable_t *ht, char *key, void *data){
-	return (0);
-}
-#endif
-
 /* find data for the given key */
 /*@null@*/ void *htable_find_by_int(htable_t *ht, size_t key)
 {
@@ -316,18 +311,6 @@ void *htable_replace(htable_t *ht, char *key, void *data){
 	return (htable_find_by_int(ht, hash));
 }
 
-
-/* Test if this key already in the hash table. 0 for "yes", 1 for "no", -1 for error */
-#if 0
-int htable_test_key(htable_t *ht, char *key){
-	void *data;
-	TESTP(ht, -1, "Got NULL");
-	TESTP(key, -1, "Got NULL");
-	data = htable_find(ht, key);
-	if (NULL == data) return (1);
-	return (0);
-}
-#endif
 
 /* find the first found key from hash table */
 /*@null@*/ void *htable_first_key(htable_t *ht)

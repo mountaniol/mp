@@ -101,12 +101,12 @@ static buf_t *mp_config_get_x509_name(void)
 	return (buf_sprintf("%s/%s/%s", homedir, CONFIG_DIR_NAME, X509_CERT_NAME));
 }
 
-static err_t mp_config_dir_unlock()
+static err_t mp_config_dir_unlock(void)
 {
 	int   rc        = EBAD;
 	buf_t *conf_dir = mp_config_get_config_dir();
 	TESTP_MES(conf_dir, EBAD, "Can't construct config dir name");
-	DDD("conf dir  [%s] room [%d] used [%d]\n", conf_dir->data, conf_dir->room, conf_dir->used);
+	//DDD("conf dir  [%s] room [%d] used [%d]\n", conf_dir->data, conf_dir->room, conf_dir->used);
 	/* 1. Change config directory to Read Write mode */
 	rc = chmod(conf_dir->data, S_IRUSR | S_IWUSR | S_IXUSR);
 	buf_free(conf_dir);
@@ -167,7 +167,12 @@ static err_t mp_config_file_lock(buf_t *file)
 	int ret = EBAD;
 	int rc  = -1;
 
-	TESTP(file, EBAD);
+	TESTP_ASSERT(file, "buf_t of filename is NULL");
+
+	if (file->used < 1) {
+		DE("Wrong filename: %u\n", file->used);
+		abort();
+	}
 
 	rc = mp_config_dir_unlock();
 	if (EOK != rc) {
@@ -178,7 +183,7 @@ static err_t mp_config_file_lock(buf_t *file)
 	/* Change config file to "Owner only Read" mode */
 	rc = chmod(file->data, S_IRUSR);
 	if (0 != rc) {
-		DE("Can't change config file permition\n");
+		DE("Can't change config file permition: |%s|, data len: %u\n", file->data, file->used);
 		perror("chmod err:");
 		goto err;
 	}
@@ -200,12 +205,12 @@ static json_t *mp_config_read(void)
 	int         rc        = EBAD;
 
 	filename = mp_config_get_config_name();
-	TESTP_MES(filename, NULL, "Can't create config file name");
+	TESTP_ASSERT(filename, "Can't create config file name");
 
 	rc = mp_config_file_unlock(filename);
 	if (EOK != rc) {
 		DE("Can't unlock config file\n");
-		return (NULL);
+		abort();
 	}
 
 	if (0 != stat(filename->data, &statbuf)) {
@@ -218,7 +223,7 @@ static json_t *mp_config_read(void)
 		goto err;
 	}
 
-	fd = mp_os_fopen(filename->data, "r");
+	fd = mp_os_fopen_regular(filename->data, "r");
 	if (NULL == fd) {
 		DE("Can't open config file %s\n", filename->data);
 		perror("Open file error:");
@@ -246,6 +251,13 @@ static json_t *mp_config_read(void)
 	root = j_str2j(buf);
 
 err:
+	/* Lock config file and dir */
+	rc = mp_config_file_lock(filename);
+	if (EOK != rc) {
+		DE("Can't unlock config file : |%s|\n", filename->data);
+		abort();
+	}
+
 	buf_free(filename);
 	TFREE_SIZE(buf, buf_len);
 	if (NULL != fd) {
@@ -253,12 +265,6 @@ err:
 			DE("Can't close file\n");
 			perror("Can't close file");
 		}
-	}
-
-	/* Lock config file and dir */
-	rc = mp_config_file_lock(filename);
-	if (EOK != rc) {
-		DE("Can't unlock config file\n");
 	}
 
 	return (root);
@@ -318,7 +324,7 @@ err:
 }
 
 /* Write config object to config file */
-err_t mp_config_save()
+err_t mp_config_save(void)
 {
 	FILE   *fd       = NULL;
 	buf_t  *filename = NULL;
@@ -344,25 +350,24 @@ err_t mp_config_save()
 			DE("Can't close dir\n");
 			perror("can't close dir");
 		}
-	} else
-		if (ENOENT == errno) {
-			rc = mkdir(dirname->data, 0700);
-			if (0 != rc) {
-				DE("mkdir failed; probably it is a;ready exists?\n");
-				perror("can't mkdir");
-			}
-		} else {
-			DE("Some error\n");
-			perror("Config directory testing error");
-			buf_free(dirname);
-			return (EBAD);
+	} else if (ENOENT == errno) {
+		rc = mkdir(dirname->data, 0700);
+		if (0 != rc) {
+			DE("mkdir failed; probably it is a;ready exists?\n");
+			perror("can't mkdir");
 		}
+	} else {
+		DE("Some error\n");
+		perror("Config directory testing error");
+		buf_free(dirname);
+		return (EBAD);
+	}
 	buf_free(dirname);
 
 	filename = mp_config_get_config_name();
 	TESTP_MES(filename, -1, "Can't create config file name");
 
-	fd = mp_os_fopen(filename->data, "w+");
+	fd = mp_os_fopen_regular(filename->data, "w+");
 	if (NULL == fd) {
 		DE("Can't open file %s\n", filename->data);
 		rc = -1;
@@ -409,7 +414,7 @@ err:
 }
 
 /* Create config from content of ctl->me */
-err_t mp_config_from_ctl_l()
+err_t mp_config_from_ctl_l(void)
 {
 	err_t rc = EBAD;
 	/*@shared@*/control_t *ctl = ctl_get();
@@ -444,7 +449,7 @@ err:
 }
 
 /* Read config from file. If there is no config file - return error */
-err_t mp_config_load()
+err_t mp_config_load(void)
 {
 	err_t      rc   = EBAD;
 	const char *key = NULL;
@@ -457,9 +462,11 @@ err_t mp_config_load()
 
 	/* Loaded. Let's init ctl->me with the fields from the control */
 	json_object_foreach(ctl->config, key, val) {
-		DDD("Going to copy %s from ctl->config to ctl->me\n", key);
+		DDD("Going to copy from JSON ctl->config->%s to JSON ctl->me->%s\n", key, key);
 		rc = j_cp(ctl->config, ctl->me, key);
-		TESTI_MES(rc, EBAD, "Can't copy object from ctl->config to ctl->me");
+		if (EOK != rc) {
+			DE("Can't copy ctl->config->%s to ctl->me->%s", key, key);
+		}
 	}
 
 	return (rc);
@@ -504,7 +511,7 @@ int mp_config_save_rsa_keys(RSA *rsa)
 	TESTI_GO(rc, err);
 
 
-	fp = mp_os_fopen(file->data, "wb");
+	fp = mp_os_fopen_regular(file->data, "wb");
 	TESTP(fp, EBAD);
 
 	/* Todo: password the key */
@@ -529,7 +536,7 @@ int mp_config_save_rsa_keys(RSA *rsa)
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = mp_os_fopen(file->data, "wb");
+	fp = mp_os_fopen_regular(file->data, "wb");
 	TESTP(fp, EBAD);
 
 	rc = PEM_write_RSAPublicKey(fp, rsa);
@@ -566,7 +573,7 @@ err_t mp_config_save_rsa_x509(X509 *x509)
 	TESTI_GO(rc, err);
 
 	/* Open file for writing */
-	fd = mp_os_fopen(file->data, "wb");
+	fd = mp_os_fopen_regular(file->data, "wb");
 	if (NULL == fd) {
 		DE("Can't open x509 file for writing\n");
 		goto err;
@@ -592,7 +599,7 @@ err:
 	return (ret);
 }
 
-X509 *mp_config_load_X509()
+X509 *mp_config_load_X509(void)
 {
 	int   rc    = EBAD;
 	buf_t *file = NULL;
@@ -605,7 +612,7 @@ X509 *mp_config_load_X509()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = mp_os_fopen(file->data, "r");
+	fp = mp_os_fopen_regular(file->data, "r");
 	TESTP_GO(fp, err);
 
 	x509 = PEM_read_X509(fp, NULL, NULL, NULL);
@@ -621,7 +628,7 @@ err:
 }
 
 /* Load public key from pem file */
-RSA *mp_config_load_rsa_pub()
+RSA *mp_config_load_rsa_pub(void)
 {
 	int   rc    = EBAD;
 	RSA   *rsa  = NULL;
@@ -634,7 +641,7 @@ RSA *mp_config_load_rsa_pub()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = mp_os_fopen(file->data, "rb");
+	fp = mp_os_fopen_regular(file->data, "rb");
 	TESTP_GO(fp, err);
 
 	rsa = PEM_read_RSAPublicKey(fp, NULL, NULL, NULL);
@@ -657,7 +664,7 @@ err:
 }
 
 /* Probe if RSA private file exists */
-err_t mp_config_probe_rsa_priv()
+err_t mp_config_probe_rsa_priv(void)
 {
 	int         rc;
 	buf_t       *file = NULL;
@@ -689,7 +696,7 @@ err_t mp_config_probe_rsa_priv()
 }
 
 /* Probe if RSA private file exists */
-err_t mp_config_probe_x509()
+err_t mp_config_probe_x509(void)
 {
 	int         rc;
 	buf_t       *file = NULL;
@@ -720,7 +727,7 @@ err_t mp_config_probe_x509()
 }
 
 /* Load public key from pem file */
-RSA *mp_config_load_rsa_priv()
+RSA *mp_config_load_rsa_priv(void)
 {
 	int   rc    = EBAD;
 	RSA   *rsa  = NULL;
@@ -733,7 +740,7 @@ RSA *mp_config_load_rsa_priv()
 	rc = mp_config_file_unlock(file);
 	TESTI_GO(rc, err);
 
-	fp = mp_os_fopen(file->data, "rb");
+	fp = mp_os_fopen_regular(file->data, "rb");
 	if (NULL == fp) {
 		DE("Can't open file %s\n", file->data);
 		perror("Can't open:");

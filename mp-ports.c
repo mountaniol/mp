@@ -1,9 +1,9 @@
 #ifndef S_SPLINT_S
-#define _POSIX_C_SOURCE 200809L
-#define __USE_POSIX
-#include <limits.h>
-#include <string.h>
-#define STATICLIB
+	#define _POSIX_C_SOURCE 200809L
+	#define __USE_POSIX
+	#include <limits.h>
+	#include <string.h>
+	#define STATICLIB
 #endif
 
 #ifndef _POSIX_HOST_NAME_MAX
@@ -23,6 +23,7 @@
 #include "mp-ctl.h"
 #include "mp-os.h"
 #include "mp-mqtt-app.h"
+#include "mp-dispatcher.h"
 
 /* The miniupnpc library API changed in version 14.
    After API version 14 it accepts additional param "ttl" */
@@ -107,9 +108,9 @@ err:
 			NULL, // path to minissdpd socket (or null defaults to /var/run/minissdpd.sock)
 			0, // source port to use (or zero defaults to port 1900)
 			0, // 0==IPv4, 1==IPv6
-						 #if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
+#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 			2, // TTL should default to 2
-						 #endif
+#endif
 			&error)); // error condition
 }
 
@@ -148,11 +149,11 @@ static int upnp_get_generic_port_mapping_entry(struct UPNPUrls *upnp_urls,
 		DE("Error on ports scanning: UPNPCOMMAND_INVALID_RESPONSE\n");
 		return (EBAD);
 		/* TODO: Find exact version where this change became */
-		#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
+#if MINIUPNPC_API_VERSION >= MINIUPNPC_API_VERSION_ADDED_TTL
 	case UPNPCOMMAND_MEM_ALLOC_ERROR:
 		DE("Error on ports scanning: UPNPCOMMAND_MEM_ALLOC_ERROR\n");
 		return (EBAD);
-		#endif
+#endif
 	default:
 		break;
 	}
@@ -190,15 +191,15 @@ err_t mp_ports_router_root_discover(void)
    to "internal_port" on this machine */
 static err_t mp_ports_remap_port(const int external_port, const int internal_port, /*@temp@*/const char *protocol /* "TCP", "UDP" */)
 {
-	int             error        = 0;
-	char            *lan_address = NULL;
+	int             error               = 0;
+	char            *lan_address        = NULL;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 	char            s_ext[PORT_STR_LEN];
 	char            s_int[PORT_STR_LEN];
-	int             status       = -1;
+	int             status              = -1;
 
-	control_t       *ctl         = ctl_get();
+	control_t       *ctl                = ctl_get();
 
 	TESTP(protocol, EBAD);
 
@@ -292,9 +293,10 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 		return (NULL);
 	}
 
-	end:
+end:
 	/* If there was an error we try to generate some random port and map it */
-	resp = j_new();
+	// resp = j_new();
+	resp = mp_disp_create_response(req);
 	TESTP(resp, NULL);
 	rc = j_add_str(resp, JK_PORT_EXT, reservedPort->data);
 	TESTI_MES(rc, NULL, "Can't add JK_PORT_EXT, reservedPort");
@@ -303,7 +305,7 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 	rc = j_add_str(resp, JK_PROTOCOL, protocol);
 	TESTI_MES(rc, NULL, "Can't add JK_PROTOCOL, protocol");
 	//TFREE_SIZE(reservedPort, PORT_STR_LEN);
-	buf_free(reservedPort); 
+	buf_free(reservedPort);
 	return (resp);
 }
 
@@ -422,9 +424,9 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 
 		/*@ignore@*/
 
-		#ifndef S_SPLINT_S
+#ifndef S_SPLINT_S
 		snprintf(req->s_index, PORT_STR_LEN, "%zu", index);
-		#endif
+#endif
 		/*@end@*/
 		error = upnp_get_generic_port_mapping_entry(&upnp_urls, &upnp_data, req);
 
@@ -572,7 +574,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 
 /* Test if internal port already mapped.
    If it mapped, the external port returned */
-/*@null@*/ buf_t *mp_ports_get_external_ip()
+/*@null@*/ buf_t *mp_ports_get_external_ip(void)
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
@@ -594,7 +596,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 		return (NULL);
 	}
 
-	wan_address = buf_string(IP_STR_LEN+1);
+	wan_address = buf_string(IP_STR_LEN + 1);
 	if (NULL == wan_address) {
 		FreeUPNPUrls(&upnp_urls);
 		DE("Can't allocate wan_address\n");
@@ -668,6 +670,220 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	return (root);
 }
 
+/*** Dispatcher functionality */
+/* This function is called when remote machine asks to open port for imcoming connection */
+static err_t mp_ports_do_open_port_l(const j_t *root)
+{
+	/*@temp@*/ const control_t *ctl = ctl_get();
+	/*@temp@*/j_t *mapping = NULL;
+	/*@temp@*/const char *asked_port = NULL;
+	/*@temp@*/const char *protocol = NULL;
+	/*@temp@*/j_t *val = NULL;
+	/*@temp@*/j_t *ports = NULL;
+	size_t index = 0;
+	/*@temp@*/const char *ip_internal = NULL;
+	err_t  rc;
+
+	TESTP(root, EBAD);
+
+	/*** Get fields from JSON request */
+
+	asked_port = j_find_ref(root, JK_PORT_INT);
+	TESTP_MES(asked_port, EBAD, "Can't find 'port' field");
+
+	protocol = j_find_ref(root, JK_PROTOCOL);
+	TESTP_MES(protocol, EBAD, "Can't find 'protocol' field");
+
+	ports = j_find_j(ctl->me, "ports");
+	TESTP(ports, EBAD);
+
+	/*** Check if the asked port + protocol is already mapped; if yes, return OK */
+
+	ctl_lock();
+	/*@ignore@*/
+	json_array_foreach(ports, index, val) {
+		if (EOK == j_test(val, JK_IP_INT, asked_port) &&
+			EOK == j_test(val, JK_PROTOCOL, protocol)) {
+			ctl_unlock();
+			DD("Already mapped port\n");
+			return (EOK);
+		}
+	}
+	/*@end@*/
+	ctl_unlock();
+
+	/*** If we here, this means that we don't have a record about this port.
+	 * So we run UPNP request to our router to test this port */
+
+	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
+	ip_internal = j_find_ref(ctl->me, JK_IP_INT);
+	TESTP_ASSERT(ip_internal, "internal IP is NULL");
+	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
+
+	/*** UPNP request found an existing mapping of asked port + protocol */
+	if (NULL != mapping) {
+
+		/* Add this mapping to our internal table table */
+		ctl_lock();
+		rc = j_arr_add(ports, mapping);
+		ctl_unlock();
+		if (EOK != rc) {
+			DE("Can't add mapping to responce array\n");
+			j_rm(mapping);
+			mapping = NULL;
+			return (EBAD);
+		}
+
+		/* Return here. The new port added to internal table in ctl->me.
+		   At the end of the process the updated ctl->me object will be sent to the client.
+		   And this ctl->me object contains all port mappings.
+		   The client will check this host opened ports and see that asked port mapped. */
+		return (EOK);
+	}
+
+	/*** If we here it means no such mapping exists. Let's map it */
+	mapping = mp_ports_remap_any(root, asked_port, protocol);
+	TESTP_MES(mapping, EBAD, "Can't map port");
+
+	/*** Ok, port mapped. Now we should update ctl->me->ports hash table */
+
+	ctl_lock();
+	rc = j_arr_add(ports, mapping);
+	ctl_unlock();
+	TESTI_MES(rc, EBAD, "Can't add mapping to responce array");
+	return (EOK);
+}
+
+/* This function is called when remote machine asks to close a port on this machine */
+static err_t mp_ports_do_close_port_l(const j_t *root)
+{
+	/*@temp@*/const control_t *ctl = ctl_get();
+	/*@temp@*/const char *asked_port = NULL;
+	/*@temp@*/const char *protocol = NULL;
+	/*@temp@*/j_t *val = NULL;
+	/*@temp@*/j_t *ports = NULL;
+	size_t index      = 0;
+	int    index_save = 0;
+	/*@temp@*/const char *external_port = NULL;
+	err_t  rc         = EBAD;
+
+	TESTP(root, EBAD);
+
+	asked_port = j_find_ref(root, JK_PORT_INT);
+	TESTP_MES(asked_port, EBAD, "Can't find 'port' field");
+
+	protocol = j_find_ref(root, JK_PROTOCOL);
+	TESTP_MES(protocol, EBAD, "Can't find 'protocol' field");
+
+	ports = j_find_j(ctl->me, "ports");
+	TESTP(ports, EBAD);
+
+	ctl_lock();
+	json_array_foreach(ports, index, val) {
+		if (EOK == j_test(val, JK_PORT_INT, asked_port) &&
+			EOK == j_test(val, JK_PROTOCOL, protocol)) {
+			external_port = j_find_ref(val, JK_PORT_EXT);
+			index_save = index;
+			D("Found opened port: %s -> %sd %s\n", asked_port, external_port, protocol);
+		}
+	}
+
+	ctl_unlock();
+
+	if (NULL == external_port) {
+		DE("No such an open port\n");
+		return (EBAD);
+	}
+
+	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
+	if (EOK != rc) {
+		DE("Can't send ticket");
+	}
+	/* this function probes the internal port. If it alreasy mapped, it returns the mapping */
+	rc = mp_ports_unmap_port(root, asked_port, external_port, protocol);
+
+	if (0 != rc) {
+		DE("Can'r remove port \n");
+		return (EBAD);
+	}
+
+	ctl_lock();
+	rc = json_array_remove(ports, index_save);
+	ctl_unlock();
+	if (EOK != rc) {
+		/*@ignore@*/
+		DE("Can't remove port from ports: asked index %d, size of ports arrays is %zu", index_save, json_array_size(ports));
+		/*@end@*/
+	}
+	return (EOK);
+}
+
+/* Dispatcher hook, called when a message for APP_PORTS received */
+int mp_ports_recv(void *root)
+{
+	j_t *resp = NULL;
+	int rv    = EBAD;
+
+	/* Find out the command and execute it */
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_OPEN)) {
+		rv = mp_ports_do_open_port_l(root);
+	}
+
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_CLOSE)) {
+		rv = mp_ports_do_close_port_l(root);
+	}
+
+	/* Construct response and send it */
+	resp = mp_disp_create_response(root);
+
+	/* Prepsre dispatcher related fields */
+	if (NULL == resp) {
+		DE("Failure in dispatcher: can't prepare response\n");
+		rv = EBAD;
+		goto err;
+	}
+
+	/* Add operation status */
+	if (EOK == rv) {
+		j_add_str(resp, JK_STATUS, JV_OK);
+	} else {
+		j_add_str(resp, JK_STATUS, JV_BAD);
+	}
+
+	/* Send response */
+	rv = mp_disp_send(resp);
+
+	if (EOK != rv) {
+		DE("Can't send json\n");
+	}
+
+err:
+	/* We don't need the received request */
+	j_rm(root);
+	/* We also don't need the response */
+	if (NULL != resp) {
+		j_rm(resp);
+	}
+
+	return (rv);
+}
+
+int mp_ports_start_app(void)
+{
+	int rc;
+
+	/* Register this app in dispatcher: the APP_PORT does not implement the "send" function.
+	   All messages it produces should be returned to sender */
+	rc = mp_disp_register(APP_PORTS, NULL, mp_ports_recv);
+
+	if (EOK != rc) {
+		DE("Can't register in dispatcher\n");
+		return (EBAD);
+	}
+
+	return (EOK);
+}
+
 #ifdef STANDALONE
 int main(int argi, char **argc)
 {
@@ -681,8 +897,8 @@ int main(int argi, char **argc)
 		return (-1);
 	}
 
-	i_ext = atoi(argc[1] );
-	i_int = atoi(argc[2] );
+	i_ext = atoi(argc[1]);
+	i_int = atoi(argc[2]);
 
 	rc = mp_ports_if_mapped(i_ext, i_int, NULL, "TCP");
 	if (rc < 0) {
