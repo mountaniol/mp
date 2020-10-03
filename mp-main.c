@@ -274,7 +274,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 	mp_main_print_info_banner();
 
-	rc = mp_mqtt_start_app(cert_path);
+	rc = mp_mqtt_start_module(cert_path);
 
 	if (EOK != rc) {
 		DE("Can't create thread mqtt-app\n");

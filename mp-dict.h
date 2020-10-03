@@ -91,8 +91,8 @@
 
 /* Redesign: adding dispatcher and new commands set */
 
-/* Command: The same application receives multiple commands.
-   For example, APP_PORTS can receive "close-port", "open-port",
+/* Command: The same module receives multiple commands.
+   For example, MODULE_PORTS can receive "close-port", "open-port",
    "list-ports" and more commands.
    The receiver function choose what to run by JK_COMMAND field
    */
@@ -101,12 +101,12 @@
 
 /* Source machine */
 #define JK_DISP_SRC_UID "disp-src-machine"
-/* Source application */
-#define JK_DISP_SRC_APP "disp-src-app"
+/* Source Module */
+#define JK_DISP_SRC_MODULE "disp-src-app"
 /* Target machine */
 #define JK_DISP_TGT_UID "disp-tgt-machine"
-/* Target application */
-#define JK_DISP_TGT_APP "disp-tgt-app"
+/* Target Module */
+#define JK_DISP_TGT_MODULE "disp-tgt-app"
 
 /* Status field, used mostly responce, can be OK, BAD or WORKING */
 #define JK_STATUS "status"
@@ -118,12 +118,12 @@
 /* Returned status: operation still in progress, this is a notification */
 #define JV_STATUS_WORK "work"
 
-/* What exactly do we want from the application? */
+/* What exactly do we want from the module? */
 #define JK_COMMAND "command"
 
 /* Values of the JK_COMMAND */
 
-/* APP_PORTS related */
+/* MODULE_PORTS related */
 #define JV_PORTS_OPEN "port-open"
 #define JV_PORTS_CLOSE "port-close"
 

@@ -179,7 +179,7 @@ extern err_t send_keepalive_l()
 #endif /* SEB DEADCODE 20/09/2020 13:38 */
 	int rc;
 	control_t *ctl = ctl_get();
-	j_t *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION,0);
+	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
 	TESTP(root, "Can't create request\n");
 	j_merge(root, ctl->me);
 	rc = mp_disp_send(root);
@@ -260,7 +260,7 @@ err_t send_reveal_l()
 	}
 #endif /* SEB DEADCODE 20/09/2020 13:32 */
 	int rc;
-	j_t *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION,0);
+	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
 	TESTP(root, EBAD);
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) {

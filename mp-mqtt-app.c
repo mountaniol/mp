@@ -33,13 +33,13 @@ pthread_t mosq_thread_id;
 /*@null@*/static void *mp_mqtt_message_processor_pthread(/*@only@*/void *v);
 
 /* Dispatcher hook, called when a message from a remote host received */
-int mp_app_recv(void *root)
+int mp_module_recv(void *root)
 {
 	int       rc;
 	pthread_t message_thread;
 
 	DD("Recevived a message\n");
-	/* This is the end point of a message dedicated to APP_CONNECTION */
+	/* This is the end point of a message dedicated to MODULE_CONNECTION */
 
 
 	/* Process it here */
@@ -50,7 +50,7 @@ int mp_app_recv(void *root)
 }
 
 /* Dispatcher hook, called when a message to a remote machine asked to be sent */
-int mp_app_send(void *root)
+int mp_module_send(void *root)
 {
 	int   rc           = -1;
 	/* TODO: by default we publush message on own topic */
@@ -80,7 +80,7 @@ int mp_app_send(void *root)
 /* Parameters:
    req - request which must contain JK_TICKET with ticket id
    status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
-   comment (optional) - free form test explaining what happens. THis text will be displeyed to user */
+   comment (optional) - free form test explaining what happens. This text will be displeyed to user */
 err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *comment)
 {
 	/*@only@*/j_t *root = NULL;
@@ -136,7 +136,7 @@ end:
 
 /* This function called when a remote machine disconnected from the server.
    When it happens, we remove all information about this machine */
-/* TODO: APP_CONFIG should receive it */
+/* TODO: MODULE_CONFIG should receive it */
 static err_t mp_mqtt_remove_host_l(const j_t *root)
 {
 	/*@temp@*/const control_t *ctl = NULL;
@@ -1057,12 +1057,12 @@ end:
 	return (NULL);
 }
 
-int mp_mqtt_start_app(void *cert_path)
+int mp_mqtt_start_module(void *cert_path)
 {
 	int rc;
 
-	/* Register this app in dispatcher */
-	rc = mp_disp_register(APP_CONNECTION, mp_app_send, mp_app_recv);
+	/* Register this module in dispatcher */
+	rc = mp_disp_register(MODULE_CONNECTION, mp_module_send, mp_module_recv);
 
 	if (EOK != rc) {
 		DE("Can't register in dispatcher\n");

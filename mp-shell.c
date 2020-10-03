@@ -266,7 +266,7 @@ static err_t mp_shell_ask_openport(j_t *args)
 
 	TESTP(args, EBAD);
 
-	root = mp_disp_create_request(uid_dst, APP_PORTS, APP_SHELL, 0);
+	root = mp_disp_create_request(uid_dst, MODULE_PORTS, MODULE_SHELL, 0);
 	TESTP(root, EBAD);
 
 	//j_print(args, "args");

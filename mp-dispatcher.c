@@ -48,21 +48,21 @@
 
 /* The callback every active side should registr to receive responces */
 
-/* This function translate APP ID to a string. For debug prints. */
-static const char *mp_disp_app_name(app_type_e app_id)
+/* This function translate MODULE ID to a string. For debug prints. */
+static const char *mp_disp_module_name(module_type_e module_id)
 {
-	const char *app_names[] = {
-		"APP_CONNECTION",
-		"APP_REMOTE",
-		"APP_CONFIG",
-		"APP_PORTS",
-		"APP_SHELL",
-		"APP_TUNNEL",
-		"APP_GUI",
-		"APP_SECURITY",
-		"APP_MPFS",
+	const char *module_names[] = {
+		"MODULE_CONNECTION",
+		"MODULE_REMOTE",
+		"MODULE_CONFIG",
+		"MODULE_PORTS",
+		"MODULE_SHELL",
+		"MODULE_TUNNEL",
+		"MODULE_GUI",
+		"MODULE_SECURITY",
+		"MODULE_MPFS",
 	};
-	return (app_names[app_id]);
+	return (module_names[module_id]);
 }
 
 static disp_t *disp_t_alloc(void)
@@ -74,7 +74,7 @@ static disp_t *disp_t_alloc(void)
 	return (d);
 }
 
-int mp_disp_register(size_t app_id, mp_disp_cb_t func_send, mp_disp_cb_t func_recv)
+int mp_disp_register(size_t module_id, mp_disp_cb_t func_send, mp_disp_cb_t func_recv)
 {
 	control_t *ctl = NULL;
 	disp_t    *d   = NULL;
@@ -85,15 +85,15 @@ int mp_disp_register(size_t app_id, mp_disp_cb_t func_send, mp_disp_cb_t func_re
 	d = disp_t_alloc();
 	TESTP(d, EBAD);
 
-	d->disp_id = app_id;
+	d->disp_id = module_id;
 	d->recv = func_recv;
 	d->send = func_send;
 
 	ctl = ctl_get_locked();
-	htable_insert_by_int(ctl->dispatcher, app_id, NULL, d);
+	htable_insert_by_int(ctl->dispatcher, module_id, NULL, d);
 	ctl_unlock();
 
-	DDD("Registred handlers for app %zd : %s\n", app_id, mp_disp_app_name(app_id));
+	DDD("Registred handlers for module %zd : %s\n", module_id, mp_disp_module_name(module_id));
 	return (EOK);
 }
 
@@ -172,22 +172,22 @@ int mp_disp_send(void *json)
 		return (EBAD);
 	}
 
-	/* If this message is not for us (not for this machine) the APP is REMOTE - send it to remote host */
+	/* If this message is not for us (not for this machine) the MODULE is REMOTE - send it to remote host */
 	if (MES_DEST_REMOTE == error) {
-		disp_id = APP_REMOTE;
+		disp_id = MODULE_REMOTE;
 	}
 
-	/* This message is for us, so find callbacks of target applications */
+	/* This message is for us, so find callbacks of target module */
 	if (MES_DEST_ME == error) {
 
-		/* Extract from JSON the target app ID */
-		disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
+		/* Extract from JSON the target module ID */
+		disp_id = j_find_int(json, JK_DISP_TGT_MODULE, &error);
 
 		/* If we can't find it - return with error */
 		if (EBAD == disp_id && EBAD == error) {
-			DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
+			DE("Can't find %s record in JSON\n", JK_DISP_SRC_MODULE);
 			DE("JSON dump:\n");
-			j_print(json, "No JK_DISP_SRC_APP in this JSON");
+			j_print(json, "No JK_DISP_SRC_MODULE in this JSON");
 			return (EBAD);
 		}
 	}
@@ -197,23 +197,23 @@ int mp_disp_send(void *json)
 
 	d = htable_find_by_int(ctl->dispatcher, disp_id);
 	if (NULL == d) {
-		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_app_name(disp_id));
+		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 		j_print(json, "The JSON failed is:");
 		j_rm(json);
 		return (EBAD);
 	}
 
-	/* If the APP registered the "send" function, we use it.
+	/* If the MODULE registered the "send" function, we use it.
 	   Else we drop the JSON and return error */
 	if (NULL == d->send) {
-		DE("Can't find 'send' handler for the app %s\n", mp_disp_app_name(disp_id));
+		DE("Can't find 'send' handler for the module %s\n", mp_disp_module_name(disp_id));
 		j_rm(json);
 	}
 
-	/* If we can't extract APP remote we are dead, this is an illigal situation */
-	TESTP_ASSERT(d, "Can't find APP_REMOTE!\n");
+	/* If we can't extract MODULE remote we are dead, this is an illigal situation */
+	TESTP_ASSERT(d, "Can't find MODULE_REMOTE!\n");
 
-	DDD("The request dedicated to app: %zu : %s\n", disp_id, mp_disp_app_name(disp_id));
+	DDD("The request dedicated to module: %zu : %s\n", disp_id, mp_disp_module_name(disp_id));
 
 	return (d->send(json));
 }
@@ -247,14 +247,14 @@ int mp_disp_recv(void *json)
 	}
 
 	/* TODO: decide where to send it based on dest_id.
-	*  When an application sends the answer, it set SOURCE APP ID
-	*  of the request as TARGET APP ID as the reponce */
-	disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
+	*  When an module sends the answer, it set SOURCE MODULE ID
+	*  of the request as TARGET MODULE ID as the reponce */
+	disp_id = j_find_int(json, JK_DISP_TGT_MODULE, &error);
 
 	if (EBAD == disp_id && EBAD == error) {
-		DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
+		DE("Can't find %s record in JSON\n", JK_DISP_SRC_MODULE);
 		DE("JSON dump:\n");
-		j_print(json, "No JK_DISP_SRC_APP in this JSON");
+		j_print(json, "No JK_DISP_SRC_MODULE in this JSON");
 		j_rm(json);
 		return (EBAD);
 	}
@@ -264,18 +264,18 @@ int mp_disp_recv(void *json)
 
 	d = htable_find_by_int(ctl->dispatcher, disp_id);
 	if (NULL == d) {
-		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_app_name(disp_id));
+		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 		j_rm(json);
 		return (EBAD);
 	}
 
-	DDD("The response dedicated to app: %zu : %s\n", disp_id, mp_disp_app_name(disp_id));
+	DDD("The response dedicated to module: %zu : %s\n", disp_id, mp_disp_module_name(disp_id));
 
 	return (d->send(json));
 }
 
 /* This function fills dispatcher related fields in JSON message */
-int mp_disp_prepare_request(void *json, const char *target_host, app_type_e dest_app, app_type_e src_app, ticket_t ticket)
+int mp_disp_prepare_request(void *json, const char *target_host, module_type_e dest_module, module_type_e src_module, ticket_t ticket)
 {
 	int        rc      = EBAD;
 	const char *uid_me = NULL;
@@ -292,15 +292,15 @@ int mp_disp_prepare_request(void *json, const char *target_host, app_type_e dest
 	rc = j_add_str(json, JK_DISP_TGT_UID, target_host);
 	TESTI_ASSERT(rc, "Can't add JK_UID_DST\n");
 
-	/* Add source app ID */
-	rc = j_add_int(json, JK_DISP_SRC_APP, src_app);
-	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_APP\n");
+	/* Add source module ID */
+	rc = j_add_int(json, JK_DISP_SRC_MODULE, src_module);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_MODULE\n");
 
-	/* Add target app ID */
-	rc = j_add_int(json, JK_DISP_TGT_APP, dest_app);
-	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_APP\n");
+	/* Add target module ID */
+	rc = j_add_int(json, JK_DISP_TGT_MODULE, dest_module);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_MODULE\n");
 
-	/* If the ticket is not specified, we generate if for the app */
+	/* If the ticket is not specified, we generate if for the module */
 	if (0 == ticket) {
 		mp_os_fill_random(&ticket, sizeof(ticket));
 	}
@@ -311,13 +311,13 @@ int mp_disp_prepare_request(void *json, const char *target_host, app_type_e dest
 	return (EOK);
 }
 
-j_t *mp_disp_create_request(const char *target_host, app_type_e dest, app_type_e source, ticket_t ticket)
+j_t *mp_disp_create_request(const char *target_host, module_type_e dest_module, module_type_e source_module, ticket_t ticket)
 {
 	void *json = j_new();
 	int  rc;
 
 	TESTP_ASSERT(json, "Can't allocate json object");
-	rc = mp_disp_prepare_request(json, target_host, dest, source, ticket);
+	rc = mp_disp_prepare_request(json, target_host, dest_module, source_module, ticket);
 	if (EOK != rc) {
 		DE("Can't fill the request\n");
 		j_rm(json);
@@ -348,17 +348,17 @@ int mp_disp_prepare_response(const void *json_req, void *json_resp)
 	rc = j_add_str(json_resp, JK_DISP_SRC_UID, uid);
 	TESTI_ASSERT(rc, "Can't find JK_UID_SRC in request json\n");
 
-	/* 3. "Target app ID" of source is "Source app ID" in response */
-	var = j_find_int(json_req, JK_DISP_TGT_APP, &error);
-	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_APP in request json\n");
-	rc = j_add_int(json_resp, JK_DISP_SRC_APP, var);
-	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_APP\n");
+	/* 3. "Target module ID" of source is "Source module ID" in response */
+	var = j_find_int(json_req, JK_DISP_TGT_MODULE, &error);
+	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_MODULE in request json\n");
+	rc = j_add_int(json_resp, JK_DISP_SRC_MODULE, var);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_MODULE\n");
 
-	/* 4. "Source app ID" in the request is "Target app ID" int the response */
-	var = j_find_int(json_req, JK_DISP_SRC_APP, &error);
-	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_APP in request json\n");
-	rc = j_add_int(json_resp, JK_DISP_TGT_APP, var);
-	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_APP\n");
+	/* 4. "Source module ID" in the request is "Target module ID" int the response */
+	var = j_find_int(json_req, JK_DISP_SRC_MODULE, &error);
+	TESTI_ASSERT(error, "Can't find JK_DISP_SRC_MODULE in request json\n");
+	rc = j_add_int(json_resp, JK_DISP_TGT_MODULE, var);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_MODULE\n");
 
 	/* 5. Ticket is the same, we copy it from the request to the response */
 	var = j_find_int(json_req, JK_TICKET, &error);
@@ -407,8 +407,8 @@ j_t *mp_disp_create_ticket_answer(void *json_req)
 
 /* TODO. Not done, not tested.
    Save JSON: we save JSON struct, private data and callback pointer by ticket.
-   We need it in applicateions like APP_SHELL or APP_GUI, where we may receive
-   the JSON struct from several external applications, and when a response received
+   We need it in module like MODULE_SHELL or MODULE_GUI, where we may receive
+   the JSON struct from several external module, and when a response received
    we should know where to return it.
  */
 int mp_disp_ticket_save(void *hash, void *json, void *priv)
@@ -421,12 +421,12 @@ int mp_disp_ticket_save(void *hash, void *json, void *priv)
 	TESTP(json, EBAD);
 
 	/* TODO: decide where to send it based on dest_id */
-	disp_id = j_find_int(json, JK_DISP_TGT_APP, &error);
+	disp_id = j_find_int(json, JK_DISP_TGT_MODULE, &error);
 
 	if (EBAD == disp_id && EBAD == error) {
-		DE("Can't find %s record in JSON\n", JK_DISP_SRC_APP);
+		DE("Can't find %s record in JSON\n", JK_DISP_SRC_MODULE);
 		DE("JSON dump:\n");
-		j_print(json, "No JK_DISP_SRC_APP in this JSON");
+		j_print(json, "No JK_DISP_SRC_MODULE in this JSON");
 		return (EBAD);
 	}
 

@@ -43,7 +43,7 @@ err:
 
 	TESTP_MES(name, NULL, "Got NULL");
 
-	root= mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION, 0);
+	root= mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) goto err;
@@ -61,7 +61,7 @@ err:
 {
 	/*@shared@*/control_t *ctl = ctl_get();
 	buf_t *buf;
-	j_t   *root = mp_disp_create_request("ALL", APP_CONNECTION, APP_CONNECTION, 0);
+	j_t   *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create request");
 	j_print(root, "Created request");
 
@@ -84,7 +84,7 @@ err:
 	TESTP_MES(uid_dest, NULL, "Got NULL");
 	TESTP_MES(port, NULL, "Got NULL");
 
-	root = mp_disp_create_request(uid_dest, APP_CONNECTION, APP_CONNECTION, 0);
+	root = mp_disp_create_request(uid_dest, MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT)) goto err;

@@ -818,7 +818,7 @@ static err_t mp_ports_do_close_port_l(const j_t *root)
 	return (EOK);
 }
 
-/* Dispatcher hook, called when a message for APP_PORTS received */
+/* Dispatcher hook, called when a message for MODULE_PORTS received */
 int mp_ports_recv(void *root)
 {
 	j_t *resp = NULL;
@@ -872,9 +872,9 @@ int mp_ports_start_app(void)
 {
 	int rc;
 
-	/* Register this app in dispatcher: the APP_PORT does not implement the "send" function.
+	/* Register this app in dispatcher: the MODULE_PORT does not implement the "send" function.
 	   All messages it produces should be returned to sender */
-	rc = mp_disp_register(APP_PORTS, NULL, mp_ports_recv);
+	rc = mp_disp_register(MODULE_PORTS, NULL, mp_ports_recv);
 
 	if (EOK != rc) {
 		DE("Can't register in dispatcher\n");
