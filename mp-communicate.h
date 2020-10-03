@@ -3,7 +3,7 @@
 
 extern err_t send_keepalive_l(void);
 extern err_t send_reveal_l(void);
-extern err_t mp_communicate_send_request(/*@temp@*/const j_t *root);
+extern err_t mp_communicate_send_request(/*@temp@*/j_t *root);
 extern /*@null@*/ buf_t *mp_communicate_forum_topic(void);
 extern /*@null@*/ buf_t *mp_communicate_forum_topic_all(void);
 extern /*@null@*/ buf_t *mp_communicate_private_topic(void);

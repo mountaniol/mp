@@ -35,8 +35,8 @@ pthread_t mosq_thread_id;
 /* Dispatcher hook, called when a message from a remote host received */
 int mp_module_recv(void *root)
 {
-	int       rc;
-	pthread_t message_thread;
+	//int       rc;
+	//pthread_t message_thread;
 
 	DD("Recevived a message\n");
 	/* This is the end point of a message dedicated to MODULE_CONNECTION */
@@ -580,9 +580,9 @@ end:
 	 */
 
 	rc = mp_disp_recv(root);
-	TESTI_MES(rc, EBAD, "mp_disp_recv returned error");
+	TESTI_MES(rc, NULL, "mp_disp_recv returned error");
 
-	return EOK;
+	return NULL;
 
 	/******************/
 

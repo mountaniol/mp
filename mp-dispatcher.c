@@ -411,8 +411,8 @@ j_t *mp_disp_create_ticket_answer(void *json_req)
    the JSON struct from several external module, and when a response received
    we should know where to return it.
  */
-int mp_disp_ticket_save(void *hash, void *json, void *priv)
-{
+#if 0 /* Not used yet 03/10/2020 17:16  */ 
+int mp_disp_ticket_save(void *hash, void *json, void *priv){
 	control_t *ctl    = NULL;
 	ssize_t   disp_id = -1;
 	disp_t    *d      = NULL;
@@ -442,3 +442,4 @@ int mp_disp_ticket_save(void *hash, void *json, void *priv)
 
 	return (d->send(json));
 }
+#endif /* SEB DEADCODE 03/10/2020 17:16 */

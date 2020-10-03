@@ -180,7 +180,7 @@ extern err_t send_keepalive_l()
 	int rc;
 	control_t *ctl = ctl_get();
 	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
-	TESTP(root, "Can't create request\n");
+	TESTP_MES(root, EBAD, "Can't create request\n");
 	j_merge(root, ctl->me);
 	rc = mp_disp_send(root);
 	if (EOK != rc) {
@@ -274,7 +274,7 @@ err_t send_reveal_l()
 	return rc;
 }
 
-err_t mp_communicate_send_request(const j_t *root)
+err_t mp_communicate_send_request(j_t *root)
 {
 	int   rc           = EBAD;
 	buf_t *buf         = NULL;
