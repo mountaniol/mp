@@ -101,7 +101,7 @@ int mp_os_fill_random(void *buf, size_t buf_size)
 	}
 
 	if ((size_t)rc != buf_size) {
-		DE("Can't read enough random data: asked %zu, got %zu\n", buf_size, rc);
+		DE("Can't read enough random data: asked %zu, got %zd\n", buf_size, rc);
 		return (EBAD);
 	}
 

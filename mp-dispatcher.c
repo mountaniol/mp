@@ -93,7 +93,7 @@ int mp_disp_register(size_t module_id, mp_disp_cb_t func_send, mp_disp_cb_t func
 	htable_insert_by_int(ctl->dispatcher, module_id, NULL, d);
 	ctl_unlock();
 
-	DDD("Registred handlers for module %zd : %s\n", module_id, mp_disp_module_name(module_id));
+	DDD("Registred handlers for module %zu : %s\n", module_id, mp_disp_module_name(module_id));
 	return (EOK);
 }
 
@@ -105,7 +105,7 @@ int mp_disp_register(size_t module_id, mp_disp_cb_t func_send, mp_disp_cb_t func
    MES_DEST_ERR on error */
 static int mp_disp_is_mes_for_me(void *json)
 {
-	control_t  *ctl    = NULL;
+	//control_t  *ctl    = NULL;
 	const char *target = NULL;
 	const char *my_uid = NULL;
 	TESTP(json, MES_DEST_ERR);
@@ -118,7 +118,7 @@ static int mp_disp_is_mes_for_me(void *json)
 		return (MES_DEST_ME);
 	}
 
-	ctl = ctl_get();
+	//ctl = ctl_get();
 	my_uid = ctl_uid_get();
 
 	if (0 == strncmp(target, my_uid, MP_LIMIT_UID_MAX)) {
@@ -213,7 +213,7 @@ int mp_disp_send(void *json)
 	/* If we can't extract MODULE remote we are dead, this is an illigal situation */
 	TESTP_ASSERT(d, "Can't find MODULE_REMOTE!\n");
 
-	DDD("The request dedicated to module: %zu : %s\n", disp_id, mp_disp_module_name(disp_id));
+	DDD("The request dedicated to module: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 
 	return (d->send(json));
 }
@@ -269,7 +269,7 @@ int mp_disp_recv(void *json)
 		return (EBAD);
 	}
 
-	DDD("The response dedicated to module: %zu : %s\n", disp_id, mp_disp_module_name(disp_id));
+	DDD("The response dedicated to module: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 
 	return (d->send(json));
 }

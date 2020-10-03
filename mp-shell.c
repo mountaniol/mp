@@ -363,8 +363,8 @@ static err_t mp_shell_ask_closeport(j_t *args)
 	resp = mp_shell_do_requiest(root);
 	TESTP_GO(resp, err);
 	j_rm(root);
-	if (j_test(resp, JK_STATUS, JV_OK)) {
-		rc = EOK;
+	if (EOK != j_test(resp, JK_STATUS, JV_OK)) {
+		goto err;
 	}
 
 	rc = mp_shell_wait_and_print_tickets();
