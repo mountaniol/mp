@@ -209,10 +209,9 @@ static json_t *mp_config_read(void)
 
 	/* Test that the config file exists */
 
-	rc = access(filename->data, F_OK);
-
-	if (0 != rc) {
-		DE("No such file: %s\n", filename->data);
+	rc = mp_os_test_if_file_exists(filename->data);
+	if (EOK != rc) {
+		DE("No such a file: %s\n", filename->data);
 		buf_free(filename);
 		return NULL;
 	}
@@ -296,17 +295,35 @@ static err_t mp_config_write(j_t *j_config)
 	file = mp_config_get_config_name();
 	TESTP(file, EBAD);
 
-	rc = mp_config_file_unlock(file);
-	if (EOK != rc) {
-		DE("Can't unlock config file\n");
-		return (EBAD);
+	/* Test if the file exists; if does, unlock it; it doesn't, unlock directory only */
+	rc = mp_os_test_if_file_exists(file->data);
+	if (EBAD == rc) {
+		DE("Can't test if file exists: %s\n", file->data);
+		buf_free(file);
+	}
+
+	if (EOK == rc) {
+		rc = mp_config_file_unlock(file);
+		if (EOK != rc) {
+			DE("Can't unlock config file\n");
+			buf_free(file);
+			return (EBAD);
+		}
+	} else {
+		rc = mp_config_dir_unlock();
+		if (EOK != rc) {
+			DE("Can't unlock config dir\n");
+			buf_free(file);
+			return (EBAD);
+		}
 	}
 
 	/* Open config file */
 	fd = open(file->data, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		DE("Can't open config file\n");
-		goto err;
+		buf_free(file);
+		return EBAD;
 	}
 
 	/* 4. Write config */
@@ -318,7 +335,7 @@ static err_t mp_config_write(j_t *j_config)
 	/* Finished. Close and release everything */
 	/* Set return status as success */
 	ret = EOK;
-err:
+
 	if (fd > 0) {
 		close(fd);
 	}
