@@ -364,6 +364,18 @@ extern int j_arr_rm(j_t *arr, size_t index);
  */
 extern void j_print(/*@null@*/const j_t *root, /*@null@*/const char *prefix);
 
+/**
+ * @author Sebastian Mountaniol (04/10/2020)
+ * 
+ * @brief Verbose version of j_print(): also accepts filename
+ *  	  and line of caller
+ * @param root  JSON object to print
+ * @param prefix Prefix text to print before JSON dump 
+ * @param filename Filename of caller
+ * @param line Line of caller
+ * @details 
+ */
+extern void j_print_v(/*@null@*/const j_t *root, /*@null@*/const char *prefix, const char *filename, int line);
 
 /*** Self implementation of interators ***/
 

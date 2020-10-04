@@ -408,7 +408,7 @@ err_t j_replace(/*@null@*/j_t *root, /*@null@*/const char *key, /*@null@*/j_t *j
 	TESTP_MES(j_new, EBAD, "Error: j_new is NULL");
 	if (EOK == j_test_key(root, key) && EOK != j_rm_key(root, key)) {
 		DE("Can't remove key '%s'\n", key);
-		j_print(root, "Object where I can't remove the key");
+		j_print_v(root, "Object where I can't remove the key", __FILE__, __LINE__);
 	}
 	return (json_object_set_new(root, key, j_new));
 }
@@ -475,6 +475,33 @@ void j_print(/*@null@*/const j_t *root, /*@null@*/const char *prefix)
 	}
 
 	D("%s :\n", prefix);
+	printf("%s\n", buf->data);
+	if (EOK != buf_free(buf)) {
+		DE("Can't remove buf_t: probably passed NULL pointer?\n");
+	}
+}
+
+void j_print_v(/*@null@*/const j_t *root, /*@null@*/const char *prefix, const char *filename, int line)
+{
+
+	buf_t *buf;
+	if (NULL == root || NULL == prefix) {
+		DE("NULL arg\n");
+		return;
+	}
+
+	buf = j_2buf(root);
+	if (NULL == buf) {
+		DE("Got NULL\n");
+		return;
+	}
+
+	if (NULL != filename) {
+		D("[%s +%d]: %s :\n", filename, line, prefix);
+	} else {
+		D("%s :\n", prefix);
+	}
+
 	printf("%s\n", buf->data);
 	if (EOK != buf_free(buf)) {
 		DE("Can't remove buf_t: probably passed NULL pointer?\n");

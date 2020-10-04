@@ -39,7 +39,7 @@ int mp_module_recv(void *root)
 	DD("Recevived a message\n");
 
 	/* Process it here */
-	j_print(root, "Reveived message is");
+	j_print_v(root, "Reveived message is", __FILE__, __LINE__);
 
 	/* Process the message */
 	command = j_find_ref(root, JK_TYPE);
@@ -102,7 +102,7 @@ int mp_module_send(void *root)
 	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
 	TESTP(buf, EBAD);
 
-	j_print(root, "Going to send the JSON");
+	j_print_v(root, "Going to send the JSON", __FILE__, __LINE__);
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
 	buf_free(forum_topic);
 	return (rc);
@@ -138,7 +138,7 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 	ticket = j_find_ref(req, JK_TICKET);
 	if (NULL == ticket) {
 		DE("No ticket\n");
-		j_print(req, "req is:");
+		j_print_v(req, "req is:", __FILE__, __LINE__);
 		return (EOK);
 	}
 
@@ -205,7 +205,7 @@ static err_t mp_mqtt_remove_host_l(const j_t *root)
 	if (EOK != rc) {
 		DE("Cant remove key from ctl->hosts:\n");
 		DE("UID_SRC = |%s|\n", uid_src);
-		j_print(ctl->hosts, "Hosts in ctl->hosts:");
+		j_print_v(ctl->hosts, "Hosts in ctl->hosts:", __FILE__, __LINE__);
 	}
 	DD("Removed UID\n");
 	return (EOK);
@@ -375,7 +375,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 
 	if (EOK != j_test_key(root, JK_TYPE)) {
 		DE("No type in the message\n");
-		j_print(root, "root");
+		j_print_v(root, "root", __FILE__, __LINE__);
 		TESTI_MES(rc, EBAD, "Can't remove json object");
 		return (EBAD);
 	}
@@ -668,7 +668,7 @@ end:
 	rc = mp_mqtt_parse_message_l(topics[3], root);
 	if (EOK != rc) {
 		DE("Can't parse message\n");
-		j_print(root, "Message is");
+		j_print_v(root, "Message is", __FILE__, __LINE__);
 	}
 
 	rc = mosquitto_sub_topic_tokens_free(&topics, topics_count);

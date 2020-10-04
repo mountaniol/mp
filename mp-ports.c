@@ -507,7 +507,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	wan_address = buf_string(IP_STR_LEN);
 	TESTP_MES(wan_address, EBAD, "Can't allocate memory");
 
-	BUF_DUMP(wan_address);
+	//BUF_DUMP(wan_address);
 
 	//rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, NULL);
 	rc = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);
@@ -604,7 +604,7 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 	}
 
 	buf_detect_used(wan_address);
-	BUF_DUMP(wan_address);
+	//BUF_DUMP(wan_address);
 
 	status = UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, wan_address->data);
 	if (0 != status) {

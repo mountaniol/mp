@@ -123,7 +123,7 @@ void ctl_unlock()
 	uid = j_find_ref(g_ctl->me, JK_UID_ME);
 	if(NULL == uid) {
 		DE("Fatal error: no uid found in ctl->me\n");
-		j_print(g_ctl->me, "Current g_ctl->me\n");
+		j_print_v(g_ctl->me, "Current g_ctl->me\n", __FILE__, __LINE__);
 		abort();
 	}
 	return (uid);

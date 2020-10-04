@@ -63,12 +63,12 @@ err:
 	buf_t *buf;
 	j_t   *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create request");
-	j_print(root, "Created request");
+	j_print_v(root, "Created request", __FILE__, __LINE__);
 
 	j_merge(root, ctl->me);
 	//return (j_2buf(ctl->me));
 	//buf = j_2buf(ctl->me);
-	j_print(root, "Added ctl->me");
+	j_print_v(root, "Added ctl->me", __FILE__, __LINE__);
 	buf = j_2buf(root);
 	j_rm(root);
 	DD("Created keepalive:\n%s\n", buf->data);

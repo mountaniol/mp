@@ -165,7 +165,7 @@ int mp_disp_send(void *json)
 	error = mp_disp_is_mes_for_me(json);
 	if (MES_DEST_ERR == error) {
 		DE("Can't detect target host of the message\n");
-		j_print(json, "The JSON without target host");
+		j_print_v(json, "The JSON without target host", __FILE__, __LINE__);
 		j_rm(json);
 		return (EBAD);
 	}
@@ -185,7 +185,7 @@ int mp_disp_send(void *json)
 		if (EBAD == disp_id && EBAD == error) {
 			DE("Can't find %s record in JSON\n", JK_DISP_SRC_MODULE);
 			DE("JSON dump:\n");
-			j_print(json, "No JK_DISP_SRC_MODULE in this JSON");
+			j_print_v(json, "No JK_DISP_SRC_MODULE in this JSON", __FILE__, __LINE__);
 			return (EBAD);
 		}
 	}
@@ -196,7 +196,7 @@ int mp_disp_send(void *json)
 	d = htable_find_by_int(ctl->dispatcher, disp_id);
 	if (NULL == d) {
 		DE("No handler is set for this type: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
-		j_print(json, "The JSON failed is:");
+		j_print_v(json, "The JSON failed is:", __FILE__, __LINE__);
 		j_rm(json);
 		return (EBAD);
 	}
@@ -252,7 +252,7 @@ int mp_disp_recv(void *json)
 	if (EBAD == disp_id && EBAD == error) {
 		DE("Can't find %s record in JSON\n", JK_DISP_SRC_MODULE);
 		DE("JSON dump:\n");
-		j_print(json, "No JK_DISP_SRC_MODULE in this JSON");
+		j_print_v(json, "No JK_DISP_SRC_MODULE in this JSON", __FILE__, __LINE__);
 		j_rm(json);
 		return (EBAD);
 	}
