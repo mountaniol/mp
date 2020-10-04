@@ -94,7 +94,8 @@ int mp_os_fill_random(void *buf, size_t buf_size)
 	}
 
 	rc = fread(buf, 1, buf_size, rand_device);
-	if (rc < 0) {
+	if (rc < buf_size) {
+		perror("Can't read from random device!\n");
 		DE("Can't read from random device!\n");
 		DE("Please check that you can read from /dev/random or /dev/urandom\n");
 		abort();
@@ -105,7 +106,7 @@ int mp_os_fill_random(void *buf, size_t buf_size)
 		return (EBAD);
 	}
 
-	return (EOK);
+	return (rc);
 }
 
 const char charset_alpha[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK0123456789";
@@ -129,13 +130,10 @@ const char charset_num[]   = "0123456789";
 	TESTP_MES(str, NULL, "Can't allocate");
 
 	rc = mp_os_fill_random(str, size);
-	if (EOK != rc) {
-		DE("Can't read random\n");
-		abort();
-	}
 
 	if ((int)size != rc) {
 		DE("Can't read from /dev/urandom : asked %zu, read %d\n", size, rc);
+		free(str);
 		return (NULL);
 	}
 
