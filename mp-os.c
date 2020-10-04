@@ -94,7 +94,7 @@ int mp_os_fill_random(void *buf, size_t buf_size)
 	}
 
 	rc = fread(buf, 1, buf_size, rand_device);
-	if (rc < buf_size) {
+	if (rc < (ssize_t) buf_size) {
 		perror("Can't read from random device!\n");
 		DE("Can't read from random device!\n");
 		DE("Please check that you can read from /dev/random or /dev/urandom\n");
@@ -215,6 +215,20 @@ err_t mp_os_usleep(int milliseconds) // cross-platform sleep function
 	return (EOK);
 }
 
+/* Test that the file exists. Return EOK if does, EAGN if doesn't, EBAD on error */
+err_t mp_os_test_if_file_exists(const char *file)
+{
+	int rc;
+	TESTP(file, EBAD);
+
+	rc = access(file, F_OK);
+	if (0 == rc) {
+		return EOK;
+	}
+
+	return EAGN;
+}
+
 /* Test that given file is kind of asked type, OK if yes */
 static err_t mp_os_test_file_type(const char *file, int tp)
 {
@@ -260,7 +274,15 @@ static err_t mp_os_test_file_type(const char *file, int tp)
 
 static int mp_os_open(const char *file, int flags, mode_t mode, int tp)
 {
-	if (EOK != mp_os_test_file_type(file, tp)) {
+	int rc;
+
+	rc = mp_os_test_if_file_exists(file);
+	if (EBAD == rc) {
+		DE("Can't detect if the file exists: %s\n", file);
+	}
+
+	/* If this file exists - check its type */
+	if (EOK == rc && EOK != mp_os_test_file_type(file, tp)) {
 		DE("Wrong file\n");
 		return (EBAD);
 	}
@@ -284,7 +306,16 @@ int mp_os_open_regular(const char *file, int flags, mode_t mode)
 
 static FILE *mp_os_fopen(const char *file, const char *mode, int tp)
 {
-	if (EOK != mp_os_test_file_type(file, tp)) {
+	int rc;
+
+	/* Test if this file exists */
+	rc = mp_os_test_if_file_exists(file);
+	if (EBAD == rc) {
+		DE("Can't detect if the file exists: %s\n", file);
+	}
+
+	/* If this file exists check its type */
+	if (EOK == rc && EOK != mp_os_test_file_type(file, tp)) {
 		DE("Wrong file\n");
 		return (NULL);
 	}
