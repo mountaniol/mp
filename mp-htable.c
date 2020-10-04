@@ -108,7 +108,7 @@ static void dump_hash(htable_t *ht)
 		hnode_t *node = ht->nodes[slot];
 
 		while (NULL != node) {
-			DE("Hash: slot[%zu]: hash = %zu, (key = %s), pointer = %p\n", slot, node->hash, node->key, node->data);
+			DE("Hash: slot[%zu]: hash = %zu, (key = %s), pointer = %p, in hash: %zu, collisions: %zu\n", slot, node->hash, node->key, node->data, ht->members, ht->collisions);
 			node = node->next;
 		}
 	}
