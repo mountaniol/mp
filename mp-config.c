@@ -214,7 +214,7 @@ static json_t *mp_config_read(void)
 	if (0 != rc) {
 		DE("No such file: %s\n", filename->data);
 		buf_free(filename);
-		return EBAD;
+		return NULL;
 	}
 
 	rc = mp_config_file_unlock(filename);
