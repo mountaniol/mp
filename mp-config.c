@@ -256,6 +256,8 @@ static json_t *mp_config_read(void)
 			DE("dirfd is not a valid file descriptor\n");
 			abort();
 		default:
+
+			perror("I don't know what's going on!\n");
 			DE("I don't know what's going on!\n");
 			abort();
 		}
