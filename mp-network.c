@@ -30,7 +30,7 @@
 	buft = buf_string(BUF_INTERFACE);
 	TESTP_GO(buft, err);
 
-	BUF_DUMP(buft);
+	//BUF_DUMP(buft);
 
 	do {
 		char *interface = NULL;
@@ -92,7 +92,7 @@
 				abort();
 			}
 
-			BUF_DUMP(buft);
+			//BUF_DUMP(buft);
 			DD("Found wan interface: %s\n", buft->data);
 			return (buft);
 		}
@@ -172,7 +172,7 @@ err_t mp_network_init_network_l()
 		DE("Can't get my IP\n");
 		bvar = buf_string(8);
 		TESTP(bvar, EBAD);
-		BUF_DUMP(bvar);
+		//BUF_DUMP(bvar);
 		buf_add(bvar, "0.0.0.0", 7);
 		/* If we can't find out external address,
 		   it means we ca't communicate with the router

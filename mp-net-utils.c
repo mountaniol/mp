@@ -25,7 +25,7 @@ buf_t *mp_net_utils_receive_buf_t(int con)
 		abort();
 	}
 
-	BUF_DUMP(buf);
+	//BUF_DUMP(buf);
 
 	do {
 		/* Receive the first buffer: the first buffer we expect is 'buf_t' struct without pointer */

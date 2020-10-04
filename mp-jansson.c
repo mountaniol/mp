@@ -97,7 +97,7 @@
 		goto err;
 	}
 
-	BUF_DUMP(buf);
+	//BUF_DUMP(buf);
 
 	buf->used = buf->room;
 

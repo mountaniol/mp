@@ -143,7 +143,7 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 	ret = buf_string(64 + 1);
 	TESTP(ret, NULL);
 
-	BUF_DUMP(ret);
+	//BUF_DUMP(ret);
 
 	for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
 		sprintf(ret->data + (i * 2), "%02x", hash[i] );
@@ -175,7 +175,7 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 	buf_host = buf_string(256);
 	TESTP(buf_host, NULL);
 
-	BUF_DUMP(buf_host);
+	//BUF_DUMP(buf_host);
 	BUF_TEST(buf_host);
 	rc = gethostname(buf_host->data, buf_room(buf_host - 4));
 	buf_detect_used(buf_host);
@@ -184,7 +184,7 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 		goto err;
 	}
 	buf = buf_sprintf("%s-%s-%d", buf_host->data, homedir, procs);
-	BUF_DUMP(buf);
+	//BUF_DUMP(buf);
 	buf_free(buf_host);
 
 	if (NULL == buf) {
