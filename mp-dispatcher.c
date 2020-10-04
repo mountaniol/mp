@@ -269,7 +269,7 @@ int mp_disp_recv(void *json)
 
 	DDD("The response dedicated to module: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 
-	return (d->send(json));
+	return (d->recv(json));
 }
 
 /* This function fills dispatcher related fields in JSON message */
