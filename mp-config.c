@@ -149,6 +149,12 @@ static err_t mp_config_file_unlock(buf_t *file)
 		return (EBAD);
 	}
 
+	rc = mp_os_test_if_file_exists(file->data);
+	if (EAGN == rc) {
+		DDD("Tried to unlock not existing file: %s\n", file->data);
+		return EOK;
+	}
+
 	/* 2. Change config file to Read Write mode */
 	rc = chmod(file->data, S_IRUSR | S_IWUSR);
 	if (0 != rc) {
