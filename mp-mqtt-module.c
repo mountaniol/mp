@@ -125,8 +125,6 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 	/*@temp@*/const char *ticket = NULL;
 	/*@temp@*/const char *uid = NULL;
 	err_t rc;
-	/*@only@*/ //char *forum = NULL;
-	/*@only@*/buf_t *forum = NULL;
 
 	TESTP(req, EBAD);
 	//j_print(req, "Got req:");
@@ -142,17 +140,13 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 		return (EOK);
 	}
 
-	/* Create JSON object for the response */
-	root = j_new();
+	/* Create response JSON */
+	root = mp_disp_create_response(req);
 	TESTP(root, EBAD);
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
 	TESTI_GO(rc, end);
-	rc = j_add_str(root, JK_TICKET, ticket);
-	TESTI_GO(rc, end);
 	rc = j_add_str(root, JK_STATUS, status);
-	TESTI_GO(rc, end);
-	rc = j_add_str(root, JK_DISP_TGT_UID, uid);
 	TESTI_GO(rc, end);
 
 	if (NULL != comment) {
@@ -162,13 +156,9 @@ err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *co
 
 	/* Send it */
 
-	forum = mp_communicate_forum_topic();
-	TESTP_ASSERT(forum, "Can't allocate forum!");
-	rc = mp_communicate_send_json(forum->data, root);
-	buf_free(forum);
+	rc = mp_disp_send(root);
 
 end:
-	j_rm(root);
 	return (rc);
 }
 
