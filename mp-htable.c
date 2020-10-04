@@ -101,6 +101,7 @@ int htable_free(htable_t *ht)
 	return (0);
 }
 
+#if 0
 static void dump_hash(htable_t *ht)
 {
 	size_t slot ;
@@ -113,6 +114,7 @@ static void dump_hash(htable_t *ht)
 		}
 	}
 }
+#endif
 
 /* insert new key / data where key is size_t integer value  */
 int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
@@ -124,12 +126,12 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 	TESTP_MES(ht, -1, "Got ht NULL");
 	TESTP_MES(data, -1, "Got data NULL");
 
-	DD("Got hash: %lX\n", (unsigned long)hash);
+	DDD0("Got hash: %lX\n", (unsigned long)hash);
 
 	/* Find slot in the hash table for this data */
 	slot = HTABLE_SLOT(ht, hash);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)hash, slot, ht->size);
+	DDD0("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)hash, slot, ht->size);
 
 	/* Allocate new hash node */
 	node = hnode_alloc();
@@ -141,32 +143,32 @@ int htable_insert_by_int(htable_t *ht, size_t hash, char *key, void *data)
 
 	node->hash = hash;
 
-	DDD("Starting insert point search\n");
+	DDD0("Starting insert point search\n");
 	/* If this slot in hash table is vacant - insert the hash node  */
 	if (NULL == ht->nodes[slot] ) {
-		DDD("Slot is empty - insert and finish\n");
+		DDD0("Slot is empty - insert and finish\n");
 		ht->nodes[slot] = node;
 		ht->members++;
-		dump_hash(ht);
+		//dump_hash(ht);
 		return (0);
 	}
 
-	DDD("Slot is not empty, starting linked list search\n");
+	DDD0("Slot is not empty, starting linked list search\n");
 
 	/* If in this slot already a node - insert into tail of this node */
 	node_p = ht->nodes[slot];
 	while (NULL != node_p->next) {
-		DDD("Searchin tail: current node is key %s\n", node_p->key);
+		DDD0("Searchin tail: current node is key %s\n", node_p->key);
 		node_p = node_p->next;
 	}
 
-	DDD("Found end of linked list\n");
+	DDD0("Found end of linked list\n");
 
 	ht->members++;
 	node_p->next = node;
 	/* If we are here, it means a collition has place, the slot is occupied */
 	ht->collisions++;
-	dump_hash(ht);
+	//dump_hash(ht);
 	return (0);
 }
 
@@ -196,11 +198,11 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	void    *data;
 
 	TESTP_MES(ht, NULL, "Got NULL");
-	DD("Got hash: %lX\n", (unsigned long)key);
+	DDD0("Got hash: %lX\n", (unsigned long)key);
 
 	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)key, slot, ht->size);
+	DDD0("Slot for hash %.lX : %zu, size of htable: %zu\n", (unsigned long)key, slot, ht->size);
 
 	node_p = node = ht->nodes[slot];
 
@@ -215,7 +217,7 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	/* We can't find node with this key */
 	if (NULL == node) {
 		DE("Not found key %lX\n", (unsigned long)key);
-		dump_hash(ht);
+		//dump_hash(ht);
 		return (NULL);
 	}
 
@@ -283,7 +285,7 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 
 	slot = HTABLE_SLOT(ht, key);
 
-	DDD("Search for key %lX, slot %zu\n", (unsigned long)key, slot);
+	DDD0("Search for key %lX, slot %zu\n", (unsigned long)key, slot);
 
 	node = ht->nodes[slot];
 
@@ -293,11 +295,11 @@ int htable_insert_by_string(htable_t *ht, char *key, void *data)
 	}
 
 	if (node) {
-		DDD("Found data for key %lX, slot %zu\n", (unsigned long)key, slot);
+		DDD0("Found data for key %lX, slot %zu\n", (unsigned long)key, slot);
 		return (node->data);
 	}
 
-	DDD("NOT found data for key %lX, slot %zu\n", (unsigned long)key, slot);
+	DDD0("NOT found data for key %lX, slot %zu\n", (unsigned long)key, slot);
 	return (NULL);
 }
 
@@ -334,7 +336,7 @@ static int htable_comp(const void *p1, const void *p2)
 {
 	hnode_t *h1 = *(hnode_t **)p1;
 	hnode_t *h2 = *(hnode_t **)p2;
-	DDD("Compare: |%s| |%s|\n", h1->key, h2->key);
+	DDD0("Compare: |%s| |%s|\n", h1->key, h2->key);
 	return (strcmp(h1->key, h2->key));
 }
 
