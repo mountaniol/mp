@@ -231,6 +231,7 @@ int mp_disp_recv(void *json)
 	/* If this message is not for us, or not to ALL we drop it */
 	if (EOK != mp_disp_is_mes_for_me(json)) {
 		DDD("Found a 'not for me' message - drop it\n");
+		j_print_v(json, "Not 'for me' message", __FILE__, __LINE__);
 		j_rm(json);
 		return (EOK);
 	}

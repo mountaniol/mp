@@ -16,13 +16,14 @@
 
 	TESTP_MES(name, NULL, "Got NULL");
 
-	j_t *root = j_new();
+	//j_t *root = j_new();
+	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_DISCONNECTED)) goto err;
-	/* SEB: TODO: Whay exactly do I send the machine name to remote? */
-	if (EOK != j_add_str(root, JK_NAME, name)) goto err;
-	if (EOK != j_add_str(root, JK_DISP_SRC_UID, ctl_uid_get())) goto err;
+	/* SEB: TODO: Why exactly do I send the machine name to remote? */
+	//if (EOK != j_add_str(root, JK_NAME, name)) goto err;
+	//if (EOK != j_add_str(root, JK_DISP_SRC_UID, ctl_uid_get())) goto err;
 
 	buf = j_2buf(root);
 
@@ -43,7 +44,7 @@ err:
 
 	TESTP_MES(name, NULL, "Got NULL");
 
-	root= mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
+	root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
 	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) goto err;
