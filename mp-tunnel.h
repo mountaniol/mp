@@ -9,17 +9,6 @@ typedef int (*conn_read_t) (int, char *, size_t);
 typedef int (*conn_write_t) (int, char *, size_t);
 typedef int (*conn_close_t) (int);
 
-/* This is a connection abstraction.
-   The connection defined as a file descriptor and 3 operation - read, write and (optional) close.
-   The connection may have a name (optional) - for debug prints */
-typedef struct {
-	int fd;                     /* (Must) File descriptor for read / write */
-	conn_read_t read_fd;        /* (Must) Read from fd */
-	conn_write_t write_fd;      /* (Must) Write to fd */
-	conn_close_t close_fd;      /* (Optional) Close fd */
-	const char *name;           /* (Optional) Name of the connection (optional) */
-} conn_t;
-
 /* This pointer is a hook prototype used to register hook:
  * void * - the tunnel structure
  * char * - pointer to left or right buffer

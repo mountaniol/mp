@@ -31,13 +31,13 @@ typedef struct {
 	mp_disp_cb_t recv;
 } disp_t;
 
-typedef enum {
+enum {
 	MES_DEST_ERR = -1,
 	MES_DEST_ME = 0,
 	MES_DEST_REMOTE = 1,
 	MES_SRC_ME = 2,
 	MES_SRC_REMOTE = 3
-} mes_dest_e;
+};
 
 
 /**
