@@ -25,7 +25,6 @@
 #include "mp-tunnel.h"
 
 #define DL_PREFIX "mp-tunnel"
-#define DDLOG(fmt, ...) do{syslog(LOG_ALERT, "%s +%d : ", __func__, __LINE__); printf(fmt, ##__VA_ARGS__); }while(0 == 1)
 
 #include "mp-memory.h"
 #include "mp-common.h"
@@ -680,8 +679,7 @@ end:
 	return (EOK);
 }
 
-typedef struct one_direction_args_struct
-{
+typedef struct {
 	tun_t *t;
 	int from;
 	int to;

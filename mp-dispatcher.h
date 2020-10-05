@@ -7,7 +7,7 @@ typedef uint32_t ticket_t;
 /* Modules types */
 /* WARNING! If you modified this array,
    you should also modify function mp_disp_module_name() ! */
-typedef enum module_type_enum {
+typedef enum {
 	MODULE_CONNECTION = 1,
 	MODULE_REMOTE,
 	MODULE_CONFIG,
@@ -25,17 +25,11 @@ typedef int (*mp_disp_cb_t)(void *);
 /* A ticket receiver function: the first argument it the JSON structure, the second is private data */
 typedef int (*mp_dist_ticket_cb_t)(void *, void *);
 
-typedef struct dispatcher_struct {
+typedef struct {
 	size_t disp_id;
 	mp_disp_cb_t send;
 	mp_disp_cb_t recv;
 } disp_t;
-
-typedef struct disp_ticket_struct {
-	ticket_t ticket;    /* Ticket ID */
-	mp_disp_cb_t recv;  /* Function of this ticket receiver */
-	void *priv;         /* Private data (optional) */
-} disp_ticket_t;
 
 typedef enum {
 	MES_DEST_ERR = -1,

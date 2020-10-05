@@ -8,7 +8,7 @@
 #include "mp-common.h"
 
 /* What is the current client status now? */
-typedef enum e_status {
+typedef enum {
 	ST_START = 1,         /* We are starting, init phase*/
 	ST_CONNECTED,       /* Connected, all works */
 	ST_DISCONNECTED,    /* Somehow disconnected, need reconnect */
@@ -21,7 +21,7 @@ typedef enum e_status {
    The structure should bw lock with ctl_lock()
    and unlocked with ctl_unlock()
    Allocated and inited in main() */
-typedef struct control_struct {
+typedef struct {
 	sem_t lock; /* get semaphore before manipulate this struct */
 	struct mosquitto *mosq; /* Instance of mosquitto connection */
 	void *me; /* JSON object describing this machine */
@@ -55,9 +55,6 @@ typedef struct control_struct {
 	void *hosts;
 
 	/*@null@*/ void *config; /* The config file in form of JSON object */
-	void *tickets_out;
-	void *tickets_in;
-	//void *buffers;  /* Here we keep allocate buffers until they sent */
 	void *buf_hash; /* Here we keep allocated buffers until they sent */
 
 	void *buf_missed; /* Here we keep buffer counters that we couldn't find on the first run */

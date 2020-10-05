@@ -33,7 +33,7 @@
 #define IP_STR_LEN 46
 #define REQ_STR_LEN 256
 
-typedef struct upnp_request_strings {
+typedef struct {
 	char *s_index;              /* 1 */
 	char *map_wan_port;         /* 2 */
 	char *map_lan_address;      /* 3 */

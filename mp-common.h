@@ -14,7 +14,6 @@ typedef enum {
 	EBAD = -1,  /* Error status */
 	EOK = 0,       /* Success status */
 	EAGN = 1, /* "Try again" status */
-	ENOPOINTER = 0XDEADBEEF,
 } err_t;
 
 /* Testing macros. Part 1: Test and Return */

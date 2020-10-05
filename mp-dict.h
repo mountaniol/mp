@@ -62,8 +62,6 @@
 #define JV_BAD "0"
 
 /* These statuses indended for ticketing */
-/* JK_TICKET = JV_STATUS_UPDATE  - ticket in processing */
-#define JV_STATUS_UPDATE  "working"
 /* JK_TICKET = JV_STATUS_UPDATE  - ticket is done successfully */
 #define JV_STATUS_SUCCESS    "done-success"
 /* JK_TICKET = JV_STATUS_UPDATE  - ticket is done with a failure */

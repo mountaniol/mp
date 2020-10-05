@@ -14,7 +14,7 @@ typedef struct hnode_struct {
 	struct hnode_struct *next;
 } hnode_t;
 
-typedef struct htable_struct {
+typedef struct {
 	hnode_t **nodes;
 	size_t size;
 	size_t members;

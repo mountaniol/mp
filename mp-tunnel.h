@@ -12,7 +12,7 @@ typedef int (*conn_close_t) (int);
 /* This is a connection abstraction.
    The connection defined as a file descriptor and 3 operation - read, write and (optional) close.
    The connection may have a name (optional) - for debug prints */
-typedef struct connection_struct {
+typedef struct {
 	int fd;                     /* (Must) File descriptor for read / write */
 	conn_read_t read_fd;        /* (Must) Read from fd */
 	conn_write_t write_fd;      /* (Must) Write to fd */
@@ -41,37 +41,6 @@ typedef int (*tunnel_hook_t) (void *, char *, size_t, size_t);
 #define TUN_TIPC 		(1<<12)	/* This is TIPC connection */
 #define TUN_TTY_SERVER	(1<<13)	/* It is TTY */
 #define TUN_TTY_CLIENT	(1<<14)	/* It is TTY */
-
-typedef struct tunnel_args_struct {
-	char *left_target;  /* In case of socket target is server name;
-						 * in case of file it is file name
-						 * In case of TIPC it is target name
-						 */
-	char *right_target;
-
-	int left_port;      /* In case of socket / SSL socket port must be specified  (TIPC?) */
-	int right_port;
-
-	uint32_t left_flags;     /* Define what is the left part of tunnel  (see TUN_* flags) */
-	uint32_t right_flags;    /* Define what is the right part of tunnel (see TUN_* flags) */
-
-	/* If the left part of the tunnel is SSL: certificate + rsa for the SSL connection */
-	void *right_rsa;    /* (Optional) In case SSL used this won't be NULL; */
-	void *right_x509;   /* (Optional) In case SSL used this won't be NULL; */
-
-	/* If the right part of the tunnel is SSL: certificate + rsa for the SSL connection */
-	void *left_rsa;     /* (Optional) In case SSL used this won't be NULL; */
-	void *left_x509;    /* (Optional) In case SSL used this won't be NULL; */
-
-	/* Size of the buffer to use for the left part of the tunnel; 0 means "auto"  */
-	size_t left_buf_size;
-
-	/* Size of the buffer to use for the right part of the tunnel; 0 means "auto" */
-	size_t right_buf_size;
-
-	/* For internal usage - don't try to use it */
-	void *priv;
-} tunnel_args_t;
 
 /* 
  * Tunnel structure used to connect two file descriptors and
@@ -134,16 +103,7 @@ typedef struct tunnel_args_struct {
  * 
  */
 
-/* Define right (internal) and left (external) channels */
-typedef enum tun_stream_enum {
-	TUN_LEFT = 0,
-	TUN_EXT = TUN_LEFT,
-	TUN_RIGHT = 1,
-	TUN_INTER = TUN_RIGHT,
-	TUN_MAX = 2
-} tun_stream_t;
-
-typedef struct tunnel_struct {
+typedef struct {
 
 	/*** TUNNEL MAIN */
 
