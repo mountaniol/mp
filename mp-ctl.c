@@ -38,15 +38,6 @@ err_t ctl_allocate_init(void)
 	g_ctl->dispatcher = htable_alloc(127);
 	TESTP_MES(g_ctl->dispatcher, -1, "Can't allocate dispatcher hash table");
 	
-	//g_ctl->buf_missed = j_new();
-	//TESTP_MES(g_ctl->buf_missed, -1, "Can't allocate json object");
-
-	g_ctl->tickets_out = j_arr();
-	TESTP(g_ctl->tickets_out, -1);
-
-	g_ctl->tickets_in = j_arr();
-	TESTP(g_ctl->tickets_out, -1);
-
 	rc = j_add_str(g_ctl->me, JK_TYPE, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't JK_TYPE = JV_TYPE_ME");
 
@@ -59,9 +50,6 @@ err_t cli_destoy()
 	ctl_lock();
 	j_rm(g_ctl->hosts);
 	j_rm(g_ctl->config);
-	j_rm(g_ctl->tickets_out);
-	//j_rm(g_ctl->buffers);
-	//j_rm(g_ctl->buf_missed);
 	TFREE_STR(g_ctl->rootdescurl);
 	free(g_ctl);
 	g_ctl = NULL;

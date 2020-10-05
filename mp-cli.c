@@ -85,83 +85,6 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (ret);
 }
 
-/*@null@*/ static j_t *mp_cli_get_received_tickets_l(/*@temp@*/j_t *root)
-{
-	int    rc    = -1;
-	/*@temp@*/control_t *ctl;
-	/*@temp@*/j_t *arr = NULL;
-	/*@temp@*/j_t *val = NULL;
-	size_t index = 0;
-	/*@temp@*/ const char *ticket = NULL;
-	DDD("Starting\n");
-
-	ticket = j_find_ref(root, JK_TICKET);
-	TESTP(ticket, NULL);
-
-	arr = j_arr();
-	TESTP(arr, NULL);
-
-	ctl = ctl_get_locked();
-
-	j_arr_foreach(ctl->tickets_in, index, val) {
-		if (j_test(val, JK_TICKET, ticket)) {
-			/*@temp@*/j_t *copied = j_dup(val);
-			if (NULL == copied) {
-				j_rm(arr);
-				return (NULL);
-			}
-
-			if (EOK != rc) {
-				j_rm(copied);
-				j_rm(arr);
-				return (NULL);
-			}
-
-			rc = j_arr_rm(ctl->tickets_in, index);
-			if (EOK != rc) {
-				j_rm(copied);
-				j_rm(arr);
-				return (NULL);
-			}
-		}
-	}
-
-	rc = mp_cli_send_to_cli(arr);
-	if (EOK != rc) {
-		DE("Can't send\n");
-		j_rm(arr);
-		return (NULL);
-	}
-
-	//j_print(arr, "Sending to shell: ");
-	return (arr);
-}
-
-/*@null@*/ static j_t *mp_cli_send_ticket_req(/*@temp@*/j_t *root)
-{
-	/*@temp@*/j_t *resp;
-	int rc;
-
-	DDD("Starting\n");
-
-	rc = send_request_return_tickets_l(root);
-	resp = j_new();
-	TESTP(resp, NULL);
-	if (0 == rc) {
-		rc = j_add_str(resp, JK_STATUS, JV_OK);
-	} else {
-		rc = j_add_str(resp, JK_STATUS, JV_BAD);
-	}
-
-	if (EOK != rc) {
-		DE("Can't add status into JSON\n");
-		j_rm(root);
-		return (NULL);
-	}
-
-	return (resp);
-}
-
 /*@null@*/ static j_t *mp_cli_get_ports_l()
 {
 	/*@shared@*/control_t *ctl = NULL;
@@ -261,15 +184,6 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	/* This is a local reuqest, extract data and return to shell */
 	if (EOK == j_test(root, JK_COMMAND, JV_COMMAND_PORTS)) {
 		return (mp_cli_get_ports_l());
-	}
-
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
-		return (mp_cli_send_ticket_req(root));
-	}
-
-
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
-		return (mp_cli_get_received_tickets_l(root));
 	}
 
 	return (NULL);

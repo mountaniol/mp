@@ -109,60 +109,6 @@ int mp_module_mqtt_send(void *root)
 	return (rc);
 }
 
-/* If we got request with a ticket, it means that the scond part (remote client)
-   waits for a responce.
-   We test the client's request, and if find a ticket - we create the
-   ticket reponce with 'status'
-   It is up to the client to ask again for the ticket status */
-/* TODO: add time to ticket such a way we may scan all tickets and remove old ones */
-
-/* Parameters:
-   req - request which must contain JK_TICKET with ticket id
-   status - operation status: must be JV_STATUS_STARTED, JV_STATUS_UPDATE, JV_STATUS_DONE
-   comment (optional) - free form test explaining what happens. This text will be displeyed to user */
-err_t mp_mqtt_ticket_responce(const j_t *req, const char *status, const char *comment)
-{
-	/*@only@*/j_t *root = NULL;
-	/*@temp@*/const char *ticket = NULL;
-	/*@temp@*/const char *uid = NULL;
-	err_t rc;
-
-	TESTP(req, EBAD);
-	//j_print(req, "Got req:");
-	TESTP(status, EBAD);
-
-	uid = j_find_ref(req, JK_DISP_SRC_UID);
-	TESTP(uid, EBAD);
-
-	ticket = j_find_ref(req, JK_TICKET);
-	if (NULL == ticket) {
-		DE("No ticket\n");
-		j_print_v(req, "req is:", __FILE__, __LINE__);
-		return (EOK);
-	}
-
-	/* Create response JSON */
-	root = mp_disp_create_response(req);
-	TESTP(root, EBAD);
-
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_TICKET_RESP);
-	TESTI_GO(rc, end);
-	rc = j_add_str(root, JK_STATUS, status);
-	TESTI_GO(rc, end);
-
-	if (NULL != comment) {
-		rc = j_add_str(root, JK_REASON, comment);
-		TESTI_GO(rc, end);
-	}
-
-	/* Send it */
-
-	rc = mp_disp_send(root);
-
-end:
-	return (rc);
-}
-
 /* This function called when a remote machine disconnected from the server.
    When it happens, we remove all information about this machine */
 /* TODO: MODULE_CONFIG should receive it */
@@ -497,41 +443,6 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		goto end;
 	}
 
-
-	/*** Message "ticket" */
-
-	/* The user asks for his tickets */
-	/* This command we receive from outside */
-
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_REQ)) {
-		DD("Got 'JV_TYPE_TICKET_REQ' request\n");
-		rc = send_request_return_tickets_l(root);
-		goto end;
-	}
-
-	/* We received a ticket responce. We should keep it localy until shell client grab it */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_TICKET_RESP)) {
-		DD("Got 'JV_TYPE_TICKET_RESP' request\n");
-		rc = mp_cli_send_to_cli(root);
-		goto end;
-	}
-
-	/*** Message "ssh-done" */
-	/*
-	 * A client responds that "ssh" command executed, ready for ssh connection 
-	 */
-
-	/*** Message "sshr" */
-	/*
-	 * A client wants to connect to us using reversed ssh channel. 
-	 * We should open a port and establish reversed SSH connection with the 
-	 * senser; then we send notification "sshr-done" about it 
-	 */
-
-	/*** Message "sshr-done */
-	/*
-	 * Responce to "sshr" message, see above
-	 */
 
 	if (0 != rc) DE("Unknown type\n");
 
