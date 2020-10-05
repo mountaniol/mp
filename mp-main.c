@@ -1,10 +1,10 @@
 #ifndef S_SPLINT_S
-#define _GNU_SOURCE             /* See feature_test_macros(7) */
-#include <unistd.h>
-#include <signal.h>
+	#define _GNU_SOURCE             /* See feature_test_macros(7) */
+	#include <unistd.h>
+	#include <signal.h>
 
-#include "openssl/ssl.h"
-#include "openssl/err.h"
+	#include "openssl/ssl.h"
+	#include "openssl/err.h"
 
 #endif
 
@@ -21,7 +21,7 @@
 #include "mp-dict.h"
 #include "mp-mqtt-module.h"
 
-static void mp_main_print_info_banner()
+static void mp_main_print_info_banner(void)
 {
 	/*@temp@*/const control_t *ctl = ctl_get();
 	printf("=======================================\n");
@@ -33,7 +33,7 @@ static void mp_main_print_info_banner()
 	printf("=======================================\n");
 }
 
-static err_t mp_main_init_security()
+static err_t mp_main_init_security(void)
 {
 	err_t     rc;
 	control_t *ctl = ctl_get();
@@ -193,7 +193,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	// pthread_t mosq_thread_id;
 	/*@temp@*/j_t *ports;
 
-	int       rc             = EOK;
+	int       rc            = EOK;
 
 	/* Set ABORT state: abort on error */
 	buf_set_abort();
@@ -237,7 +237,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 
 	/* TODO: We should have this certifivate in the config file */
-	cert_path = strdup(argv[1] );
+	cert_path = strdup(argv[1]);
 	if (NULL == cert_path) {
 		printf("arg1 should be path to certificate\n");
 		cli_destoy();
@@ -274,10 +274,18 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	}
 	mp_main_print_info_banner();
 
-	rc = mp_mqtt_start_module(cert_path);
+	rc = mp_mqtt_init_module(cert_path);
 
 	if (EOK != rc) {
-		DE("Can't create thread mqtt-app\n");
+		DE("Can't init mqtt module\n");
+		cli_destoy();
+		abort();
+	}
+
+	rc = mp_ports_init_module();
+
+	if (EOK != rc) {
+		DE("Can't Can't init ports module\n");
 		cli_destoy();
 		abort();
 	}

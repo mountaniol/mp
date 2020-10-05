@@ -131,134 +131,21 @@ err_t mp_communicate_send_json(/*@temp@*/const char *forum_topic, /*@temp@*/j_t 
 
 extern err_t send_keepalive_l()
 {
-#if 0 /* SEB DEADCODE 20/09/2020 13:38  */ 
-	//char  *forum_topic;
-	buf_t *forum_topic;
-	buf_t *buf         = NULL;
-	int   rc           = EBAD;
-
-	/*@shared@*/control_t *ctl = ctl_get();
-
-	forum_topic = mp_communicate_forum_topic();
-	TESTP(forum_topic, EBAD);
-
-	buf = mp_requests_build_keepalive();
-
-	if (NULL == buf) {
-		DE("can't build notification\n");
-		return (EBAD);
-	}
-
-	DDD("Going to send keepalive:\n%s\n", buf->data);
-
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	if (MOSQ_ERR_SUCCESS == rc) {
-		rc = EOK;
-		goto end;
-	}
-
-	DE("Failed to send notification\n");
-	rc = mosquitto_reconnect(ctl->mosq);
-	if (MOSQ_ERR_SUCCESS != rc) {
-		DE("Failed to reconnect\n");
-		rc = EBAD;
-		goto end;
-	}
-
-	DD("Reconnected\n");
-
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	if (MOSQ_ERR_SUCCESS != rc) {
-		DE("Failed to send notification\n");
-		rc = EBAD;
-	}
-
-	end:
-	buf_free(forum_topic);
-	return (rc);
-#endif /* SEB DEADCODE 20/09/2020 13:38 */
 	int rc;
 	control_t *ctl = ctl_get();
 	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
 	TESTP_MES(root, EBAD, "Can't create request\n");
 	j_merge(root, ctl->me);
 	rc = mp_disp_send(root);
+	j_rm(root);
 	if (EOK != rc) {
 		DE("Can't send json\n");
 	}
 	return rc;
 }
 
-extern err_t send_keepalive_l_orig()
-{
-	//char  *forum_topic;
-	buf_t *forum_topic;
-	buf_t *buf         = NULL;
-	int   rc           = EBAD;
-
-	/*@shared@*/control_t *ctl = ctl_get();
-
-	forum_topic = mp_communicate_forum_topic();
-	TESTP(forum_topic, EBAD);
-
-	buf = mp_requests_build_keepalive();
-
-	if (NULL == buf) {
-		DE("can't build notification\n");
-		return (EBAD);
-	}
-
-	DDD("Going to send keepalive:\n%s\n", buf->data);
-
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	if (MOSQ_ERR_SUCCESS == rc) {
-		rc = EOK;
-		goto end;
-	}
-
-	DE("Failed to send notification\n");
-	rc = mosquitto_reconnect(ctl->mosq);
-	if (MOSQ_ERR_SUCCESS != rc) {
-		DE("Failed to reconnect\n");
-		rc = EBAD;
-		goto end;
-	}
-
-	DD("Reconnected\n");
-
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	if (MOSQ_ERR_SUCCESS != rc) {
-		DE("Failed to send notification\n");
-		rc = EBAD;
-	}
-
-end:
-	buf_free(forum_topic);
-	return (rc);
-}
-
 err_t send_reveal_l()
 {
-#if 0 /* SEB DEADCODE 20/09/2020 13:32  */ 
-	//char  *forum_topic;
-	buf_t *forum_topic;
-	buf_t *buf         = NULL;
-	int   rc           = EBAD;
-
-	forum_topic = mp_communicate_forum_topic();
-	TESTP(forum_topic, EBAD);
-
-	buf = mp_requests_build_reveal();
-
-	TESTP_MES(buf, EBAD, "Can't build notification");
-
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	buf_free(forum_topic);
-	if (MOSQ_ERR_SUCCESS != rc) {
-		DE("Failed to send reveal request\n");
-		return (EBAD);
-	}
-#endif /* SEB DEADCODE 20/09/2020 13:32 */
 	int rc;
 	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
 	TESTP(root, EBAD);

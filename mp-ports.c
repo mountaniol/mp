@@ -267,11 +267,6 @@ static err_t mp_ports_remap_port(const int external_port, const int internal_por
 			return (NULL);
 		}
 
-		rc = mp_mqtt_ticket_responce(req, JV_STATUS_UPDATE, "Trying to map a port");
-		if (EOK != rc) {
-			DE("Can't send ticket\n");
-		}
-
 		rc = mp_ports_remap_port(e_port, i_port, protocol);
 
 		if (EOK == rc) {
@@ -309,13 +304,12 @@ end:
 	return (resp);
 }
 
-err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
+err_t mp_ports_unmap_port(/*@temp@*/const char *internal_port, /*@temp@*/const char *external_port, /*@temp@*/const char *protocol)
 {
 	int             error     = 0;
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
 	int             status;
-	int             rc;
 	control_t       *ctl      = ctl_get();
 
 	TESTP(internal_port, EBAD);
@@ -336,9 +330,6 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 		return (EBAD);
 	}
 
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Found IGD device, asking port remove");
-	if (EOK != rc) DD("Can't add ticket\n");
-
 	// remove port mapping from WAN port 12345 to local host port 24680
 	error = UPNP_DeletePortMapping(
 			upnp_urls.controlURL,
@@ -347,19 +338,12 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 			protocol, // protocol must be either TCP or UDP
 			NULL); // remote (peer) host address or nullptr for no restriction
 
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Finished port remove");
-	if (EOK != rc) DD("Can't add ticket\n");
 
 
 	if (0 != error) {
 		DE("Can't delete port %s\n", external_port);
-		rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: failed");
-		if (EOK != rc) DD("Can't add ticket\n");
 		FreeUPNPUrls(&upnp_urls);
 		return (EBAD);
-	} else {
-		rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Port remove: success");
-		if (EOK != rc) DD("Can't add ticket\n");
 	}
 
 	FreeUPNPUrls(&upnp_urls);
@@ -375,7 +359,7 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
  * The structure will contain nothing if no mapping found
  * NULL on an error 
  */
-/*@null@*//*@only@*/ j_t *mp_ports_if_mapped_json(/*@temp@*/const j_t *root, /*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
+/*@null@*//*@only@*/ j_t *mp_ports_if_mapped_json(/*@temp@*/const char *internal_port, /*@temp@*/const char *local_host, /*@temp@*/const char *protocol)
 {
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
@@ -386,11 +370,6 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 	size_t          index     = 0;
 	int             rc;
 	control_t       *ctl      = ctl_get();
-
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Beginning check of opened ports");
-	if (EOK != rc) {
-		DE("Can't send ticket\n");
-	}
 
 	if (EOK != mp_ports_router_root_discover()) {
 		DE("Can't discover router\n");
@@ -403,16 +382,6 @@ err_t mp_ports_unmap_port(/*@temp@*/const j_t *root, /*@temp@*/const char *inter
 		DE("Error on UPNP_GetValidIGD: status = %d\n", status);
 		return (NULL);
 	}
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Found UPNP device");
-	if (EOK != rc) {
-		DE("Can't send ticket\n");
-	}
-
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Contacted UPNP device");
-	if (EOK != rc) {
-		DE("Can't send ticket\n");
-	}
-
 
 	// list all port mappings
 	req = upnp_req_str_t_alloc();
@@ -621,54 +590,6 @@ err_t mp_ports_scan_mappings(j_t *arr, /*@temp@*/const char *local_host)
 
 /*** Local port manipulation */
 
-/* Find ip and port for ssh connection to UID */
-/*@null@*/ j_t *mp_ports_ssh_port_for_uid(/*@temp@*/const char *uid)
-{
-	j_t        *root = NULL;
-	j_t        *host = NULL;
-	const char *key;
-	/*@shared@*/control_t *ctl  = ctl_get_locked();
-
-	json_object_foreach(ctl->hosts, key, host) {
-		if (EOK == strcmp(key, uid)) {
-			j_t    *ports = NULL;
-			j_t    *port;
-			size_t index;
-			/* Found host */
-			ports = j_find_j(host, "ports");
-
-			json_array_foreach(ports, index, port) {
-				/* For now we search for intenal port 22 and protocol TCP */
-				if (EOK == j_test(port, JK_PORT_INT, "22") && EOK == j_test(port, JK_PROTOCOL, "TCP")) {
-					int rc;
-					root = j_new();
-					if (NULL == root) {
-						DE("Can't get root\n");
-						ctl_unlock();
-						return (NULL);
-					}
-					/* We need external port */
-					rc = j_cp(port, root, JK_PORT_EXT);
-					if (EOK != rc) {
-						DE("Can't add root, JK_PORT_EXT\n");
-						ctl_unlock();
-						return (NULL);
-					}
-					/* And IP */
-					rc = j_cp(host, root, JK_IP_EXT);
-					if (EOK != rc) {
-						DE("Can't add root, JK_IP_EXT\n");
-						ctl_unlock();
-						return (NULL);
-					}
-				} /* if */
-			} /* End of json_array_foreach */
-		}
-	}
-	ctl_unlock();
-	DDD("returning root = %p\n", root);
-	return (root);
-}
 
 /*** Dispatcher functionality */
 /* This function is called when remote machine asks to open port for imcoming connection */
@@ -718,7 +639,7 @@ static err_t mp_ports_do_open_port_l(const j_t *root)
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
 	ip_internal = j_find_ref(ctl->me, JK_IP_INT);
 	TESTP_ASSERT(ip_internal, "internal IP is NULL");
-	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
+	mapping = mp_ports_if_mapped_json(asked_port, ip_internal, protocol);
 
 	/*** UPNP request found an existing mapping of asked port + protocol */
 	if (NULL != mapping) {
@@ -795,12 +716,8 @@ static err_t mp_ports_do_close_port_l(const j_t *root)
 		return (EBAD);
 	}
 
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
-	if (EOK != rc) {
-		DE("Can't send ticket");
-	}
 	/* this function probes the internal port. If it alreasy mapped, it returns the mapping */
-	rc = mp_ports_unmap_port(root, asked_port, external_port, protocol);
+	rc = mp_ports_unmap_port(asked_port, external_port, protocol);
 
 	if (0 != rc) {
 		DE("Can'r remove port \n");
@@ -868,7 +785,7 @@ err:
 	return (rv);
 }
 
-int mp_ports_start_app(void)
+int mp_ports_init_module(void)
 {
 	int rc;
 

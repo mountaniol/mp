@@ -33,7 +33,7 @@ pthread_t mosq_thread_id;
 /*@null@*/static void *mp_mqtt_message_processor_pthread(/*@only@*/void *v);
 
 /* Dispatcher hook, called when a message from a remote host received */
-int mp_module_recv(void *root)
+int mp_module_mqtt_recv(void *root)
 {
 	const char *command;
 	DD("Recevived a message\n");
@@ -87,7 +87,7 @@ finish:
 }
 
 /* Dispatcher hook, called when a message to a remote machine asked to be sent */
-int mp_module_send(void *root)
+int mp_module_mqtt_send(void *root)
 {
 	int   rc           = -1;
 	/* TODO: by default we publush message on own topic */
@@ -99,6 +99,7 @@ int mp_module_send(void *root)
 	TESTP(root, EBAD);
 
 	buf = j_2buf(root);
+
 	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
 	TESTP(buf, EBAD);
 
@@ -249,7 +250,7 @@ static err_t mp_mqtt_do_open_port_l(const j_t *root)
 	/* this function probes the internal port. Is it alreasy mapped, it returns the mapping */
 	ip_internal = j_find_ref(ctl->me, JK_IP_INT);
 	TESTP_ASSERT(ip_internal, "internal IP is NULL");
-	mapping = mp_ports_if_mapped_json(root, asked_port, ip_internal, protocol);
+	mapping = mp_ports_if_mapped_json(asked_port, ip_internal, protocol);
 
 	/*** UPNP request found an existing mapping of asked port + protocol */
 	if (NULL != mapping) {
@@ -326,12 +327,8 @@ static err_t mp_mqtt_do_close_port_l(const j_t *root)
 		return (EBAD);
 	}
 
-	rc = mp_mqtt_ticket_responce(root, JV_STATUS_UPDATE, "Starting port removing");
-	if (EOK != rc) {
-		DE("Can't send ticket");
-	}
 	/* this function probes the internal port. If it alreasy mapped, it returns the mapping */
-	rc = mp_ports_unmap_port(root, asked_port, external_port, protocol);
+	rc = mp_ports_unmap_port(asked_port, external_port, protocol);
 
 	if (0 != rc) {
 		DE("Can'r remove port \n");
@@ -448,10 +445,6 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		DD("Got 'openport' request\n");
 
 		if (NULL == ctl->rootdescurl) {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_FAIL, "This machine doesn't have UPNP ability");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
 			return (EBAD);
 		}
 
@@ -464,22 +457,11 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 
 		/*** TODO: SEB: Send update to all */
 		if (EOK == rc) {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_SUCCESS, "Port opening finished OK");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
-
-			rrc = send_keepalive_l();
+			int rrc = send_keepalive_l();
 			if (EOK != rrc) {
 				DE("Can't send keepalive\n");
 			}
-		} else {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_FAIL, "Port opening failed");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
 		}
-
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
 		goto end;
 	}
@@ -493,10 +475,6 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		DD("Got 'closeport' request\n");
 
 		if (NULL == ctl->rootdescurl) {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_FAIL, "This machine doesn't have UPNP ability");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
 			return (EBAD);
 		}
 
@@ -508,21 +486,11 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		 */
 
 		if (EOK == rc) {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_SUCCESS, "Port closing finished OK");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
-
-			rrc = send_keepalive_l();
+			int rrc = send_keepalive_l();
 			if (EOK != rrc) {
 				DE("Can't send keepalive\n");
 			}
 
-		} else {
-			int rrc = mp_mqtt_ticket_responce(root, JV_STATUS_FAIL, "Port closing failed");
-			if (EOK != rrc) {
-				DE("Can't send ticket\n");
-			}
 		}
 
 		/*** TODO: SEB: After keepalive send report of "openport" is finished */
@@ -1085,12 +1053,12 @@ end:
 	return (NULL);
 }
 
-int mp_mqtt_start_module(void *cert_path)
+int mp_mqtt_init_module(void *cert_path)
 {
 	int rc;
 
 	/* Register this module in dispatcher */
-	rc = mp_disp_register(MODULE_CONNECTION, mp_module_send, mp_module_recv);
+	rc = mp_disp_register(MODULE_CONNECTION, mp_module_mqtt_send, mp_module_mqtt_recv);
 
 	if (EOK != rc) {
 		DE("Can't register in dispatcher\n");

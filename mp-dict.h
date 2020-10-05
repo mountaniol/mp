@@ -112,9 +112,9 @@
 #define JK_STATUS "status"
 
 /* Returned status: operation completed OK */
-#define JV_STATUS_OK "ok"
+// #define JV_STATUS_OK "ok"
 /* Returned status: operation failed */
-#define JV_STATUS_BAD "bad"
+// #define JV_STATUS_BAD "bad"
 /* Returned status: operation still in progress, this is a notification */
 #define JV_STATUS_WORK "work"
 

@@ -79,7 +79,7 @@ int mp_disp_register(size_t module_id, mp_disp_cb_t func_send, mp_disp_cb_t func
 	control_t *ctl = NULL;
 	disp_t    *d   = NULL;
 
-	TESTP_MES(func_send, EBAD, "Got NULL as dispatcher callback");
+	//TESTP_MES(func_send, EBAD, "Got NULL as dispatcher callback");
 	TESTP_MES(func_recv, EBAD, "Got NULL as dispatcher callback");
 
 	d = disp_t_alloc();
@@ -206,6 +206,7 @@ int mp_disp_send(void *json)
 	if (NULL == d->send) {
 		DE("Can't find 'send' handler for the module %s\n", mp_disp_module_name(disp_id));
 		j_rm(json);
+		return EBAD;
 	}
 
 	/* If we can't extract MODULE remote we are dead, this is an illigal situation */
