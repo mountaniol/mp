@@ -148,19 +148,25 @@ static err_t mp_shell_parse_in_command(j_t *root)
 		do {
 			/* If we almost filled the buffer, we add memory */
 			if ((size_t)received == allocated - 1) {
+				/* TODO: Replace all this with buf_t */
+
 				/*@only@*/char *tmp = realloc(buf, allocated + CLI_BUF_LEN);
+
+				if (NULL == tmp) {
+					DE("Memory problem: can't reallocate memory\n");
+				}
 
 				/* realloc can return a new buffer. In this case the old one should be freed */
 				if (tmp != buf) {
-					TFREE(buf);
-					/*@ignore@*/
 					buf = tmp;
-					/*@end@*/
-				}
-				/* If realloc succeeded we increase 'allocated' counter */
-				if (NULL != tmp) {
 					allocated += CLI_BUF_LEN;
 				}
+			}
+
+			/* If we are out of memory sleep for 100 usec and try again */
+			if (allocated - received) {
+				mp_os_usleep(100);
+				continue;
 			}
 
 			/* Receive buffer from cli */
@@ -244,7 +250,7 @@ static err_t mp_shell_wait_and_print_tickets(void)
 		waiting_counter++;
 		slept = sleep(1);
 		if (0 != slept) {
-			slept = sleep(1);
+			sleep(1);
 		}
 	}
 
