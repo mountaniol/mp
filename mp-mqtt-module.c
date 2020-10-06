@@ -32,80 +32,25 @@
 pthread_t mosq_thread_id;
 /*@null@*/static void *mp_mqtt_message_processor_pthread(/*@only@*/void *v);
 
-/* Dispatcher hook, called when a message from a remote host received */
-int mp_module_mqtt_recv(void *root)
+static int mp_module_process_reveal(j_t *root)
 {
-	const char *command;
-	DD("Recevived a message\n");
+	int        rc        = EBAD;
+	j_t        *root_dup;
+	control_t  *ctl      = ctl_get();
 
-	/* Process it here */
-	j_print_v(root, "Reveived message is", __FILE__, __LINE__);
+	/* Find uid of this remote host */
+	const char *uid_src  = j_find_ref(root, JK_UID_ME);
+	TESTP_MES(uid_src, EBAD, "Can't find 'JK_UID_ME'");
 
-	/* Process the message */
-	command = j_find_ref(root, JK_TYPE);
-	if (NULL == command) {
-		DE("No JK_TYPE found in the message\n");
-		j_rm(root);
-		return EBAD;
+	/* We do not own this object, it will be cleaned by caller */
+	root_dup = j_dup(root);
+	TESTP(root_dup, EBAD);
+	ctl_lock();
+	rc = j_replace(ctl->hosts, uid_src, root_dup);
+	ctl_unlock();
+	if (EOK != rc) {
+		DE("Can't replace 'me' message for remote host\n");
 	}
-
-	if (0 == strcmp(command, JV_TYPE_ME)) {
-		DD("Found JV_TYPE_ME type\n");
-		goto finish;
-	}
-
-	if (0 == strcmp(command, JV_TYPE_CLOSEPORT)) {
-		DD("Found JV_TYPE_CLOSEPORT type: bad, it dedicated to MODULE_PORTS\n");
-		goto finish;
-	}
-
-	if (0 == strcmp(command, JV_TYPE_CONNECT)) {
-		DD("Found JV_TYPE_CONNECT type: a remote host connected\n");
-		goto finish;
-	}
-
-	if (0 == strcmp(command, JV_TYPE_DISCONNECTED)) {
-		DD("Found JV_TYPE_DISCONNECTED type: a remote host disconnected\n");
-		goto finish;
-	}
-
-	if (0 == strcmp(command, JV_TYPE_OPENPORT)) {
-		DD("Found JV_TYPE_OPENPORT type: bad, it dedicated to MODULE_PORTS\n");
-		goto finish;
-	}
-
-	if (0 == strcmp(command, JV_TYPE_REVEAL)) {
-		DD("Found JV_TYPE_REVEAL type: we should send our configuration\n");
-		goto finish;
-	}
-
-	DE("Found unknown command: %s\n", command);
-
-finish:
-	j_rm(root);
-	return (0);
-}
-
-/* Dispatcher hook, called when a message to a remote machine asked to be sent */
-int mp_module_mqtt_send(void *root)
-{
-	int   rc           = -1;
-	/* TODO: by default we publush message on own topic */
-	/* TODO: Probably it's better to push it to the personal topic of the receiver */
-	buf_t *forum_topic = mp_communicate_forum_topic();
-	buf_t *buf;
-
-	TESTP(forum_topic, EBAD);
-	TESTP(root, EBAD);
-
-	buf = j_2buf(root);
-
-	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
-	TESTP(buf, EBAD);
-
-	j_print_v(root, "Going to send the JSON", __FILE__, __LINE__);
-	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
-	buf_free(forum_topic);
 	return (rc);
 }
 
@@ -148,6 +93,89 @@ static err_t mp_mqtt_remove_host_l(const j_t *root)
 	return (EOK);
 }
 
+/* Dispatcher hook, called when a message from a remote host received */
+int mp_module_mqtt_recv(void *root)
+{
+	int        rc       = EBAD;
+	const char *command;
+	DD("Recevived a message\n");
+
+	/* Process it here */
+	j_print_v(root, "Reveived message is", __FILE__, __LINE__);
+
+	/* Process the message */
+	command = j_find_ref(root, JK_TYPE);
+	if (NULL == command) {
+		DE("No JK_TYPE found in the message\n");
+		j_rm(root);
+		return EBAD;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_ME)) {
+		DD("Found JV_TYPE_ME type\n");
+		rc = mp_module_process_reveal(root);
+		j_rm(root);
+		return rc;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_CLOSEPORT)) {
+		DD("Found JV_TYPE_CLOSEPORT type: bad, it dedicated to MODULE_PORTS\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_CONNECT)) {
+		DD("Found JV_TYPE_CONNECT type: a remote host connected\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_DISCONNECTED)) {
+		DD("Found JV_TYPE_DISCONNECTED type: a remote host disconnected\n");
+		rc = mp_mqtt_remove_host_l(root);
+		j_rm(root);
+		return rc;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_OPENPORT)) {
+		DD("Found JV_TYPE_OPENPORT type: bad, it dedicated to MODULE_PORTS\n");
+		goto finish;
+	}
+
+	if (0 == strcmp(command, JV_TYPE_REVEAL)) {
+		DD("Found JV_TYPE_REVEAL type: we should send our configuration\n");
+		rc = send_keepalive_l();
+		j_rm(root);
+		return rc;
+	}
+
+	DE("Found unknown command: %s\n", command);
+
+finish:
+	j_rm(root);
+	return (rc);
+}
+
+/* Dispatcher hook, called when a message to a remote machine asked to be sent */
+int mp_module_mqtt_send(void *root)
+{
+	int   rc           = -1;
+	/* TODO: by default we publush message on own topic */
+	/* TODO: Probably it's better to push it to the personal topic of the receiver */
+	buf_t *forum_topic = mp_communicate_forum_topic();
+	buf_t *buf;
+
+	TESTP(forum_topic, EBAD);
+	TESTP(root, EBAD);
+
+	buf = j_2buf(root);
+
+	/* We must save this buffer; we will free it later, in mp_main_on_publish_cb() */
+	TESTP(buf, EBAD);
+
+	j_print_v(root, "Going to send the JSON", __FILE__, __LINE__);
+	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
+	buf_free(forum_topic);
+	return (rc);
+}
 
 /* This function is called when remote machine asks to open port for imcoming connection */
 static err_t mp_mqtt_do_open_port_l(const j_t *root)
@@ -315,10 +343,13 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 
 	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
 
+
+#if 0
 	/**
 	 *   1. Remote host sent 'keepalive'.
 	 *    'keepalive' it is client's ctl->me structure.
 	 */
+
 
 	/* This is "me" object sent from remote host */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_ME)) {
@@ -339,7 +370,9 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		}
 		return (rc);
 	}
+#endif
 
+#if 0
 	/**
 	 *  2. Remote host sent 'reveal' request.
 	 *    We reply with our ctl->me structure.
@@ -354,7 +387,9 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		rc = EOK;
 		goto end;
 	}
+#endif
 
+#if 0
 	/**
 	 *    3. Remote host sent 'disconnect' request.
 	 *    It means the remote client disconnected.
@@ -366,6 +401,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 		rc = mp_mqtt_remove_host_l(root);
 		goto end;
 	}
+#endif
 
 
 	/**
@@ -386,6 +422,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 *    wants us to close UPNP port.
 	 */
 
+	/* TODO: This ine going to module_ports */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
 
 		DD("Got 'openport' request\n");
@@ -417,6 +454,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 *    wants us to close UPNP port
 	 */
 
+	/* TODO: This ine going to module_ports */
 	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		DD("Got 'closeport' request\n");
 

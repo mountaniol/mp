@@ -130,8 +130,8 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 
 /*@null@*/ buf_t *mp_security_sha256_string(/*@null@*/buf_t *buf)
 {
-	int           i    = 0;
-	buf_t         *ret = NULL;
+	int           i                          = 0;
+	buf_t         *ret                       = NULL;
 	unsigned char hash[SHA256_DIGEST_LENGTH];
 	TESTP(buf, NULL);
 
@@ -146,14 +146,15 @@ RSA *mp_security_generate_rsa_pem_RSA(const int kbits)
 	//BUF_DUMP(ret);
 
 	for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-		sprintf(ret->data + (i * 2), "%02x", hash[i] );
+		//sprintf(ret->data + (i * 2), "%02x", hash[i] );
+		snprintf(ret->data + (i * 2), 2, "%02x", hash[i]);
 	}
 	ret->data[64] = 0;
 	ret->used = 64;
 	return (ret);
 }
 
-/*@null@*/buf_t *mp_security_system_footprint()
+/*@null@*/buf_t *mp_security_system_footprint(void)
 {
 	int           rc        = -1;
 	buf_t         *buf      = NULL;
