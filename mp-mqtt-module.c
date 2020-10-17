@@ -51,6 +51,8 @@ static int mp_module_process_reveal(j_t *root)
 	if (EOK != rc) {
 		DE("Can't replace 'me' message for remote host\n");
 	}
+
+	j_print(ctl->hosts, "Added new remote host to ctl->hosts");
 	return (rc);
 }
 

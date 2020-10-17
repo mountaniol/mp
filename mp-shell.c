@@ -939,6 +939,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* Here we have a JSON object containing all requested params and args from command line */
+
+	/* The user wants to see connected hosts */
 	if (EOK == j_test(args, JK_CMDLINE_SHOW_HOSTS, JV_YES)) {
 		if (0 != mp_shell_get_hosts()) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -947,6 +950,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to see opened ports */
 	if (EOK == j_test(args, JK_CMDLINE_SHOW_PORTS, JV_YES)) {
 		if (0 != mp_shell_get_ports()) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -955,6 +959,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to see information about this host  */
 	if (EOK == j_test(args, JK_CMDLINE_SHOW_INFO, JV_YES)) {
 		if (0 != mp_shell_get_info()) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -963,8 +968,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to open ssh connection */
 	if (EOK == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
-		DDD("Founf SSH command\n");
+		DDD("Found SSH command\n");
 		if (0 != mp_shell_ssh(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);
@@ -972,6 +978,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to open a port on remote host */
 	if (EOK == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
 		if (0 != mp_shell_ask_openport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -980,6 +987,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to close an open port on remote host */
 	if (EOK == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
 		if (0 != mp_shell_ask_closeport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -988,6 +996,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* The user wants to list opened ports on remote host */
 	if (EOK == j_test(args, JK_CMDLINE_SHOW_RPORTS, JV_YES)) {
 		D("Found RPORTS command\n");
 		if (EOK != mp_shell_get_remote_ports()) {

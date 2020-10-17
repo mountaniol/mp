@@ -1,6 +1,8 @@
 #ifndef MP_DISPATCHER_H_
 #define MP_DISPATCHER_H_
 
+#include <stdint.h>
+#include "mp-jansson.h"
 /* Ticket is unsigned 32 bit integer */
 typedef uint32_t ticket_t;
 

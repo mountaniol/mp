@@ -9,6 +9,7 @@
 #endif
 
 #include "mp-debug.h"
+#include "mp-dispatcher.h"
 #include "mp-ctl.h"
 #include "mp-jansson.h"
 #include "mp-cli.h"
@@ -17,6 +18,44 @@
 #include "mp-dict.h"
 #include "mp-ports.h"
 #include "buf_t/buf_t.h"
+
+/*
+ * README
+ *
+ * This code serves requests from shell application.
+ * The shell application doesn't have access to the infrastructure of MPD:
+ * it is an external application.
+ * So it forms its own special requests and sends it using UNIX socket.
+ *
+ *
+ * Such a request:
+ *
+ * 1. Doesn not have UID (because only MPD knows the UID)
+ * (MPD - MP Daemon [this file is part of MPD])
+ * 2. Doesn't have direct access to information about connected hosts (the shell application asks this information from the local MPD)
+ * 3. It may reuest information from the local MPD, or may ask to request the information from a remote machine
+ *
+ * So the role of CLI it to accept the request from the shell application,
+ * parse it and either return information from the local machine,
+ * or send a requrst to a remote machine, receive answer and return this
+ * answer to the shell application.
+ *
+ * TICKET
+ *
+ * A "ticket" used to identify a request. Let's see what happens when the shell application request
+ * intformation from a remote machine:
+ *
+ * [shell] : REQUEST --> [cli] REQUEST --> [dispatcher] REQUEST --> [remote machine]
+ *
+ * and back:
+ *
+ * [remote machine] RESPONSE --> [this machine dispatcher] RESPONSE --> [cli] RESPONCE --> [shell application] RESPONCE
+ *
+ * We should associate REQUEST and REPONCE; to do so we use the ticket.
+ * Ticket is an unique integer ID.
+ * We know that we have reponce to a specific request by this ID.
+ *
+ */
 
 err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 {
@@ -72,7 +111,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 }
 
 /* Get this machine info */
-/*@null@*/ static j_t *mp_cli_dup_self_info_l()
+/*@null@*/ static j_t *mp_cli_dup_self_info_l(void)
 {
 	/*@temp@*/control_t *ctl = NULL;
 	/*@temp@*/j_t *ret = NULL;
@@ -84,7 +123,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (ret);
 }
 
-/*@null@*/ static j_t *mp_cli_get_ports_l()
+/* Copy this machine + this router ports configuration  only */
+/*@null@*/ static j_t *mp_cli_get_ports_l(void)
 {
 	/*@shared@*/control_t *ctl = NULL;
 	/*@temp@*/j_t *resp;
@@ -103,8 +143,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (resp);
 }
 
-/* Get list of all sources and targets */
-/*@null@*/ static j_t *mp_cli_get_list_l()
+/* Get this machine list of all sources and targets */
+/*@null@*/ static j_t *mp_cli_get_list_l(void)
 {
 	/*@shared@*/control_t *ctl = NULL;
 	/*@temp@*/j_t *resp;
@@ -117,6 +157,8 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (resp);
 }
 
+/* Send the shell request to remote machine */
+/* This function sends only; the response is asynchronous */
 /*@null@*/ static j_t *mp_cli_execute_req(/*@temp@*/j_t *root)
 {
 	/*@shared@*/control_t *ctl = NULL;
@@ -146,6 +188,13 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	return (resp);
 }
 
+/*
+ * The parser:
+ * We received a JSON request from a shell client;
+ * Here we detect what the client wants.
+ * We execute action / send the request to remote, etc.
+ * Then we create a response and send it back to the client.
+ */
 /*@null@*/ static j_t *mp_cli_parse_command(/*@temp@*/j_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
@@ -190,6 +239,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 
 /* This thread accepts connection from shell or from GUI client
    Only one client a time */
+/* TODO: Run each client in separate thread */
 /*@null@*/ void *mp_cli_pthread(/*@unused@*/void *arg __attribute__((unused)))
 {
 	int                fd_socket = -1;
@@ -206,19 +256,21 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 		abort();
 	}
 
-	//rc = pthread_setname_np(pthread_self(), "mp_cli_thread");
-	rc = prctl(PR_SET_NAME, "mp-cli-app");
+	/* Set name of this thread */
+	rc = prctl(PR_SET_NAME, "mp-cli-module");
 
 	if (0 != rc) {
 		DE("Can't set pthread name\n");
 	}
 
+	/* Create a new UNIX socket */
 	fd_socket = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd_socket < 0) {
 		DE("Can't open CLI socket\n");
 		return (NULL);
 	}
 
+	/* Configure IN the socket: use predefined name CLI_SOCKET_PATH_SRV */
 	memset(&cli_addr, 0, sizeof(cli_addr));
 	cli_addr.sun_family = AF_UNIX;
 	strcpy(cli_addr.sun_path, CLI_SOCKET_PATH_SRV);
@@ -229,6 +281,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 		DE("Can't remove the file %s\n", CLI_SOCKET_PATH_SRV);
 	}
 
+	/* Bind the IN socket */
 	rc = (ssize_t)bind(fd_socket, (struct sockaddr *)&cli_addr, SUN_LEN(&cli_addr));
 	if (rc < 0) {
 		DE("bind failed\n");
@@ -261,6 +314,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 			break;
 		}
 
+		/* We receive the buffer in form of buf_t and convert it into JSON object */
 		root = mp_net_utils_receive_json(fd_connection);
 
 		if (NULL == root) {
@@ -296,4 +350,83 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	} while (ST_STOP != ctl->status && ST_STOPPED != ctl->status);
 
 	return (NULL);
+}
+
+
+/***************** Module implementation *****************/
+
+/* Received json just to be forwarded to the shell app */
+int mp_module_cli_recv(void *root)
+{
+	int        rc       = EBAD;
+	//const char *command;
+
+	rc = mp_cli_send_to_cli(root);
+	j_rm(root);
+	return rc;
+}
+
+/* Send: on send we certainly want to send it to a remote host;
+   The local request should be cared before this function called */
+
+int mp_module_cli_send(void *root)
+{
+	int        rc      = -1;
+	const char *uid_me = NULL;
+	j_print(root, "Sending a message");
+
+	/* JK_DISP_TGT_UID must be set*/
+	if (EOK != j_test_key(root, JK_DISP_TGT_UID)) {
+		DE("JK_DISP_TGT_UID is not set\n");
+		j_print_v(root, "Wrong json: no JK_DISP_TGT_UID", __FILE__, __LINE__);
+		j_rm(root);
+		return EBAD;
+	}
+	/* JK_DISP_SRC_MODULE must be set*/
+	if (EOK != j_test_key(root, JK_DISP_SRC_MODULE)) {
+		DE("JK_DISP_SRC_MODULE is not set\n");
+		j_print_v(root, "Wrong json: no JK_DISP_SRC_MODULE", __FILE__, __LINE__);
+		j_rm(root);
+		return EBAD;
+	}
+
+	/* JK_DISP_TGT_MODULE must be set*/
+	if (EOK != j_test_key(root, JK_DISP_TGT_MODULE)) {
+		DE("JK_DISP_TGT_MODULE is not set\n");
+		j_print_v(root, "Wrong json: no JK_DISP_TGT_MODULE", __FILE__, __LINE__);
+		j_rm(root);
+		return EBAD;
+	}
+
+	/* JK_TICKET must be set*/
+	if (EOK != j_test_key(root, JK_TICKET)) {
+		DE("JK_TICKET is not set\n");
+		j_print_v(root, "Wrong json: no JK_TICKET", __FILE__, __LINE__);
+		j_rm(root);
+		return EBAD;
+	}
+
+	/* TODO: In the future, if we plan to support several shell clients,
+	   we should check ticket and forward the JSON by ticket */
+
+	/* The Shell app itself should design the packet. We only need to add our UID */
+	uid_me = ctl_uid_get();
+	rc = j_add_str(root, JK_DISP_SRC_UID, uid_me);
+
+	TESTI_ASSERT(rc, "Can't add JK_UID_SRC\n");
+	return mp_communicate_send_request(root);
+}
+
+int mp_module_cli_init(void)
+{
+	int rc;
+
+	/* Register this module in dispatcher */
+	rc = mp_disp_register(MODULE_SHELL, mp_module_cli_send, mp_module_cli_recv);
+
+	if (EOK != rc) {
+		DE("Can't register in dispatcher\n");
+		return (EBAD);
+	}
+	return (EOK);
 }
