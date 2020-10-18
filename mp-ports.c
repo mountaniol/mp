@@ -741,7 +741,7 @@ int mp_ports_recv(void *root)
 	j_t *resp = NULL;
 	int rv    = EBAD;
 
-	j_print_v(json, "Received message", __FILE__, __LINE__);
+	j_print_v(root, "Received message", __FILE__, __LINE__);
 
 	/* Find out the command and execute it */
 	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_OPEN)) {
