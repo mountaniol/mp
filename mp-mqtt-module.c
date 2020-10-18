@@ -106,7 +106,7 @@ int mp_module_mqtt_recv(void *root)
 	j_print_v(root, "Reveived message is", __FILE__, __LINE__);
 
 	/* Process the message */
-	command = j_find_ref(root, JK_TYPE);
+	command = j_find_ref(root, JK_COMMAND);
 	if (NULL == command) {
 		DE("No JK_TYPE found in the message\n");
 		j_rm(root);
@@ -336,14 +336,14 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	TESTP(root, EBAD);
 	TESTP_GO(uid, end);
 
-	if (EOK != j_test_key(root, JK_TYPE)) {
-		DE("No type in the message\n");
+	if (EOK != j_test_key(root, JK_COMMAND)) {
+		DE("No command in the message\n");
 		j_print_v(root, "root", __FILE__, __LINE__);
 		TESTI_MES(rc, EBAD, "Can't remove json object");
 		return (EBAD);
 	}
 
-	DDD("Got message type: %s\n", j_find_ref(root, JK_TYPE));
+	DDD("Got message command: %s\n", j_find_ref(root, JK_COMMAND));
 
 
 #if 0
@@ -425,7 +425,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 */
 
 	/* TODO: This ine going to module_ports */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
 
 		DD("Got 'openport' request\n");
 
@@ -457,7 +457,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 */
 
 	/* TODO: This ine going to module_ports */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
 		DD("Got 'closeport' request\n");
 
 		if (NULL == ctl->rootdescurl) {

@@ -199,7 +199,7 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 {
 	TESTP_MES(root, NULL, "Got NULL");
 
-	DD("Found '%s' type\n", j_find_ref(root, JK_TYPE));
+	//DD("Found '%s' type\n", j_find_ref(root, JK_TYPE));
 	DD("Found '%s' command\n", j_find_ref(root, JK_COMMAND));
 
 	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_ME)) {
@@ -220,12 +220,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	}
 
 	/* We forward this request to the remote client */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
 		return (mp_cli_execute_req(root));
 	}
 
 	/* We forward this request to the remote client */
-	if (EOK == j_test(root, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
 		return (mp_cli_execute_req(root));
 	}
 

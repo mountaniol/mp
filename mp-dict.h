@@ -97,11 +97,11 @@
 /* Source machine */
 #define JK_DISP_SRC_UID "disp-src-machine"
 /* Source Module */
-#define JK_DISP_SRC_MODULE "disp-src-app"
+#define JK_DISP_SRC_MODULE "disp-src-module"
 /* Target machine */
 #define JK_DISP_TGT_UID "disp-tgt-machine"
 /* Target Module */
-#define JK_DISP_TGT_MODULE "disp-tgt-app"
+#define JK_DISP_TGT_MODULE "disp-tgt-module"
 
 /* Status field, used mostly responce, can be OK, BAD or WORKING */
 #define JK_STATUS "status"

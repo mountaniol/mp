@@ -150,7 +150,7 @@ err_t send_reveal_l()
 	j_t *root = mp_disp_create_request("ALL", MODULE_CONNECTION, MODULE_CONNECTION,0);
 	TESTP(root, EBAD);
 
-	if (EOK != j_add_str(root, JK_TYPE, JV_TYPE_REVEAL)) {
+	if (EOK != j_add_str(root, JK_COMMAND, JV_TYPE_REVEAL)) {
 		j_rm(root);
 		return EBAD;
 	}

@@ -290,7 +290,7 @@ static err_t mp_shell_ask_openport(j_t *args)
 
 	j_print(root, "Created request by dispatcher()");
 
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
+	rc = j_add_str(root, JK_COMMAND, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_PORT_INT, port);
 	TESTI_MES_GO(rc, err, "Can't add 'port' field");
@@ -353,7 +353,7 @@ static err_t mp_shell_ask_closeport(j_t *args)
 	protocol = j_find_ref(args, JK_PROTOCOL);
 	TESTP_MES_GO(protocol, err, "Can't find protocol");
 
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_CLOSEPORT);
+	rc = j_add_str(root, JK_COMMAND, JV_TYPE_CLOSEPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
 	rc = j_add_str(root, JK_DISP_TGT_UID, uid);
 	TESTI_MES_GO(rc, err, "Can't add 'uid' field");
@@ -471,7 +471,7 @@ static err_t mp_shell_ssh(j_t *args)
 
 	TESTP(root, EBAD);
 
-	rc = j_add_str(root, JK_TYPE, JV_TYPE_SSH);
+	rc = j_add_str(root, JK_COMMAND, JV_TYPE_SSH);
 	TESTI_MES(rc, EBAD, "Can't add JK_TYPE, JV_TYPE_SSH");
 	rc = j_cp(args, root, JK_DISP_TGT_UID);
 	TESTI_MES(rc, EBAD, "Can't add root, JK_UID");
@@ -862,7 +862,7 @@ int main(int argc, char *argv[])
 
 			break;
 		case 'o': /* Open port comand (open the port on remote machine UID */
-			rc = j_add_str(args, JK_TYPE, JV_TYPE_OPENPORT);
+			rc = j_add_str(args, JK_COMMAND, JV_TYPE_OPENPORT);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -876,7 +876,7 @@ int main(int argc, char *argv[])
 			D("Optarg is %s\n", optarg);
 			break;
 		case 'c': /* Close port comand (open the port on remote machine UID */
-			rc = j_add_str(args, JK_TYPE, JV_TYPE_CLOSEPORT);
+			rc = j_add_str(args, JK_COMMAND, JV_TYPE_CLOSEPORT);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -896,7 +896,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 's': /* Open ssh channel for communication */
-			rc = j_add_str(args, JK_TYPE, JV_TYPE_SSH);
+			rc = j_add_str(args, JK_COMMAND, JV_TYPE_SSH);
 			if (EOK != rc) {
 				j_rm(args);
 				return (EBAD);
@@ -978,7 +978,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* The user wants to open ssh connection */
-	if (EOK == j_test(args, JK_TYPE, JV_TYPE_SSH)) {
+	if (EOK == j_test(args, JK_COMMAND, JV_TYPE_SSH)) {
 		DDD("Found SSH command\n");
 		if (0 != mp_shell_ssh(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
@@ -988,7 +988,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* The user wants to open a port on remote host */
-	if (EOK == j_test(args, JK_TYPE, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(args, JK_COMMAND, JV_TYPE_OPENPORT)) {
 		if (0 != mp_shell_ask_openport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);
@@ -997,7 +997,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* The user wants to close an open port on remote host */
-	if (EOK == j_test(args, JK_TYPE, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(args, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
 		if (0 != mp_shell_ask_closeport(args)) {
 			DE("Failed: mp_shell_get_remote_ports");
 			j_rm(args);

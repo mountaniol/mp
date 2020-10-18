@@ -38,7 +38,7 @@ err_t ctl_allocate_init(void)
 	g_ctl->dispatcher = htable_alloc(127);
 	TESTP_MES(g_ctl->dispatcher, -1, "Can't allocate dispatcher hash table");
 	
-	rc = j_add_str(g_ctl->me, JK_TYPE, JV_TYPE_ME);
+	rc = j_add_str(g_ctl->me, JK_COMMAND, JV_TYPE_ME);
 	TESTI_MES(rc, EBAD, "Can't JK_TYPE = JV_TYPE_ME");
 
 	g_ctl->status = ST_START;
