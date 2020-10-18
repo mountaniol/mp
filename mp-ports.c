@@ -745,11 +745,17 @@ int mp_ports_recv(void *root)
 
 	/* Find out the command and execute it */
 	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_OPEN)) {
+		DDD("Found command JV_PORTS_OPEN\n");
 		rv = mp_ports_do_open_port_l(root);
 	}
 
 	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_CLOSE)) {
+		DDD("Found command JV_PORTS_CLOSE\n");
 		rv = mp_ports_do_close_port_l(root);
+	}
+
+	if (EBAD == rv) {
+		DE("Operation failed or wrong operation asked\n");
 	}
 
 	/* Construct response and send it */
