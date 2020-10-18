@@ -52,6 +52,7 @@
 static const char *mp_disp_module_name(module_type_e module_id)
 {
 	const char *module_names[] = {
+		"MODULE: Not used, if you see it - error",
 		"MODULE_CONNECTION",
 		"MODULE_REMOTE",
 		"MODULE_CONFIG",
@@ -270,7 +271,7 @@ int mp_disp_recv(void *json)
 		return (EBAD);
 	}
 
-	DDD("The response dedicated to module: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
+	DDD("The received message dedicated to module: %zd : %s\n", disp_id, mp_disp_module_name(disp_id));
 
 	return (d->recv(json));
 }

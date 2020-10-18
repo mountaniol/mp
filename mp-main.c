@@ -285,7 +285,7 @@ int main(/*@unused@*/int argc __attribute__((unused)), char *argv[])
 	rc = mp_ports_init_module();
 
 	if (EOK != rc) {
-		DE("Can't Can't init ports module\n");
+		DE("Can't init ports module\n");
 		cli_destoy();
 		abort();
 	}
