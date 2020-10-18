@@ -88,7 +88,7 @@ err:
 	root = mp_disp_create_request(uid_dest, MODULE_CONNECTION, MODULE_CONNECTION, 0);
 	TESTP_MES(root, NULL, "Can't create json\n");
 
-	if (EOK != j_add_str(root, JK_COMMAND, JV_TYPE_OPENPORT)) goto err;
+	if (EOK != j_add_str(root, JK_COMMAND, JV_PORTS_OPEN)) goto err;
 	if (EOK != j_add_str(root, JK_PORT_INT, port)) goto err;
 	if (EOK != j_add_str(root, JK_PROTOCOL, protocol)) goto err;
 	//if (EOK != j_add_str(root, JK_UID, uid)) goto err;

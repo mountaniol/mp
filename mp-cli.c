@@ -220,12 +220,12 @@ err_t mp_cli_send_to_cli(/*@temp@*/const j_t *root)
 	}
 
 	/* We forward this request to the remote client */
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_OPEN)) {
 		return (mp_cli_execute_req(root));
 	}
 
 	/* We forward this request to the remote client */
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_CLOSE)) {
 		return (mp_cli_execute_req(root));
 	}
 

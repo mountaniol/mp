@@ -120,7 +120,7 @@ int mp_module_mqtt_recv(void *root)
 		return rc;
 	}
 
-	if (0 == strcmp(command, JV_TYPE_CLOSEPORT)) {
+	if (0 == strcmp(command, JV_PORTS_CLOSE)) {
 		DD("Found JV_TYPE_CLOSEPORT type: bad, it dedicated to MODULE_PORTS\n");
 		goto finish;
 	}
@@ -137,7 +137,7 @@ int mp_module_mqtt_recv(void *root)
 		return rc;
 	}
 
-	if (0 == strcmp(command, JV_TYPE_OPENPORT)) {
+	if (0 == strcmp(command, JV_PORTS_OPEN)) {
 		DD("Found JV_TYPE_OPENPORT type: bad, it dedicated to MODULE_PORTS\n");
 		goto finish;
 	}
@@ -425,7 +425,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 */
 
 	/* TODO: This ine going to module_ports */
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_OPENPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_OPEN)) {
 
 		DD("Got 'openport' request\n");
 
@@ -457,7 +457,7 @@ static err_t mp_mqtt_parse_message_l(const char *uid, j_t *root)
 	 */
 
 	/* TODO: This ine going to module_ports */
-	if (EOK == j_test(root, JK_COMMAND, JV_TYPE_CLOSEPORT)) {
+	if (EOK == j_test(root, JK_COMMAND, JV_PORTS_CLOSE)) {
 		DD("Got 'closeport' request\n");
 
 		if (NULL == ctl->rootdescurl) {
