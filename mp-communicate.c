@@ -173,11 +173,13 @@ err_t mp_communicate_send_request(j_t *root)
 
 	DDD("Going to build request\n");
 	buf = j_2buf(root);
-	j_rm(root);
+	
 
 	TESTP_MES(buf, EBAD, "Can't build open port request");
 	DDD0("Going to send request\n");
 	j_print_v(root, "Sending requiest:", __FILE__, __LINE__);
+
+	j_rm(root);
 	rc = mp_communicate_mosquitto_publish(forum_topic->data, buf);
 	DDD("Send: \n%s\n", buf->data);
 	buf_free(forum_topic);

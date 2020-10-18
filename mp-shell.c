@@ -260,6 +260,7 @@ static err_t mp_shell_wait_and_print_tickets(void)
 	return (EOK);
 }
 
+/* Send "openport" request to a remote machine */
 static err_t mp_shell_ask_openport(j_t *args)
 {
 	err_t rc = EBAD;
@@ -272,10 +273,8 @@ static err_t mp_shell_ask_openport(j_t *args)
 
 	TESTP(args, EBAD);
 
-	root = mp_disp_create_request(uid_dst, MODULE_PORTS, MODULE_SHELL, 0);
-	TESTP(root, EBAD);
+	j_print(args, "Before creating request by dispatcher()");
 
-	//j_print(args, "args");
 
 	uid_dst = j_find_ref(args, JK_DISP_TGT_UID);
 	TESTP_MES_GO(uid_dst, err, "Can't find uid");
@@ -286,6 +285,10 @@ static err_t mp_shell_ask_openport(j_t *args)
 	protocol = j_find_ref(args, JK_PROTOCOL);
 	TESTP_MES_GO(protocol, err, "Can't find protocol");
 
+	root = mp_disp_create_request_shell(uid_dst, MODULE_PORTS, MODULE_SHELL, 0);
+	TESTP(root, EBAD);
+
+	j_print(root, "Created request by dispatcher()");
 
 	rc = j_add_str(root, JK_TYPE, JV_TYPE_OPENPORT);
 	TESTI_MES_GO(rc, err, "Can't add 'JK_COMMAND' field");
@@ -323,6 +326,7 @@ err:
 	return (rc);
 }
 
+/* Send "close port" request to a remote machine */
 static err_t mp_shell_ask_closeport(j_t *args)
 {
 	int rc = EBAD;
@@ -380,6 +384,7 @@ err:
 	return (rc);
 }
 
+/* Request from mpd and show information about local client */
 static err_t mp_shell_get_info(void)
 {
 	/*@only@*/j_t *root = j_new();
@@ -457,6 +462,7 @@ static err_t mp_shell_get_info(void)
 	return (EOK);
 }
 
+/* Open SSH connection: TOBE removed and replaced by tunnel usage (mp-tunnel) */
 static err_t mp_shell_ssh(j_t *args)
 {
 	/*@only@*/j_t *root = j_new();
@@ -480,6 +486,7 @@ static err_t mp_shell_ssh(j_t *args)
 	return (EOK);
 }
 
+/* Request from mpd and show connected remote machines */
 static err_t mp_shell_get_hosts(void)
 {
 	/*@only@*/j_t *resp = NULL;
@@ -544,6 +551,7 @@ static err_t mp_shell_get_hosts(void)
 	return (EOK);
 }
 
+/* Request and show ports mapped on local router to this machine */
 static err_t mp_shell_get_ports(void)
 {
 	/*@only@*/j_t *resp = NULL;
@@ -685,6 +693,7 @@ static err_t mp_shell_get_remote_ports(void)
 	return (EOK);
 }
 
+/* Show help */
 static void mp_shell_usage(char *name)
 {
 	int rc;
@@ -741,13 +750,13 @@ static void mp_shell_usage(char *name)
 		abort();
 	}
 
-	rc = ft_write_ln(table, "-o X", "open port X on the remote machine");
+	rc = ft_write_ln(table, "-o X", "open port X on the remote machine, use: -o 'port' -p 'protocol' -u 'machine'");
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();
 	}
 
-	rc = ft_write_ln(table, "-c X", "close port X on the remote machine");
+	rc = ft_write_ln(table, "-c X", "close port X on the remote machine, use: -c 'port' -p 'protocol' -u 'machine'");
 	if (0 != rc) {
 		DE("Error on table creation");
 		abort();

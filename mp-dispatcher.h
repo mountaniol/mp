@@ -93,6 +93,22 @@ int mp_disp_recv(void *json);
 extern int mp_disp_prepare_request(void *json, const char *target_host, module_type_e dest_module, module_type_e src_module, ticket_t ticket);
 
 /**
+ * @author Sebastian Mountaniol (17/10/2020)
+ * 
+ * @brief  A special version of mp_disp_prepare_request()
+ *  	   dedicated for SHELL funciton where no UID is known
+ * @param json 
+ * @param target_host 
+ * @param dest_module 
+ * @param src_module 
+ * @param ticket 
+ * 
+ * @return int 
+ * @details 
+ */
+extern int mp_disp_prepare_request_shell(void *json, const char *target_host, module_type_e dest_module, module_type_e src_module, ticket_t ticket);
+
+/**
  * @author se (04/09/2020)
  * @func j_t* mp_disp_create_request(const char *target_host,
  *  	 module_type_e dest_module, module_type_e source_module,
@@ -106,6 +122,22 @@ extern int mp_disp_prepare_request(void *json, const char *target_host, module_t
  * @return j_t* Pointer to JSON structure, NULL on error
  */
 extern j_t *mp_disp_create_request(const char *target_host, module_type_e dest_module, module_type_e source_module, ticket_t ticket);
+
+
+/**
+ * @author Sebastian Mountaniol (17/10/2020)
+ * 
+ * @brief Special version of mp_disp_create_request - doesn't
+ *  	  fill UID field since no UID is given in SHELL
+ * @param target_host 
+ * @param dest_module 
+ * @param source_module 
+ * @param ticket 
+ * 
+ * @return j_t* 
+ * @details 
+ */
+extern j_t *mp_disp_create_request_shell(const char *target_host, module_type_e dest_module, module_type_e source_module, ticket_t ticket);
 
 /**
  * @author se (04/09/2020)

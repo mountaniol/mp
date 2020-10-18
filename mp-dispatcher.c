@@ -227,7 +227,8 @@ int mp_disp_recv(void *json)
 
 	TESTP(json, EBAD);
 
-	DDD("Received response message\n");
+	// DDD("Received response message\n");
+	j_print_v(json, "Received message", __FILE__, __LINE__);
 
 	/* If this message is not for us, or not to ALL we drop it */
 	if (EOK != mp_disp_is_mes_for_me(json)) {
@@ -311,6 +312,36 @@ int mp_disp_prepare_request(void *json, const char *target_host, module_type_e d
 	return (EOK);
 }
 
+/* This function fills dispatcher related fields in JSON message for SHELL client - no UID is possible */
+int mp_disp_prepare_request_shell(void *json, const char *target_host, module_type_e dest_module, module_type_e src_module, ticket_t ticket)
+{
+	int        rc      = EBAD;
+
+	TESTP_ASSERT(json, "Got NULL json object");
+
+	/* Add target host UID */
+	rc = j_add_str(json, JK_DISP_TGT_UID, target_host);
+	TESTI_ASSERT(rc, "Can't add JK_UID_DST\n");
+
+	/* Add source module ID */
+	rc = j_add_int(json, JK_DISP_SRC_MODULE, src_module);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_SRC_MODULE\n");
+
+	/* Add target module ID */
+	rc = j_add_int(json, JK_DISP_TGT_MODULE, dest_module);
+	TESTI_ASSERT(rc, "Can't add JK_DISP_TGT_MODULE\n");
+
+	/* If the ticket is not specified, we generate if for the module */
+	if (0 == ticket) {
+		mp_os_fill_random(&ticket, sizeof(ticket));
+	}
+
+	rc = j_add_int(json, JK_TICKET, ticket);
+	TESTI_ASSERT(rc, "Can't add JK_TICKET\n");
+
+	return (EOK);
+}
+
 j_t *mp_disp_create_request(const char *target_host, module_type_e dest_module, module_type_e source_module, ticket_t ticket)
 {
 	void *json = j_new();
@@ -318,6 +349,22 @@ j_t *mp_disp_create_request(const char *target_host, module_type_e dest_module, 
 
 	TESTP_ASSERT(json, "Can't allocate json object");
 	rc = mp_disp_prepare_request(json, target_host, dest_module, source_module, ticket);
+	if (EOK != rc) {
+		DE("Can't fill the request\n");
+		j_rm(json);
+		return (NULL);
+	}
+
+	return (json);
+}
+
+j_t *mp_disp_create_request_shell(const char *target_host, module_type_e dest_module, module_type_e source_module, ticket_t ticket)
+{
+	void *json = j_new();
+	int  rc;
+
+	TESTP_ASSERT(json, "Can't allocate json object");
+	rc = mp_disp_prepare_request_shell(json, target_host, dest_module, source_module, ticket);
 	if (EOK != rc) {
 		DE("Can't fill the request\n");
 		j_rm(json);
