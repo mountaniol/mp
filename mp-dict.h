@@ -70,13 +70,12 @@
 /* Used in requests and in CLI; for CLI also used as valie for "command" key */
 
 /* This is a regular keepalive */
+/* TODO: Replace these command with JV_<MODULE>_<VALUE>, like JV_PORTS_OPEN */
 #define JV_TYPE_ME "me"
 #define JV_TYPE_CONNECT "connect"
 #define JV_TYPE_DISCONNECTED "disconnected"
 #define JV_TYPE_REVEAL "reveal"
-#define JV_TYPE_SSH "ssh"
-#define JV_TYPE_OPENPORT "openport"
-#define JV_TYPE_CLOSEPORT "closeport"
+#define JV_TYPE_SSH "ssh" /* TODO : remove it */
 
 /* These used between mp-shell and mp-cli */
 #define JV_COMMAND_LIST "list"	/* list remote hosts */
