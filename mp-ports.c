@@ -371,9 +371,11 @@ err_t mp_ports_unmap_port(/*@temp@*/const char *internal_port, /*@temp@*/const c
 	int             rc;
 	control_t       *ctl      = ctl_get();
 
+	/* TODO: XXX: If we can't discover a router it is not a bug! */
 	if (EOK != mp_ports_router_root_discover()) {
 		DE("Can't discover router\n");
-		abort();
+		return NULL;
+		//abort();
 	}
 
 	status = UPNP_GetIGDFromUrl(ctl->rootdescurl, &upnp_urls, &upnp_data, NULL, 0);
