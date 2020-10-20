@@ -75,6 +75,7 @@ static disp_t *disp_t_alloc(void)
 	return (d);
 }
 
+/* Register a module and module hooks */
 int mp_disp_register(size_t module_id, mp_disp_cb_t func_send, mp_disp_cb_t func_recv)
 {
 	control_t *ctl = NULL;
@@ -173,7 +174,9 @@ int mp_disp_send(void *json)
 
 	/* If this message is not for us (not for this machine) the MODULE is REMOTE - send it to remote host */
 	if (MES_DEST_REMOTE == error) {
-		disp_id = MODULE_REMOTE;
+		//disp_id = MODULE_REMOTE;
+		/* TODO: This is wrong. We should register and use MODULE_REMOTE */
+		disp_id = MODULE_CONNECTION;
 	}
 
 	/* This message is for us, so find callbacks of target module */
@@ -217,6 +220,8 @@ int mp_disp_send(void *json)
 
 	return (d->send(json));
 }
+
+
 
 /* A message received from remote / local comes here, we dispatch the messages */
 int mp_disp_recv(void *json)
